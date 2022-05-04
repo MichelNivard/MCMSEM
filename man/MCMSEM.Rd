@@ -2,7 +2,7 @@
 \alias{MCMSEM}
 \title{Multi co-moment structural equation models}
 \description{
-  Runs a multi co-moment structural equation model
+  Runs a multi co-moment structural equation model.
 }
 \usage{
 MCMSEM(data, confounding="positive", compute_se=TRUE, bootstrap_type="two-step", bootstrap_iter=200)
