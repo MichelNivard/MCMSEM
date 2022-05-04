@@ -9,9 +9,9 @@ simulate_data <- function(n=500000, a1=0.35, b1=0.3, b2=-.1, shape=4, df=10)
 }
 \arguments{
   \item{n}{Sample size}
-  \item{a1}{...}
-  \item{b1}{...}
-  \item{b2}{...}
+  \item{a1}{Confouding effect size}
+  \item{b1}{Causal path 1 (x -> y)}
+  \item{b2}{Causal path 2 (y -> x)}
   \item{shape}{Skewness}
   \item{df}{Kurtosis}
 }
