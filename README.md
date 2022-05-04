@@ -52,6 +52,6 @@ data <- simulate_data(n=500000)
 result <- MCMSEM(data)
 ```
 
-###Patch notes
+### Patch notes
 - v0.1.0 - Initial commit
 - v0.1.1 - Added some TODO labels, added `'both'` option to `confounding`  argument which will run MCMSEM twice, once with negative, once with positive confounding and return both results. Added `bootstrap_chunk` argument. Added automatic standardization in `MCMSEM`
