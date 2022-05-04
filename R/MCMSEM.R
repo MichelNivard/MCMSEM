@@ -37,7 +37,7 @@ simulate_data <- function(n=500000, a1=0.35, b1=0.3, b2=-.1, shape=4, df=10) {
 ##################################################
 # MODEL
 ##################################################
-MCMSEM <- function(data, confounding="positive", compute_se=TRUE, bootstrap_type='two-step', bootstrap_iter=200) {
+MCMSEM <- function(data, confounding="positive", compute_se=TRUE, bootstrap_type='two-step', bootstrap_iter=200,bootstrap_chunks=1000) {
   if (!(confounding %in% c('positive', 'negative')))
     stop("confounding should be one of c('positive', 'negative')")
   if (!(bootstrap_type %in% c('two-step', 'one-step')))
@@ -46,6 +46,11 @@ MCMSEM <- function(data, confounding="positive", compute_se=TRUE, bootstrap_type
     stop("Currently only a dataframe with 2 columns is supported.")
   if (nrow(data) < 1000)
     stop("Currently only a dataframe with at least 1000 rows is supported.")
+ 
+  data[,1] <- scale(data[,1])
+  data[,2] <- scale(data[,2]) 
+  
+  
   # Obtain covariance, coskewness and cokurtosis matrices
   M2.obs <- cov(data)
   M3.obs <- M3.MM(data)
@@ -116,8 +121,8 @@ MCMSEM <- function(data, confounding="positive", compute_se=TRUE, bootstrap_type
       starttime <- Sys.time()
 
       ### STEP 1
-      # 1. Bind the data to a random sample binning people into 1000 groups
-      step1 <- cbind(data,sample(1:1000,nrow(data),replace=T))
+      # 1. Bind the data to a random sample binning people into "bootstrap_chunks" groups
+      step1 <- cbind(data,sample(1:bootstrap_chunks,nrow(data),replace=T))
       colnames(step1)[3] <- "group"
       step1 <- as.data.frame(step1)
 
@@ -133,7 +138,7 @@ MCMSEM <- function(data, confounding="positive", compute_se=TRUE, bootstrap_type
 
         # 3. Sample cov/cosk/cokrt matrices and obtain mean of the sampled matrices
         #to use as cov/cosk/cokrt matrix in the model
-        boot <-   sample(1:1000,1000,T)
+        boot <-   sample(1:bootstrap_chunks,bootstrap_chunks,T)
         M2.obs <-   matrix(colMeans(sample.cov [boot,-1]),2,2, byrow=T)
         M3.obs <-   matrix(colMeans(sample.cosk[boot,-1]),2,4, byrow=T)
         M4.obs <-   matrix(colMeans(sample.cokr[boot,-1]),2,8, byrow=T)
