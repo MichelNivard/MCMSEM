@@ -6,14 +6,6 @@ simulate_data <- function(n=500000, a1=0.35, b1=0.3, b2=-.1, shape=4, df=10) {
   if (n < 100000) {
     warning("Sampling error is likely worsened by the small sample size")
   }
-  # Pick parameter values
-  n     <- 500000
-  a1    <- 0.35
-  b1    <- 0.3
-  b2    <- -0.1
-  # shape <- 4   medium skew
-  # df    <- 10  medium kurt
-
   # Normal confounder
   f <- rnorm(n)
 
