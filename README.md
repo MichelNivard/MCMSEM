@@ -43,6 +43,7 @@ To enhance performance a faster two-step bootstrap is performed by default, this
 ```
 result <- MCMSEM(data, bootstrap_type='one-step')
 ```
+**#TODO: maybe add some text about why this is faster and why this is (probably) just as accurate**
 
 For testing purposes, this package also includes a function to simulate data which will work directly with the `MCMSEM` function:
 ```
