@@ -47,9 +47,15 @@ MCMSEM <- function(data, confounding="positive", compute_se=TRUE, bootstrap_type
     return(list(positive_confounder=result_positive, negative_confounder=result_negative))
   }
 
+  # Scale data
+  data_unscaled <- data
   data[,1] <- scale(data[,1])
   data[,2] <- scale(data[,2])
-
+  if (all(round(data_unscaled, 2) == round(data, 2))) {
+    # Record of data was unscaled prior to function start
+    #TODO: This is for future reference
+    data_was_unscaled <- TRUE
+  }
 
   # Obtain covariance, coskewness and cokurtosis matrices
   M2.obs <- cov(data)

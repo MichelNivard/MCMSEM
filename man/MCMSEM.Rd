@@ -13,6 +13,7 @@ MCMSEM(data, confounding="positive", compute_se=TRUE, bootstrap_type="two-step",
   \item{compute_se}{Whether SE should be computed (TRUE or FALSE), this is done through bootstrapping.}
   \item{bootstrap_type}{Only relevant if compute_se=TRUE, type of bootstrap performed, either 'one-step': ..., or 'two-step': ...}
   \item{bootstrap_iter}{Number of bootstrap iterations}
+  \item{bootstrap_chunk}{Chunksize of two-step bootstrap. Lower numbers will lead to better performance but may lead to less accurate estimates.}
 }
 \value{
   The function by default outputs a dataframe with estimates in each column. If compute_se=TRUE the output will contain a second row with SE for each estimate.
