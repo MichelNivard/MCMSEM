@@ -6,7 +6,7 @@ Author: Zenab Tamimy, Elsje van Bergen, Matthijs van der Zee, Conor Dolan, Miche
 Maintainer: Zenab Tamimy <z.tamimy@vu.nl>
 Description: This package provides a new approach to causal modeling based on cross-sectional data of non-normally distributed variables.
     This method goes beyond traditional covariance structural equation modeling (SEM) by including multivariate higher order moments (MCM), i.e., co-skewnesses and co-kurtoses, which inform the causal direction of relation between variables.
-License: What license is it under?
+License: GNU-GPL v3
 Encoding: UTF-8
 LazyData: true
 Imports: utils,MASS,PerformanceAnalytics
