@@ -40,7 +40,7 @@ If computing SE takes to long, an alternative is to reduce the number of iterati
 result <- MCMSEM(data, bootstrap_iter=100)
 ```
 
-To enhance performance a faster two-step bootstrap is performed by default, this can be changed if needed.
+As a default a faster, but less precise, two-step bootstrap is performed this behaviour can be changed if needed.
 ```
 result <- MCMSEM(data, bootstrap_type='one-step')
 ```
