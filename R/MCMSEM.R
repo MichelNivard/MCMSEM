@@ -38,14 +38,25 @@ simulate_data <- function(n=500000, a1=0.35, b1=0.3, b2=-.1, shape=4, df=10) {
 # MODEL
 ##################################################
 MCMSEM <- function(data, confounding="positive", compute_se=TRUE, bootstrap_type='two-step', bootstrap_iter=200) {
-  if (!(confounding %in% c('positive', 'negative')))
-    stop("confounding should be one of c('positive', 'negative')")
+  #TODO: Force standardize data
+  #TODO: Add arguments for fitting either x->y or y->x path as opposed to both (which should remain the default)
+  #TODO: Add option for running both positive and negative confounding models
+  #TODO: Expand manual
+  if (!(confounding %in% c('positive', 'negative', 'both')))
+    stop("confounding should be one of c('positive', 'negative', 'both')")
   if (!(bootstrap_type %in% c('two-step', 'one-step')))
     stop("confounding should be one of c('two-step', 'one-step')")
   if (ncol(data) != 2)
     stop("Currently only a dataframe with 2 columns is supported.")
   if (nrow(data) < 1000)
     stop("Currently only a dataframe with at least 1000 rows is supported.")
+
+  if (confounding == 'both') {
+    result_positive <- MCMSEM(data, confounding="positive", compute_se=compute_se, bootstrap_type=bootstrap_type, bootstrap_iter=bootstrap_iter)
+    result_negative <- MCMSEM(data, confounding="negative", compute_se=compute_se, bootstrap_type=bootstrap_type, bootstrap_iter=bootstrap_iter)
+    return(list(positive_confounder=result_positive, negative_confounder=result_negative))
+  }
+
   # Obtain covariance, coskewness and cokurtosis matrices
   M2.obs <- cov(data)
   M3.obs <- M3.MM(data)

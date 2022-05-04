@@ -21,11 +21,12 @@ Use the `MCMSEM` function to fit MCMSEM models:
 library(MCMSEM)
 result <- MCMSEM(data)
 ```
-Several options can be specified, such as the use of positive or negative confounding:
+Several options can be specified, such as the use of positive or negative confounding (or both):
 ```
 library(MCMSEM)
 result_positive <- MCMSEM(data, confounding='positive')
 result_negative <- MCMSEM(data, confounding='negative')
+results_combined <- MCMSEM(data, confounding='both')
 ```
 **#TODO: add some text about what to do when**
 
@@ -53,3 +54,4 @@ result <- MCMSEM(data)
 
 ###Patch notes
 - v0.1.0 - Initial commit
+- v0.1.1 - Added some TODO labels, added `'both'` option to `confounding`  argument which will run MCMSEM twice, once with negative, once with positive confounding and return both results.

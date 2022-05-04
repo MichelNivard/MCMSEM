@@ -8,13 +8,14 @@
 MCMSEM(data, confounding="positive", compute_se=TRUE, bootstrap_type="two-step", bootstrap_iter=200)
 }
 \arguments{
-  \item{confounding}{Whether positive or negative confounding should be fitted. Should be either 'positive' or 'negative'.}
+  \item{confounding}{Whether positive or negative confounding should be fitted. Should be one of 'positive', 'negative' or 'both'. If 'both' is used two models will be fitted, one with negative and one with positive confounding, all other parameters will be passed to these models.}
   \item{compute_se}{Whether SE should be computed (TRUE or FALSE), this is done through bootstrapping.}
   \item{bootstrap_type}{Only relevant if compute_se=TRUE, type of bootstrap performed, either 'one-step': ..., or 'two-step': ...}
   \item{bootstrap_iter}{Number of bootstrap iterations}
 }
 \value{
-  The function outputs a dataframe with estimates in each column. If compute_se=TRUE the output will contain a second row with SE for each estimate.
+  The function by default outputs a dataframe with estimates in each column. If compute_se=TRUE the output will contain a second row with SE for each estimate.
+  If confounding='both' a list of two of these dataframes with names positive_confounding and negative_confounding is returned.
 }
 
 \examples{
