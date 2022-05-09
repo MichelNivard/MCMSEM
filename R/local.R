@@ -1,39 +1,10 @@
 .m3m2v <- utils::getFromNamespace("M3.mat2vec","PerformanceAnalytics")
 .m4m2v <- utils::getFromNamespace("M4.mat2vec","PerformanceAnalytics")
 .m2m2v <- function(x){c(x[lower.tri(x,diag=T)])}
-# As M3.mat2vec and M4.mat2vec are internal functions of PerformanceAnalytics
-#  they are subject to chagne without notice. Just in case this ever happens in a way that breaks their use here
-# I am leaving R alternatives for these functions here as translated from their C++ code
-# .m3m2v <- function(x) {
-#   p <- nrow(x)
-#   M3vec <- rep(0, p * (p + 1) * (p + 2) / 6)
-#   iter <- 1
-#   for (i in 0:(p-1)) {
-#     for (j in i:(p-1)) {
-#       for (k in j:(p-1)) {
-#         M3vec[iter] <- x[((i * p + j) * p + k)+1]
-#         iter <- iter + 1
-#       }
-#     }
-#   }
-#   return(M3vec)
-# }
-# .m4m2v <- function(x) {
-#   p <- nrow(x)
-#   M4vec <- rep(0, p * (p + 1) * (p + 2) * (p + 3) / 24)
-#   iter <- 1
-#   for (i in 0:(p-1)) {
-#     for (j in i:(p-1)) {
-#       for (k in j:(p-1)) {
-#         for (l in k:(p-1)) {
-#           M4vec[iter] <- x[((i * p * p + j * p + k) * p + l) + 1]
-#           iter <- iter + 1
-#         }
-#       }
-#     }
-#   }
-#   return(M4vec)
-# }
+# Just in case M3.mat2vec and M4.mat2vec from Performanceanalytics ever changes I am leaving R alternatives for these functions here as translated from their C++ code
+# Uncomment these, and expand them to make them readable when that happens
+# .m3m2v <- function(x) {p <- nrow(x); M3vec <- rep(0, p * (p + 1) * (p + 2) / 6); iter <- 1; for (i in 0:(p-1)) {for (j in i:(p-1)) {for (k in j:(p-1)) {M3vec[iter] <- x[((i * p + j) * p + k)+1]; iter <- iter + 1}}}; return(M3vec)}
+# .m4m2v <- function(x) {p <- nrow(x); M4vec <- rep(0, p * (p + 1) * (p + 2) * (p + 3) / 24); iter <- 1; for (i in 0:(p-1)) {for (j in i:(p-1)) {for (k in j:(p-1)) {for (l in k:(p-1)) {M4vec[iter] <- x[((i * p * p + j * p + k) * p + l) + 1]; iter <- iter + 1}}}}; return(M4vec)}
 
 .fn <- function(par,M2.obs,M3.obs,M4.obs,confounding){
   # Model function
