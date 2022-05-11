@@ -8,9 +8,9 @@ Patch notes thus far (v0.2.0dev):
  - Added mcmmodelclass, this class describes the layout of the MCMSEM model complete with parameter matrices, starting values, and bounds.
  - Addded MCMmodel wrapper function to enable easy creation of mcmmodelclass instances for users
  - Added mcmedit to make editing a model easier (e.g. adding or constraining parameters, changing bounds, etc.)
-   - TODO: way to change starting values
  - TODO: Create MCMfit() to actually fit a model
  - TODO: Test if results are identical to main branch
+ - TODO: Enable setting confounder paths (a) to positive/negative
 
 TODO: Move these semi-improvised notes to README and/or manual:
 ```
