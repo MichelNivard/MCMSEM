@@ -11,7 +11,6 @@ Patch notes thus far (v0.2.0dev):
    - TODO: way to change starting values
  - TODO: Create MCMfit() to actually fit a model
  - TODO: Test if results are identical to main branch
- - TODO: Lock to 2 phenotypes + 1 factor. Currently the code in this branch supports any number of both. Until this is tested we want to lock end-users to what we know works.
 
 Notes for this version:
 ```
