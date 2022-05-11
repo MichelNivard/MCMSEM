@@ -129,7 +129,7 @@ MCMSEM <- function(data, confounding="positive", compute_se=TRUE, bootstrap_type
       ### STEP 1
       # 1. Bind the data to a random sample binning people into "bootstrap_chunks" groups
       step1 <- cbind(data,sample(1:bootstrap_chunks,nrow(data),replace=T))
-      colnames(step1)[3] <- "group"
+      colnames(step1) <- c("x1","x2","group")
       step1 <- as.data.frame(step1)
 
       # 2. Get covariance, coskenwess and cokurtosis matrices per group
