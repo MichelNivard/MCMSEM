@@ -12,7 +12,7 @@ Patch notes thus far (v0.2.0dev):
  - TODO: Create MCMfit() to actually fit a model
  - TODO: Test if results are identical to main branch
 
-Notes for this version:
+TODO: Move these semi-improvised notes to README and/or manual:
 ```
 # Create model
 mcmmodel <- MCMmodel(n_p = 2, n_f = 1, constrained_a=TRUE)  # n_p is n_phenotypes, will be replaced with data eventually
