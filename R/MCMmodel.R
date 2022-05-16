@@ -17,7 +17,6 @@ MCMmodel <- function(data, n_confounding=1, constrained_a=TRUE) {
   }
   n_f <- n_confounding
   n_p <- ncol(data)
-  if (ncol(data))
   if (constrained_a) {
     a_names <- c()
     for (i in 1:n_f) {
@@ -38,6 +37,15 @@ MCMmodel <- function(data, n_confounding=1, constrained_a=TRUE) {
       b_names <- c(b_names, paste0("b",j,"_", i))
     }
   }
+
+  # Scale data
+  data_unscaled <- data
+  data[,1] <- scale(data[,1])
+  data[,2] <- scale(data[,2])
+  # Record if data was unscaled prior to function start
+  #TODO: This is for future reference
+  data_was_unscaled <- (all(round(data_unscaled, 2) == round(data, 2)))
+
   par_names <- list(
     a=a_names,
     b=b_names,
@@ -49,7 +57,6 @@ MCMmodel <- function(data, n_confounding=1, constrained_a=TRUE) {
   named_matrices <- .gen_matrices(par_names, n_p, n_f, base_value="0")
 
   ## Make matrices with starting values
-  M2.obs <- cov(data)
   M3.obs <- M3.MM(data)
   M4.obs <- M4.MM(data)
   sk_starts <- c()
@@ -59,9 +66,9 @@ MCMmodel <- function(data, n_confounding=1, constrained_a=TRUE) {
     k_starts <- c(k_starts, M4.obs[i, i + (i-1)*n_p + (i-1)*n_p**2])
   }
   par <- list(
-    a=rep(.2, length(par_names[['a']])),
-    b=rep(.2, length(par_names[['b']])),
-    s=rep(1, length(par_names[['s']])),
+    a=rep(.2, length(unique(par_names[['a']]))),
+    b=rep(.2, length(unique(par_names[['b']]))),
+    s=rep(1, length(unique(par_names[['s']]))),
     sk=sk_starts,
     k=k_starts
   )
@@ -76,5 +83,6 @@ MCMmodel <- function(data, n_confounding=1, constrained_a=TRUE) {
   return(mcmmodelclass(named_matrices=named_matrices,
                        num_matrices=num_matrices,
                        bounds=bounds,
-                       meta_data=list(n_phenotypes=n_p, n_confounding=n_f, bound_defaults=bound_defaults)))
+                       meta_data=list(n_phenotypes=n_p, n_confounding=n_f, bound_defaults=bound_defaults,
+                                      data_was_unscaled=data_was_unscaled)))
 }

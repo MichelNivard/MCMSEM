@@ -1,37 +1,37 @@
 # Fit MCM model
 # Objective function
-.objective <- function(model,M2.obs,M3.obs,M4.obs,confounding){
+.objective <- function(.par, model, M2.obs, M3.obs, M4.obs){
+  n_p <- model$meta_data$n_phenotypes + model$meta_data$n_confounding
   # Model function
   ### Assign new parameter values to the matrices
+  model$param_values <- .par
   for (i in 1:length(model$param_coords)) {
-    model$num_matrices[[model$param_coords[[i]][[1]]]][model$param_coords[[i]][[2]][1], model$param_coords[[i]][[2]][2]] <- model$param_values[i]
+    model$num_matrices[[model$param_coords[[i]][[1]]]][model$param_coords[[i]][[2]]] <- model$param_values[i]
   }
   # Extract matrices
   A  <- model$num_matrices[["A"]]
   Fm <- model$num_matrices[["Fm"]]
   S  <- model$num_matrices[["S"]]
   Sk <- model$num_matrices[["Sk"]]
-  K  <- model$num_matrices[["K"]]
-
-  ###  S4 matrix (here K)
-  K <- matrix(0,3,27)
+  K <- model$num_matrices[["K"]]
   # there are some non 0 entries in S4, fix those using existing K1_ref
   K[model$num_matrices[["K1_ref"]]] <- 1
   # these are function of S2 matrix
   K <- sqrt(S) %*% K %*% (sqrt(S) %x% sqrt(S) %x% sqrt(S))
+
   # Re-enter values for K
   for (i in 1:length(model$param_coords)) {
     if (model$param_coords[[i]][[1]] == "K") {
-      model$num_matrices[[model$param_coords[[i]][[1]]]][model$param_coords[[i]][[2]][1], model$param_coords[[i]][[2]][2]] <- model$param_values[i]
+      model$num_matrices[[model$param_coords[[i]][[1]]]][model$param_coords[[i]][[2]]] <- model$param_values[i]
     }
   }
 
   ###### Compute the observed cov, cosk, and cokurt matrices #################
   ############################################### (see section 2.2 paper) ####
 
-  M2 <- Fm %*% solve(diag(3) - A) %*% S %*%  t(solve(diag(3)-A))  %*% t(Fm)
-  M3 <- Fm %*% solve(diag(3) - A) %*% Sk %*% (t(solve(diag(3)-A)) %x% t(solve(diag(3)-A))) %*% (t(Fm) %x% t(Fm))
-  M4 <- Fm %*% solve(diag(3) - A) %*% K %*%  (t(solve(diag(3)-A)) %x% t(solve(diag(3)-A))  %x%  t(solve(diag(3)-A))) %*% (t(Fm) %x% t(Fm) %x% t(Fm))
+  M2 <- Fm %*% solve(diag(n_p) - A) %*% S %*%  t(solve(diag(n_p)-A))  %*% t(Fm)
+  M3 <- Fm %*% solve(diag(n_p) - A) %*% Sk %*% (t(solve(diag(n_p)-A)) %x% t(solve(diag(n_p)-A))) %*% (t(Fm) %x% t(Fm))
+  M4 <- Fm %*% solve(diag(n_p) - A) %*% K %*%  (t(solve(diag(n_p)-A)) %x% t(solve(diag(n_p)-A))  %x%  t(solve(diag(n_p)-A))) %*% (t(Fm) %x% t(Fm) %x% t(Fm))
 
   ### Loss function
   value <- sum((.m2m2v(M2.obs) - .m2m2v(M2))^2) + sum((.m3m2v(M3.obs) - .m3m2v(M3))^2) + sum((.m4m2v(M4.obs)- .m4m2v(M4))^2)
@@ -39,11 +39,11 @@
 }
 
 
-MCMfit <- function(model, compute_se=TRUE, bootstrap_type='two-step', bootstrap_iter=200,bootstrap_chunks=1000) {
+MCMfit <- function(model, data, compute_se=TRUE, bootstrap_type='two-step', bootstrap_iter=200,bootstrap_chunks=1000) {
   #TODO: Add arguments for fitting either x->y or y->x path as opposed to both (which should remain the default)
   #TODO: Expand manual
-  if (!(confounding %in% c('positive', 'negative', 'both')))
-    stop("confounding should be one of c('positive', 'negative', 'both')")
+  #if (!(confounding %in% c('positive', 'negative', 'both')))
+  #  stop("confounding should be one of c('positive', 'negative', 'both')")
   if (!(bootstrap_type %in% c('two-step', 'one-step')))
     stop("confounding should be one of c('two-step', 'one-step')")
   if (ncol(data) != 2)
@@ -51,21 +51,13 @@ MCMfit <- function(model, compute_se=TRUE, bootstrap_type='two-step', bootstrap_
   if (nrow(data) < 1000)
     stop("Currently only a dataframe with at least 1000 rows is supported.")
 
-  if (confounding == 'both') {
-    result_positive <- MCMSEM(data, confounding="positive", compute_se=compute_se, bootstrap_type=bootstrap_type, bootstrap_iter=bootstrap_iter,bootstrap_chunks=bootstrap_chunks)
-    result_negative <- MCMSEM(data, confounding="negative", compute_se=compute_se, bootstrap_type=bootstrap_type, bootstrap_iter=bootstrap_iter,bootstrap_chunks=bootstrap_chunks)
-    return(list(positive_confounder=result_positive, negative_confounder=result_negative))
-  }
-
-  # Scale data
-  data_unscaled <- data
-  data[,1] <- scale(data[,1])
-  data[,2] <- scale(data[,2])
-  if (all(round(data_unscaled, 2) == round(data, 2))) {
-    # Record of data was unscaled prior to function start
-    #TODO: This is for future reference
-    data_was_unscaled <- TRUE
-  }
+  #TODO: There is no way to do both currently
+  #if (confounding == 'both') {
+  #  model2 <- model$copy()  # Make a copy of the model instance first, as parameter values are modified inplace
+  #  result_positive <- MCMSEM(model, data, confounding="positive", compute_se=compute_se, bootstrap_type=bootstrap_type, bootstrap_iter=bootstrap_iter,bootstrap_chunks=bootstrap_chunks)
+  #  result_negative <- MCMSEM(model2, data, confounding="negative", compute_se=compute_se, bootstrap_type=bootstrap_type, bootstrap_iter=bootstrap_iter,bootstrap_chunks=bootstrap_chunks)
+  #  return(list(positive_confounder=result_positive, negative_confounder=result_negative))
+  #}
 
   # Obtain covariance, coskewness and cokurtosis matrices
   M2.obs <- cov(data)
@@ -73,14 +65,14 @@ MCMfit <- function(model, compute_se=TRUE, bootstrap_type='two-step', bootstrap_
   M4.obs <- M4.MM(data)
 
   # Specify starting values
-  start <- c(.2,.2,.2,1,1,M3.obs[1,1],M3.obs[2,4],M4.obs[1,1],M4.obs[2,8])
+  start <- model$param_values
 
   # Specify upper and lower bound of parameters
-  L <- c(-1,-.5,-.5,0.01,0.01,-5,-5,0,0)
-  U <- c(1,1,1,2,2,18,18,100,100)
+  L <- as.numeric(model$bounds["L", ])
+  U <- as.numeric(model$bounds["U", ])
 
   # Obtain estimates with optimizer
-  nlminb.out <-nlminb(start,objective = .fn,M2.obs=M2.obs,M3.obs=M3.obs,M4.obs=M4.obs,confounding=confounding,lower = L, upper = U)
+  nlminb.out <-nlminb(start,objective = .objective,model=model,M2.obs=M2.obs,M3.obs=M3.obs,M4.obs=M4.obs,lower = L, upper = U)
 
   # Store estimates including minimization objective, using this to evaluate/compare fit
   results        <-  c(nlminb.out$par, nlminb.out$objective)
@@ -96,8 +88,8 @@ MCMfit <- function(model, compute_se=TRUE, bootstrap_type='two-step', bootstrap_
     # Matrix where bootstraps will be stored
     pars.boot <- matrix(NA,bootstrap_iter,9)
     # Lower and Upper bounds
-    L <- c(-1,-.5,-.5,0.01,0.01,-5,-5,0,0)
-    U <- c(1,1,1,2,2,18,18,100,100)
+    L <- as.numeric(model$bounds["L", ])
+    U <- as.numeric(model$bounds["U", ])
 
     if (bootstrap_type == 'one-step') {
       #### BOOT 1:  NORMAL BOOTSTRAP
@@ -122,7 +114,7 @@ MCMfit <- function(model, compute_se=TRUE, bootstrap_type='two-step', bootstrap_
         start <- c(.2,.2,.2,1,1,M3.obs[1,1],M3.obs[2,4],M4.obs[1,1],M4.obs[2,8])
 
         # Estimate parameters with model function specified above
-        nlminb.out <-nlminb(start,objective = .fn,M2.obs=M2.obs,M3.obs=M3.obs,M4.obs=M4.obs,confounding=confounding,lower = L, upper = U)
+        nlminb.out <-nlminb(start,objective = .objective,model=model,M2.obs=M2.obs,M3.obs=M3.obs,M4.obs=M4.obs,confounding=confounding,lower = L, upper = U)
 
         # Store point estimates of bootstraps
         pars.boot[i,] <- nlminb.out$par
@@ -162,7 +154,7 @@ MCMfit <- function(model, compute_se=TRUE, bootstrap_type='two-step', bootstrap_
 
         # 4. Fit model,
         start <- c(.2,.2,.2,1,1,M3.obs[1,1],M3.obs[2,4],M4.obs[1,1],M4.obs[2,8])
-        nlminb.out <-nlminb(start,objective = .fn,M2.obs=M2.obs,M3.obs=M3.obs,M4.obs=M4.obs,confounding=confounding,lower = L, upper = U)
+        nlminb.out <-nlminb(start,objective = .objective,model=model,M2.obs=M2.obs,M3.obs=M3.obs,M4.obs=M4.obs,lower = L, upper = U)
         pars.boot2[i,] <- nlminb.out$par
 
       }
