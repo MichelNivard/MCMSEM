@@ -8,10 +8,12 @@ Patch notes thus far (v0.2.0-dev):
  - Added mcmmodelclass, this class describes the layout of the MCMSEM model complete with parameter matrices, starting values, and bounds.
  - Addded MCMmodel wrapper function to enable easy creation of mcmmodelclass instances for users
  - Added mcmedit to make editing a model easier (e.g. adding or constraining parameters, changing bounds, etc.)
+ - Update 23-05-2022:
+   - MCMfit now almost works, only resulting estimate of `a` is flipped from the master branch?
+   - TODO: Why is `a` flipped?
  - Update 16-05-2022: MCMfit now does something
-   - TODO: Make it produce the same result (read: make it actually work)
    - TODO: Add progress bar (especially for bootstraps)
- - TODO: Test if results are identical to main branch
+ - TODO: Ensure results are identical to main branch
  - TODO: Enable setting confounder paths (a) to positive/negative
 
 TODO: Move these semi-improvised notes to README and/or manual:

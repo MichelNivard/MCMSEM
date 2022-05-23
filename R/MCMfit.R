@@ -14,15 +14,19 @@
   S  <- model$num_matrices[["S"]]
   Sk <- model$num_matrices[["Sk"]]
   K <- model$num_matrices[["K"]]
+
+  K[,] <- 0
   # there are some non 0 entries in S4, fix those using existing K1_ref
   K[model$num_matrices[["K1_ref"]]] <- 1
   # these are function of S2 matrix
   K <- sqrt(S) %*% K %*% (sqrt(S) %x% sqrt(S) %x% sqrt(S))
-
+  for (i in 1:model$meta_data$n_confounding) {
+    K[i, i + (i-1)*(n_p) + (i-1)*((n_p)^2)]  <- 3
+  }
   # Re-enter values for K
   for (i in 1:length(model$param_coords)) {
     if (model$param_coords[[i]][[1]] == "K") {
-      model$num_matrices[[model$param_coords[[i]][[1]]]][model$param_coords[[i]][[2]]] <- model$param_values[i]
+      K[model$param_coords[[i]][[2]]] <- model$param_values[i]
     }
   }
 
@@ -35,7 +39,7 @@
 
   ### Loss function
   value <- sum((.m2m2v(M2.obs) - .m2m2v(M2))^2) + sum((.m3m2v(M3.obs) - .m3m2v(M3))^2) + sum((.m4m2v(M4.obs)- .m4m2v(M4))^2)
-
+  return(value)
 }
 
 
@@ -58,6 +62,15 @@ MCMfit <- function(model, data, compute_se=TRUE, bootstrap_type='two-step', boot
   #  result_negative <- MCMSEM(model2, data, confounding="negative", compute_se=compute_se, bootstrap_type=bootstrap_type, bootstrap_iter=bootstrap_iter,bootstrap_chunks=bootstrap_chunks)
   #  return(list(positive_confounder=result_positive, negative_confounder=result_negative))
   #}
+  # Scale data
+  data_unscaled <- data
+  data[,1] <- scale(data[,1])
+  data[,2] <- scale(data[,2])
+  if (all(round(data_unscaled, 2) == round(data, 2))) {
+    # Record of data was unscaled prior to function start
+    #TODO: This is for future reference
+    data_was_unscaled <- TRUE
+  }
 
   # Obtain covariance, coskewness and cokurtosis matrices
   M2.obs <- cov(data)
@@ -75,7 +88,7 @@ MCMfit <- function(model, data, compute_se=TRUE, bootstrap_type='two-step', boot
   nlminb.out <-nlminb(start,objective = .objective,model=model,M2.obs=M2.obs,M3.obs=M3.obs,M4.obs=M4.obs,lower = L, upper = U)
 
   # Store estimates including minimization objective, using this to evaluate/compare fit
-  results        <-  c(nlminb.out$par, nlminb.out$objective)
+  results        <-  as.data.frame(matrix(c(nlminb.out$par, nlminb.out$objective), nrow = 1))
 
   ## NOTE:
   # When fitting to real data, we compare model with pos. confounder with
