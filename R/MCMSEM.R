@@ -73,7 +73,7 @@ MCMSEM <- function(data, confounding="positive", compute_se=TRUE, bootstrap_type
   nlminb.out <-nlminb(start,objective = .fn,M2.obs=M2.obs,M3.obs=M3.obs,M4.obs=M4.obs,confounding=confounding,lower = L, upper = U)
 
   # Store estimates including minimization objective, using this to evaluate/compare fit
-  results        <-  c(nlminb.out$par, nlminb.out$objective)
+  results        <-  as.data.frame(matrix(c(nlminb.out$par, nlminb.out$objective), nrow = 1))
 
   ## NOTE:
   # When fitting to real data, we compare model with pos. confounder with
