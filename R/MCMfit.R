@@ -6,7 +6,7 @@
   ### Assign new parameter values to the matrices
   model$param_values <- .par
   for (i in 1:length(model$param_coords)) {
-    model$num_matrices[[model$param_coords[[i]][[1]]]][model$param_coords[[i]][[2]]] <- model$param_values[i]
+    model$num_matrices[[model$param_coords[[i]][[1]]]][model$param_coords[[i]][[2]]] <- model$param_values[i] * model$param_coords[[i]][[3]]
   }
   # Extract matrices
   A  <- model$num_matrices[["A"]]
@@ -103,7 +103,8 @@ MCMfit <- function(model, data, compute_se=TRUE, bootstrap_type='two-step', boot
     # Lower and Upper bounds
     L <- as.numeric(model$bounds["L", ])
     U <- as.numeric(model$bounds["U", ])
-
+    cat("Starting bootstrap MCMSEM\n")
+    pb <- txtProgressBar(0, bootstrap_iter, style = 3, width=min(c(options()$width, 107)))
     if (bootstrap_type == 'one-step') {
       #### BOOT 1:  NORMAL BOOTSTRAP
       ##############################
@@ -156,7 +157,8 @@ MCMfit <- function(model, data, compute_se=TRUE, bootstrap_type='two-step', boot
       ### STEP 2
 
       for (i in 1:bootstrap_iter){
-
+## Progress bar stuff
+        setTxtProgressBar(pb, i)
         # 3. Sample cov/cosk/cokrt matrices and obtain mean of the sampled matrices
         #to use as cov/cosk/cokrt matrix in the model
         boot <-   sample(1:bootstrap_chunks,bootstrap_chunks,T)
@@ -175,7 +177,7 @@ MCMfit <- function(model, data, compute_se=TRUE, bootstrap_type='two-step', boot
       endtime <- Sys.time()
       boot2 <- endtime - starttime
     }
-
+    cat("\n")  # Prevent things from printing over completed progress bar
     # Table of point estimates and SE's
     results <- rbind(results, c(SEs_boot,NA))
   }

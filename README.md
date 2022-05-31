@@ -5,18 +5,34 @@ R-package which allows users to run multi co-moment structural equation models.
 Note this is the `dev` branch, and **not** intended for end-users. If you would like to use MCMSEM yourself, please go to the main branch. If you would like to contribute to the code, feel free to check this branch out.
 
 Patch notes thus far (v0.2.0-dev):
- - Added mcmmodelclass, this class describes the layout of the MCMSEM model complete with parameter matrices, starting values, and bounds.
+ - Added mcmmodelclass, this class describes the layout of the MCMSEM model complete with parameter matrices, parameter/starting values, and bounds.
  - Addded MCMmodel wrapper function to enable easy creation of mcmmodelclass instances for users
- - Added mcmedit to make editing a model easier (e.g. adding or constraining parameters, changing bounds, etc.)
- - Update 23-05-2022:
-   - MCMfit now almost works, only resulting estimate of `a` is flipped from the master branch?
-   - TODO: Why is `a` flipped?
- - Update 16-05-2022: MCMfit now does something
-   - TODO: Add progress bar (especially for bootstraps)
- - TODO: Ensure results are identical to main branch
- - TODO: Enable setting confounder paths (a) to positive/negative
+ - Added MCMedit to make editing a model easier (e.g. adding or constraining parameters, changing bounds, etc.)
+ - Added MCMfit
+ - Setting the confounder to be negative is slightly harder than in the previous version, as it (for now) requires manual edits to the model:
+   - `model <- MCMedit(model, "A", c(2,1), "-a1")`, note `c(2, 1)` are parameter coordinates in the A matrix and may depend on the number of confounders added to the model.
+ - Update 31-05-2022:
+   - MCMfit works
+   - Added basic progress bar to MCMfit bootstrap
+   - Changed `mcmedit` to `MCMedit` to be in line with capitalization of other functions
+   - Changed usage of `MCMedit` from `MCMedit(model, matrix, cell) <- value` to `model <- MCMedit(model, matrix, cell, value)`
+     - Warning: Currently `model <- MCMedit(model, matrix, cell, value)` will likely still edit the model inplace, see TODO 2
+   - Removed old `MCMSEM` and `.fn` functions from code
+   - Removed old Usage text from README
+   - Added options for negative versions of parameters (mainly for `-a1` as negative confounder).
+     - This is done through MCMedit for now: `model <- MCMedit(model, "A", c(2,1), "-a1")`, model parser will recognize paramters labelled with "-".
+     - Testing this resulted in a near-0 estimate of a... Should verify if this is the same as master branch
+     - In a future version we may want to write a wrapper function to do `model <- MCMedit(model, "A", c(2,1), "-a1")` in a more user-friendly way?
 
-TODO: Move these semi-improvised notes to README and/or manual:
+### Things still TODO:
+1. Check if results of positive/negative confounder are identical to master branch
+2. Create detailed manual page for MCMedit
+3. Change MCMedit argument names to sensible ones
+4. Ensure `model <- MCMedit(model, matrix, cell, value)` creates a copy of model instead of modifying inplace. Alternatively, could add `inplace` argument, but I think this might be too pythonic for R users.
+5. Make bootstrap MCMfit run in parallel
+   - Note: current progress bar is not suited for parallel bootstrap
+6. Update tests to reflect new coding style.
+7. Move these semi-improvised notes to README and/or manual:
 ```
 # Create model
 mcmmodel <- MCMmodel(n_p = 2, n_f = 1, constrained_a=TRUE)  # n_p is n_phenotypes, will be replaced with data eventually
@@ -29,16 +45,16 @@ mcmmodel <- MCMmodel(n_p = 2, n_f = 1, constrained_a=TRUE)  # n_p is n_phenotype
 #   - param_names: names of the parameters that can be changed
 #   - param_coords: coordinates of param_values in their respective matrices (so the matrices can be easily updated during optimization)
 
-# Can be edited via mcmedit, mcmedit in turn is designed such that it automatically updates the whole model
+# Can be edited via MCMedit, MCMedit in turn is designed such that it automatically updates the whole model
 # Some examples:
 # In matrix A; separate a1 and a2
-mcmedit(mcmmodel, "A", "a1") <- c("a1", "a2")
+mcmmodel <- MCMedit(mcmmodel, "A", "a1", c("a1", "a2"))
 mcmmodel # Check all matrices
 # (In matrix Fm:) free f1 variance, i.e. make it a parameter rather than hard value
-mcmedit(mcmmodel, "Fm", c(1, 2)) <- "fm1"
+mcmmodel <- MCMedit(mcmmodel, "Fm", c(1, 2), "fm1")
 mcmmodel
 # Constrain b1_1 to zero
-mcmedit(mcmmodel, "A", "b1_1") <- 0
+mcmmodel <- MCMedit(mcmmodel, "A", "b1_1", 0)
 mcmmodel
 mcmmodel$param_names  # The names of parameters that will be estimated (eventually)
 # Now returns:
@@ -47,23 +63,23 @@ mcmmodel$param_names  # The names of parameters that will be estimated (eventual
 # Check bounds (filled with defaults)
 mcmmodel$bounds
 # Change lower bound of a1 to -.5
-mcmedit(mcmmodel, "lbound", "a1") <- -.5
+mcmmodel <- MCMedit(mcmmodel, "lbound", "a1", -.5)
 mcmmodel$bounds
 # Change the upper bound of 1 to 2
-mcmedit(mcmmodel, "ubound", "a1") <- 2
+mcmmodel <- MCMedit(mcmmodel, "ubound", "a1", 2)
 mcmmodel$bounds
 # Set lower and upper bounds of a1 to c(-1, 1)
-mcmedit(mcmmodel, "bound", "a1") <- c(-1, 1)
+mcmmodel <- MCMedit(mcmmodel, "bound", "a1", c(-1, 1))
 mcmmodel$bounds
 # Set lower and upper bounds of all b parameters to -1, 1
-mcmedit(mcmmodel, "bound", "b") <- c(-1, 1)
+mcmmodel <- MCMedit(mcmmodel, "bound", "b", <- c(-1, 1))
 mcmmodel$bounds
 # Set upper bound of all k parameters to 200
-mcmedit(mcmmodel, "ubound", "k") <- 200
+mcmmodel <- MCMedit(mcmmodel, "ubound", "k", <- 200)
 mcmmodel$bounds
 # a2 is added, Fm1 is added, and b1 is removed
-# This doesn't work yet but the idea is that this is then passed to a fit function, e.g.
-MCMfit(mcmmodel, estimate_SE=TRUE, n_iters=2000)
+# Fit the model
+MCMfit(mcmmodel, estimate_SE=TRUE, bootstrap_iter=2000)
 ```
 
 ## Citation
@@ -81,41 +97,7 @@ install_github("https://github.com/matthijsz/MCMSEM")
 
 ## Usage
 
-Use the `MCMSEM` function to fit MCMSEM models:
-```
-library(MCMSEM)
-result <- MCMSEM(data)
-```
-Several options can be specified, such as the use of positive or negative confounding (or both):
-```
-library(MCMSEM)
-result_positive <- MCMSEM(data, confounding='positive')
-result_negative <- MCMSEM(data, confounding='negative')
-results_combined <- MCMSEM(data, confounding='both')
-```
-**#TODO: add some text about what to do when**
-
-By default Standard Errors for each estimate are computed through bootstrap, this can be disabled
-```
-result <- MCMSEM(data, compute_se=FALSE)
-```
-
-If computing SE takes to long, an alternative is to reduce the number of iterations (default is 200)
-```
-result <- MCMSEM(data, bootstrap_iter=100)
-```
-
-As a default a faster, but slightly less precise, two-step bootstrap is performed this behaviour can be changed if needed.
-```
-result <- MCMSEM(data, bootstrap_type='one-step')
-```
-**#TODO: maybe add some text about why this is faster and why this is (probably) just as accurate**
-
-For testing purposes, this package also includes a function to simulate data which will work directly with the `MCMSEM` function:
-```
-data <- simulate_data(n=500000)
-result <- MCMSEM(data)
-```
+TODO
 
 ### Patch notes
 - v0.1.1 

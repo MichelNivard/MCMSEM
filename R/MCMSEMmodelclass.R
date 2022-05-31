@@ -46,11 +46,17 @@ mcmmodelclass$methods(
     .self$param_names <- c("")
     .self$param_coords <- list()
     for (mat in names(.self$named_matrices)) {
-      unique_params <- unique(as.vector(.self$named_matrices[[mat]]))
+      # Ensure paramters starting with - are not recognized as unique parameter and store in vector for easier indexing
+      neg_indices <- startsWith(as.vector(.self$named_matrices[[mat]]), "-") # Which parameter are labeled -
+      non_neg_vec <- gsub("-", "", as.vector(.self$named_matrices[[mat]]))
+      unique_params <- unique(non_neg_vec)
       unique_params <- unique_params[is.na(suppressWarnings(as.numeric(unique_params)))]
       for (param in unique_params) {
-        current_coords <- which(.self$named_matrices[[mat]] == param)
-        .self$param_coords <- append(.self$param_coords, list(list(mat, current_coords)))
+        current_coords <- which(non_neg_vec == param)
+        # neg_indices[current_coords]*-2+1 produces multipliers for parameters labeled -, e.g. "-a1":
+        #  if the matrix contains "-a1, a1" in whatever place, neg_indices will be TRUE FALSE there respectively
+        #  c(1, 0) * -2 + 1 produces (-1, 1), i.e. multipliers for these paramter values.
+        .self$param_coords <- append(.self$param_coords, list(list(mat, current_coords, neg_indices[current_coords]*-2+1)))
         .self$param_names <- c(.self$param_names, param)
         .self$param_values <- c(.self$param_values, .self$num_matrices[[mat]][current_coords][1])
       }

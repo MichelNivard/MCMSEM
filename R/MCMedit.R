@@ -1,15 +1,17 @@
-mcmedit <- function(x, y, z, value) {
+MCMedit <- function(x, y, z, value) {
   if (y %in% names(x$num_matrices)) {
     # For modifying parameters:
     # Verify integrity of named parameters, they should be a, b, s, sk or k if all but letters are dropped
     if (is.character(value)) {
       if (length(value) > 1) {
         for (i in value) {
-          if (!(sub("^([[:alpha:]]*).*", "\\1", i) %in% c("a", "b", "sk", "k", "fm")))
+          i_pos <- gsub("-", "", i)
+          if (!(sub("^([[:alpha:]]*).*", "\\1", i_pos) %in% c("a", "b", "sk", "k", "fm")))
             stop("Named parameters must only contain one of [a, b, sk, k, fm] and numbers or other symbols")
         }
       } else {
-        if (!(sub("^([[:alpha:]]*).*", "\\1", value) %in% c("a", "b", "sk", "k", "fm")))
+        value_pos <- gsub("-", "", value)
+        if (!(sub("^([[:alpha:]]*).*", "\\1", value_pos) %in% c("a", "b", "sk", "k", "fm")))
           stop("Named parameters must only contain one of [a, b, sk, k, fm] and numbers or other symbols")
       }
     }
@@ -47,5 +49,5 @@ mcmedit <- function(x, y, z, value) {
     stop("Second input argument not recognized")
   }
   x$parse()
-  return(invisible(NULL))
+  return(x)
 }
