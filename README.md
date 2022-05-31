@@ -16,7 +16,8 @@ Patch notes thus far (v0.2.0-dev):
    - Added basic progress bar to MCMfit bootstrap
    - Changed `mcmedit` to `MCMedit` to be in line with capitalization of other functions
    - Changed usage of `MCMedit` from `MCMedit(model, matrix, cell) <- value` to `model <- MCMedit(model, matrix, cell, value)`
-     - Warning: Currently `model <- MCMedit(model, matrix, cell, value)` will likely still edit the model inplace, see TODO 2
+   - `model <- MCMedit(model, matrix, cell, value)` now also creates a copy of model instead of modifying inplace. 
+     - *Personal note: This is not required we could revert to simply `MCMedit(model, matrix, cell, value)` and make `MCMedit` not hardcopy the `model` instance, but I think R user are more likely to expect `model2 <- MCMedit(model, ...)` to create a new model-instance... Correct me if I'm wrong.*
    - Removed old `MCMSEM` and `.fn` functions from code
    - Removed old Usage text from README
    - Added options for negative versions of parameters (mainly for `-a1` as negative confounder).
@@ -28,22 +29,21 @@ Patch notes thus far (v0.2.0-dev):
 1. Check if results of positive/negative confounder are identical to master branch
 2. Create detailed manual page for MCMedit
 3. Change MCMedit argument names to sensible ones
-4. Ensure `model <- MCMedit(model, matrix, cell, value)` creates a copy of model instead of modifying inplace. Alternatively, could add `inplace` argument, but I think this might be too pythonic for R users.
-5. Make bootstrap MCMfit run in parallel
+4. Make bootstrap MCMfit run in parallel
    - Note: current progress bar is not suited for parallel bootstrap
-6. Update tests to reflect new coding style.
-7. Move these semi-improvised notes to README and/or manual:
+5. Update tests to reflect new coding style.
+6. Move these semi-improvised notes to README and/or manual:
 ```
 # Create model
-mcmmodel <- MCMmodel(n_p = 2, n_f = 1, constrained_a=TRUE)  # n_p is n_phenotypes, will be replaced with data eventually
+mcmmodel <- MCMmodel(data, n_confounding = 1, constrained_a=TRUE)  # n_p is n_phenotypes, will be replaced with data eventually
 # This creates instance of reference class mcmmodelclass
 # This instance contains:
 #   - named matrices: just matrices with the labels -> b1_2 is effect of x1 on x2, b1_3 is effect of x1 on x3 etc.
-#   - numeric matrices: starting values initially, but can be updated in optimization
+#   - numeric matrices: starting values initially, but are updated during optimization
 #   - metadata: things like n_phenotypes, n_confounders etc, can hold as much as needed, as we'll probably need that stuff in other functions too
 #   - param_values: current values of the parameters, so starting values initially but can be updated
 #   - param_names: names of the parameters that can be changed
-#   - param_coords: coordinates of param_values in their respective matrices (so the matrices can be easily updated during optimization)
+#   - param_coords: coordinates of param_values in their respective matrices (so the matrices can be easily updated during optimization), as well as multipliers to account for user-negative parameters
 
 # Can be edited via MCMedit, MCMedit in turn is designed such that it automatically updates the whole model
 # Some examples:

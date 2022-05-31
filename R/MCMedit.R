@@ -1,4 +1,5 @@
-MCMedit <- function(x, y, z, value) {
+MCMedit <- function(model, y, z, value) {
+  x <- model$copy()
   if (y %in% names(x$num_matrices)) {
     # For modifying parameters:
     # Verify integrity of named parameters, they should be a, b, s, sk or k if all but letters are dropped
