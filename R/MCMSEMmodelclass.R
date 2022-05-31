@@ -34,6 +34,7 @@ mcmmodelclass$methods(
 
   },
   copy=function() {
+    # Create a deepcopy of the model instance
     return(mcmmodelclass(named_matrices=.self$named_matrices, num_matrices=.self$num_matrices, bounds=.self$bounds,
                          meta_data=.self$meta_data, param_values=.self$param_values, param_names=.self$param_names,
                          param_coords=.self$param_coords))
@@ -48,7 +49,7 @@ mcmmodelclass$methods(
     for (mat in names(.self$named_matrices)) {
       # Ensure paramters starting with - are not recognized as unique parameter and store in vector for easier indexing
       neg_indices <- startsWith(as.vector(.self$named_matrices[[mat]]), "-") # Which parameter are labeled -
-      non_neg_vec <- gsub("-", "", as.vector(.self$named_matrices[[mat]]))
+      non_neg_vec <- gsub("-", "", as.vector(.self$named_matrices[[mat]]))  # Vectorized named matrix without "-"labels
       unique_params <- unique(non_neg_vec)
       unique_params <- unique_params[is.na(suppressWarnings(as.numeric(unique_params)))]
       for (param in unique_params) {
