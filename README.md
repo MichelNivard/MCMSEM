@@ -15,6 +15,7 @@ Note this is the `dev` branch, and **not** intended for end-users. If you would 
 
 ### Code updates
  - Update 03-06-2022:
+   - Fixed an issue causing error with dataframe input.
    - Fixed an issue causing starting values to not be properly assigned to a-parameters with >1 confounding
    - Updated bootstrap to work with >2 input data columns
    - Updated bootstrap to work with >1 confounding
