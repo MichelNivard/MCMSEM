@@ -65,7 +65,7 @@ MCMfit <- function(model, data, compute_se=TRUE, bootstrap_type='two-step', boot
   #  return(list(positive_confounder=result_positive, negative_confounder=result_negative))
   #}
   # Scale data
-  #data_unscaled <- data
+  data_unscaled <- data
   for (i in 1:ncol(data)) {
     data[,i] <- scale(data[,i])
   }

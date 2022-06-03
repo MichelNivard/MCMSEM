@@ -17,6 +17,12 @@ MCMmodel <- function(data, n_confounding=1, constrained_a=TRUE) {
   if (n_confounding > ncol(data)) {
     stop("Cannot use more confounding factors than phenotypes present in the data")
   }
+
+  # Scale data
+  for (i in 1:ncol(data)) {
+    data[,i] <- scale(data[,i])
+  }
+
   n_f <- n_confounding
   n_p <- ncol(data)
   if (constrained_a) {
