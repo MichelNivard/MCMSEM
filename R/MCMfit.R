@@ -64,6 +64,7 @@ MCMfit <- function(model, data, compute_se=TRUE, bootstrap_type='two-step', boot
   #  result_negative <- MCMSEM(model2, data, confounding="negative", compute_se=compute_se, bootstrap_type=bootstrap_type, bootstrap_iter=bootstrap_iter,bootstrap_chunks=bootstrap_chunks)
   #  return(list(positive_confounder=result_positive, negative_confounder=result_negative))
   #}
+  data <- as.matrix(data)
   # Scale data
   if (model$meta_data$scale_data) {
       for (i in 1:ncol(data)) {
