@@ -16,7 +16,6 @@ Note this is the `dev` branch, and **not** intended for end-users. If you would 
 ### Code updates
  - Update 03-06-2022:
    - Fixed an issue causing starting values to not be properly assigned to a-parameters with >1 confounding
-   - Fixed an issue causing bounds to not change properly
    - Updated bootstrap to work with >2 input data columns
    - Updated bootstrap to work with >1 confounding
    - All of MCMfit should now work with an arbitrary number of input data columns and confounders
