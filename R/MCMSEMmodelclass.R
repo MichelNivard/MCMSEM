@@ -3,6 +3,7 @@ mcmmodelclass <- setRefClass("mcmmodelclass",
                              fields=list(
                                named_matrices="list",
                                num_matrices="list",
+                               start_values="data.frame",
                                bounds="data.frame",
                                meta_data="list",
                                param_values="vector",
@@ -11,10 +12,11 @@ mcmmodelclass <- setRefClass("mcmmodelclass",
                              ))
 # Define MCM model class methods
 mcmmodelclass$methods(
-    initialize=function(named_matrices, num_matrices, bounds, meta_data, param_values=c(0), param_names=c(""), param_coords=list()){
+    initialize=function(named_matrices, num_matrices, start_values, bounds, meta_data, param_values=c(0), param_names=c(""), param_coords=list()){
     # This is executed upon initialization, required to force parse upon initialization of class instance
     .self$named_matrices <- named_matrices
     .self$num_matrices <- num_matrices
+    .self$start_values <- start_values
     .self$bounds <- bounds
     .self$meta_data <- meta_data
     .self$param_values <- param_values
@@ -35,8 +37,8 @@ mcmmodelclass$methods(
   },
   copy=function() {
     # Create a deepcopy of the model instance
-    return(mcmmodelclass(named_matrices=.self$named_matrices, num_matrices=.self$num_matrices, bounds=.self$bounds,
-                         meta_data=.self$meta_data, param_values=.self$param_values, param_names=.self$param_names,
+    return(mcmmodelclass(named_matrices=.self$named_matrices, num_matrices=.self$num_matrices, start_values=.self$start_values,
+                         bounds=.self$bounds, meta_data=.self$meta_data, param_values=.self$param_values, param_names=.self$param_names,
                          param_coords=.self$param_coords))
   },
   parse=function() {
@@ -85,7 +87,17 @@ mcmmodelclass$methods(
         }
       }
     }
+    .self$start_values <- .self$start_values[.self$param_names]
+    .self$start_values["start", ] <- .self$param_values
     .self$bounds <- .self$bounds[.self$param_names]
+  },
+  inverse_parse=function() {
+    for (n_par in 1:length(.self$param_names)) {
+      par_name <- .self$param_names[n_par]
+      for (mat in names(.self$named_matrices)) {
+        .self$num_matrices[[mat]][.self$named_matrices[[mat]] == par_name] <- .self$param_values[n_par]
+      }
+    }
   }
 )
 
