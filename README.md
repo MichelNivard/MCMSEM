@@ -18,6 +18,8 @@ Note this is the `dev` branch, and **not** intended for end-users. If you would 
    - Fixed an issue causing starting values to not be properly assigned to a-parameters with >1 confounding
    - Updated bootstrap to work with >2 input data columns
    - Updated bootstrap to work with >1 confounding
+   - Fixed todo related to >1 confounding in `MCMmodel.R`:
+     - `if n_confounding > 1: make sure f2->x1 is set to 0, i.e. f1 -> x1,x2,x3,x4, f2 -> x2,x3,x4, etc.`
    - All of MCMfit should now work with an arbitrary number of input data columns and confounders
    - Changed error in MCMfit when provided with 3 columns of data to a warning that this is still experimental
    - Changed column names of MCMfit output to match parameter names

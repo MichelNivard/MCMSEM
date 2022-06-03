@@ -1,7 +1,6 @@
 # Wrapper function to create mcmmodel instance
 MCMmodel <- function(data, n_confounding=1, constrained_a=TRUE) {
   # TODO: Expand checks on how many confoundings can/should be used with or without constrained a depending on input data
-  # TODO: At the end, if n_confounding > 1: make sure f2->x1 is set to 0, i.e. f1 -> x1,x2,x3,x4, f2 -> x2,x3,x4, etc. can be done with mcmedit
   # This should take data instead of n_p, but for now while it doesn't really do anything I left it at n_phenotypes
   ## Make matrices with names
   if (nrow(data) < 1000)
@@ -14,6 +13,9 @@ MCMmodel <- function(data, n_confounding=1, constrained_a=TRUE) {
     } else if (!(constrained_a)) {
       stop("Constrained a has to be used with two variables.")
     }
+  }
+  if (n_confounding > ncol(data)) {
+    stop("Cannot use more confounding factors than phenotypes present in the data")
   }
   n_f <- n_confounding
   n_p <- ncol(data)
@@ -83,10 +85,18 @@ MCMmodel <- function(data, n_confounding=1, constrained_a=TRUE) {
   start_values <- as.data.frame(t(unlist(par)))
   colnames(start_values) <- unlist(par_names)
   rownames(start_values) <- "start"
-  return(mcmmodelclass(named_matrices=named_matrices,
+  if (n_confounding > 1) {
+    for (n_fi in 1:(n_confounding-1)) {
+      num_matrices[["A"]][(n_confounding+1):(n_confounding+n_fi), n_fi+1] <- 0.0
+      named_matrices[["A"]][(n_confounding+1):(n_confounding+n_fi), n_fi+1] <- "0"
+    }
+  }
+  model <- mcmmodelclass(named_matrices=named_matrices,
                        num_matrices=num_matrices,
                        start_values=start_values,
                        bounds=bounds,
                        meta_data=list(n_phenotypes=n_p, n_confounding=n_f, bound_defaults=bound_defaults,
-                                      data_was_unscaled=data_was_unscaled)))
+                                      data_was_unscaled=data_was_unscaled))
+
+  return(model)
 }
