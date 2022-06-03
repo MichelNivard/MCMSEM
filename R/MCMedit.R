@@ -41,7 +41,7 @@ MCMedit <- function(model, y, z, value) {
       col_to_change <- which(colnames(x$bounds) == z)
     }
     row_to_change <- list(bound=c(1, 2), lbound=1, ubound=2)[[y]]
-    x$bounds[row_to_change, col_to_change] <- value
+    x$bounds[row_to_change[[y]], col_to_change] <- value
   } else if (y == "start") {
     if ((!(z %in% x$param_names)) & !(z %in% c("a", "b", "s", "sk", "k", "fm")) ) {
       stop(paste0("Parameter ", z, " not found"))
