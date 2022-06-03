@@ -65,13 +65,13 @@ MCMfit <- function(model, data, compute_se=TRUE, bootstrap_type='two-step', boot
   #  return(list(positive_confounder=result_positive, negative_confounder=result_negative))
   #}
   # Scale data
-  data_unscaled <- data
+  #data_unscaled <- data
   for (i in 1:ncol(data)) {
     data[,i] <- scale(data[,i])
   }
   if (all(round(data_unscaled, 2) == round(data, 2))) {
-    # Record of data was unscaled prior to function start
-    #TODO: This is for future reference
+   # Record of data was unscaled prior to function start
+   #TODO: This is for future reference
     data_was_unscaled <- TRUE
   }
 

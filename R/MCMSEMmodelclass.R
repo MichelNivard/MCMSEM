@@ -87,8 +87,9 @@ mcmmodelclass$methods(
         }
       }
     }
-    .self$start_values <- .self$start_values[.self$param_names]
-    .self$start_values["start", ] <- .self$param_values
+    .self$start_values <- as.data.frame(t(.self$param_values))
+    colnames(.self$start_values) <- .self$param_names
+    rownames(.self$start_values) <- "start"
     .self$bounds <- .self$bounds[.self$param_names]
   },
   inverse_parse=function() {

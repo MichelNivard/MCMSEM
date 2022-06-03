@@ -40,14 +40,6 @@ MCMmodel <- function(data, n_confounding=1, constrained_a=TRUE) {
     }
   }
 
-  # Scale data
-  data_unscaled <- data
-  data[,1] <- scale(data[,1])
-  data[,2] <- scale(data[,2])
-  # Record if data was unscaled prior to function start
-  #TODO: This is for future reference
-  data_was_unscaled <- (all(round(data_unscaled, 2) == round(data, 2)))
-
   par_names <- list(
     a=a_names,
     b=b_names,
