@@ -25,6 +25,8 @@ Note this is the `dev` branch, and **not** intended for end-users. If you would 
    - Changed column names of MCMfit output to match parameter names
    - Added start_values as an element of MCMmodel class, start values can now be changed via `MCMedit`:
      - `MCMedit(model, "start", "a1", 0.3)`
+   - added `scale_data` option to `MCMmodel` to allow disabling automating data scaling
+     - This option is stored in `model$meta_data$scale_data` and used again in MCMfit so the original dataframe is not changed
  - Update 31-05-2022:
    - MCMfit works
    - Added basic progress bar to MCMfit bootstrap

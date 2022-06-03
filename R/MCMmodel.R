@@ -1,5 +1,5 @@
 # Wrapper function to create mcmmodel instance
-MCMmodel <- function(data, n_confounding=1, constrained_a=TRUE) {
+MCMmodel <- function(data, n_confounding=1, constrained_a=TRUE, scale_data=TRUE) {
   # TODO: Expand checks on how many confoundings can/should be used with or without constrained a depending on input data
   # This should take data instead of n_p, but for now while it doesn't really do anything I left it at n_phenotypes
   ## Make matrices with names
@@ -19,8 +19,14 @@ MCMmodel <- function(data, n_confounding=1, constrained_a=TRUE) {
   }
 
   # Scale data
+  data_unscaled <- data
+  data_scaled <- data
   for (i in 1:ncol(data)) {
     data[,i] <- scale(data[,i])
+  }
+  data_was_scaled <- all(round(data_unscaled, 2) == round(data_scaled, 2))
+  if (scale_data) {
+    data <- data_scaled
   }
 
   n_f <- n_confounding
@@ -94,7 +100,7 @@ MCMmodel <- function(data, n_confounding=1, constrained_a=TRUE) {
                        start_values=start_values,
                        bounds=bounds,
                        meta_data=list(n_phenotypes=n_p, n_confounding=n_f, bound_defaults=bound_defaults,
-                                      data_was_unscaled=data_was_unscaled))
+                                      data_was_scaled=data_was_scaled, scale_data=scale_data))
 
   return(model)
 }
