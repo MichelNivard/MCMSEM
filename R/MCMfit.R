@@ -51,10 +51,13 @@ MCMfit <- function(model, data, compute_se=TRUE, bootstrap_type='two-step', boot
   if (!(bootstrap_type %in% c('two-step', 'one-step')))
     stop("confounding should be one of c('two-step', 'one-step')")
   if (ncol(data) != 2)
-    stop("Currently only a dataframe with 2 columns is supported.")
+    warning("Use of a dataframe with more than 2 columns is still experimental.")
   if (nrow(data) < 1000)
     stop("Currently only a dataframe with at least 1000 rows is supported.")
-
+  if (ncol(data) != model$meta_data$n_phenotypes) {
+    msg <- paste0("Model expected ", model$meta_data$n_phenotypes, " phenotypes but ", ncol(data), " were found in the data. Please create a new model with this dataset.")
+    stop(msg)
+  }
   #TODO: There is no way to do both currently
   #if (confounding == 'both') {
   #  model2 <- model$copy()  # Make a copy of the model instance first, as parameter values are modified inplace
@@ -71,6 +74,9 @@ MCMfit <- function(model, data, compute_se=TRUE, bootstrap_type='two-step', boot
     #TODO: This is for future reference
     data_was_unscaled <- TRUE
   }
+
+  if (compute_se)
+    model_copy <- model$copy()
 
   # Obtain covariance, coskewness and cokurtosis matrices
   M2.obs <- cov(data)
@@ -99,7 +105,7 @@ MCMfit <- function(model, data, compute_se=TRUE, bootstrap_type='two-step', boot
 
   if (compute_se) {
     # Matrix where bootstraps will be stored
-    pars.boot <- matrix(NA,bootstrap_iter,9)
+    pars.boot <- matrix(NA,bootstrap_iter,length(model$param_values))
     # Lower and Upper bounds
     L <- as.numeric(model$bounds["L", ])
     U <- as.numeric(model$bounds["U", ])
@@ -111,9 +117,11 @@ MCMfit <- function(model, data, compute_se=TRUE, bootstrap_type='two-step', boot
       timestart <- Sys.time()
 
       # Matrix where bootstraps will be stored
-
       # Bootstrap
       for (i in 1:bootstrap_iter){
+        ## Progress bar stuff
+        setTxtProgressBar(pb, i)
+        model2 <- model_copy$copy()  # Create new empty model
         #1. Sample from data with replacement
         boot <-   sample(1:nrow(data),nrow(data),T)
         sample <- data[boot,]
@@ -124,16 +132,13 @@ MCMfit <- function(model, data, compute_se=TRUE, bootstrap_type='two-step', boot
         M4.obs <- M4.MM(sample)
 
         #3. Fit model
-        # Start values
-        start <- c(.2,.2,.2,1,1,M3.obs[1,1],M3.obs[2,4],M4.obs[1,1],M4.obs[2,8])
-
         # Estimate parameters with model function specified above
-        nlminb.out <-nlminb(start,objective = .objective,model=model,M2.obs=M2.obs,M3.obs=M3.obs,M4.obs=M4.obs,confounding=confounding,lower = L, upper = U)
-
+        nlminb.out <-nlminb(model2$param_values,objective = .objective,model=model2,M2.obs=M2.obs,M3.obs=M3.obs,M4.obs=M4.obs,lower = L, upper = U)
         # Store point estimates of bootstraps
         pars.boot[i,] <- nlminb.out$par
 
       }
+      close(pb)
       SEs_boot <- apply(pars.boot, 2, sd)
       timeend <- Sys.time()
       boot1 <- timeend-timestart
@@ -145,44 +150,45 @@ MCMfit <- function(model, data, compute_se=TRUE, bootstrap_type='two-step', boot
       ### STEP 1
       # 1. Bind the data to a random sample binning people into "bootstrap_chunks" groups
       step1 <- cbind(data,sample(1:bootstrap_chunks,nrow(data),replace=T))
-      colnames(step1) <- c("x1","x2","group")
+      colnames(step1)[ncol(step1)] <- "group"
       step1 <- as.data.frame(step1)
 
       # 2. Get covariance, coskenwess and cokurtosis matrices per group
-      sample.cov  <- aggregate(1:nrow(step1), by=list(step1$group), function(s)   cov(matrix(c(step1$x1[s],step1$x2[s]),ncol=2,byrow=F)))
-      sample.cosk <- aggregate(1:nrow(step1), by=list(step1$group), function(s) M3.MM(matrix(c(step1$x1[s],step1$x2[s]),ncol=2, byrow=F)))
-      sample.cokr <- aggregate(1:nrow(step1), by=list(step1$group), function(s) M4.MM(matrix(c(step1$x1[s],step1$x2[s]),ncol=2, byrow=F)))
-      pars.boot2 <- matrix(NA,bootstrap_iter,9)
+      sample.cov  <- aggregate(1:nrow(step1), by=list(step1$group), function(s) cov(step1[s, colnames(data)]))
+      sample.cosk <- aggregate(1:nrow(step1), by=list(step1$group), function(s) M3.MM(as.matrix(step1[s, colnames(data)])))
+      sample.cokr <- aggregate(1:nrow(step1), by=list(step1$group), function(s) M4.MM(as.matrix(step1[s, colnames(data)])))
+      pars.boot2 <- matrix(NA,nrow=bootstrap_iter,ncol=length(model$param_values))
 
       ### STEP 2
 
       for (i in 1:bootstrap_iter){
-## Progress bar stuff
+        ## Progress bar stuff
         setTxtProgressBar(pb, i)
+        model2 <- model_copy$copy()  # Create new empty model
         # 3. Sample cov/cosk/cokrt matrices and obtain mean of the sampled matrices
         #to use as cov/cosk/cokrt matrix in the model
         boot <-   sample(1:bootstrap_chunks,bootstrap_chunks,T)
-        M2.obs <-   matrix(colMeans(sample.cov [boot,-1]),2,2, byrow=T)
-        M3.obs <-   matrix(colMeans(sample.cosk[boot,-1]),2,4, byrow=T)
-        M4.obs <-   matrix(colMeans(sample.cokr[boot,-1]),2,8, byrow=T)
+        M2.obs <-   matrix(colMeans(sample.cov [boot,-1]),ncol(data),ncol(data), byrow=T)
+        M3.obs <-   matrix(colMeans(sample.cosk[boot,-1]),ncol(data),ncol(data)^2, byrow=T)
+        M4.obs <-   matrix(colMeans(sample.cokr[boot,-1]),ncol(data),ncol(data)^3, byrow=T)
 
 
         # 4. Fit model,
-        start <- c(.2,.2,.2,1,1,M3.obs[1,1],M3.obs[2,4],M4.obs[1,1],M4.obs[2,8])
-        nlminb.out <-nlminb(start,objective = .objective,model=model,M2.obs=M2.obs,M3.obs=M3.obs,M4.obs=M4.obs,lower = L, upper = U)
+        nlminb.out <-nlminb(model2$param_values,objective = .objective,model=model,M2.obs=M2.obs,M3.obs=M3.obs,M4.obs=M4.obs,lower = L, upper = U)
         pars.boot2[i,] <- nlminb.out$par
 
       }
+      close(pb)
       SEs_boot <- apply(pars.boot2, 2, sd)
       endtime <- Sys.time()
       boot2 <- endtime - starttime
     }
-    cat("\n")  # Prevent things from printing over completed progress bar
+    #cat("\n")  # Prevent things from printing over completed progress bar
     # Table of point estimates and SE's
     results <- rbind(results, c(SEs_boot,NA))
   }
 
-  colnames(results) <- c("a", "b1", "b2", "vare1", "vare2", "skewe1", "skewe2", "kurte1", "kurte2", "mimize.obj")
+  colnames(results) <- c(model$param_names, "mimize.obj")
   rownames(results) <- if(compute_se) c("est", "se") else c("est")
   return(results)
 }

@@ -66,9 +66,9 @@ MCMmodel <- function(data, n_confounding=1, constrained_a=TRUE) {
     k_starts <- c(k_starts, M4.obs[i, i + (i-1)*n_p + (i-1)*n_p**2])
   }
   par <- list(
-    a=rep(.2, length(unique(par_names[['a']]))),
-    b=rep(.2, length(unique(par_names[['b']]))),
-    s=rep(1, length(unique(par_names[['s']]))),
+    a=rep(.2, length(par_names[['a']])),
+    b=rep(.2, length(par_names[['b']])),
+    s=rep(1, length(par_names[['s']])),
     sk=sk_starts,
     k=k_starts
   )
@@ -80,8 +80,12 @@ MCMmodel <- function(data, n_confounding=1, constrained_a=TRUE) {
   bound_defaults <- list(L=list(a=-1, b=-.5, s=0.01, sk=-5, k=0, fm=-1),
                          U=list(a=1, b=1, s=2, sk=18, k=100, fm=1))
   num_matrices <- .gen_matrices(par, n_p, n_f, base_value=0)
+  start_values <- as.data.frame(t(unlist(par)))
+  colnames(start_values) <- unlist(par_names)
+  rownames(start_values) <- "start"
   return(mcmmodelclass(named_matrices=named_matrices,
                        num_matrices=num_matrices,
+                       start_values=start_values,
                        bounds=bounds,
                        meta_data=list(n_phenotypes=n_p, n_confounding=n_f, bound_defaults=bound_defaults,
                                       data_was_unscaled=data_was_unscaled)))

@@ -4,20 +4,31 @@ R-package which allows users to run multi co-moment structural equation models.
 ## Development branch
 Note this is the `dev` branch, and **not** intended for end-users. If you would like to use MCMSEM yourself, please go to the main branch. If you would like to contribute to the code, feel free to check this branch out.
 
-Patch notes thus far (v0.2.0-dev):
+### Patch notes thus far (v0.2.0-dev)
  - Added mcmmodelclass, this class describes the layout of the MCMSEM model complete with parameter matrices, parameter/starting values, and bounds.
  - Addded MCMmodel wrapper function to enable easy creation of mcmmodelclass instances for users
  - Added MCMedit to make editing a model easier (e.g. adding or constraining parameters, changing bounds, etc.)
  - Added MCMfit
- - Setting the confounder to be negative is slightly harder than in the previous version, as it (for now) requires manual edits to the model:
-   - `model <- MCMedit(model, "A", c(2,1), "-a1")`, note `c(2, 1)` are parameter coordinates in the A matrix and may depend on the number of confounders added to the model.
+ - Setting the confounder to be negative is slightly harder than in the previous version, as it (for now) requires manual edits to the model:  
+   `model <- MCMedit(model, "A", c(2,1), "-a1")`, note `c(2, 1)` are parameter coordinates in the A matrix and may depend on the number of confounders added to the model.
+ - Output column names have changed to be identical to parameter names  
+
+### Code updates
+ - Update 03-06-2022:
+   - Fixed an issue causing starting values to not be properly assigned to a-parameters with >1 confounding
+   - Updated bootstrap to work with >2 input data columns
+   - Updated bootstrap to work with >1 confounding
+   - All of MCMfit should now work with an arbitrary number of input data columns and confounders
+   - Changed error in MCMfit when provided with 3 columns of data to a warning that this is still experimental
+   - Changed column names of MCMfit output to match parameter names
+   - Added start_values as an element of MCMmodel class, start values can now be changed via `MCMedit`:
+     - `MCMedit(model, "start", "a1", 0.3)`
  - Update 31-05-2022:
    - MCMfit works
    - Added basic progress bar to MCMfit bootstrap
    - Changed `mcmedit` to `MCMedit` to be in line with capitalization of other functions
    - Changed usage of `MCMedit` from `MCMedit(model, matrix, cell) <- value` to `model <- MCMedit(model, matrix, cell, value)`
-   - `model <- MCMedit(model, matrix, cell, value)` now also creates a copy of model instead of modifying inplace. 
-     - *Personal note: This is not required we could revert to simply `MCMedit(model, matrix, cell, value)` and make `MCMedit` not hardcopy the `model` instance, but I think R user are more likely to expect `model2 <- MCMedit(model, ...)` to create a new model-instance... Correct me if I'm wrong.*
+   - `model <- MCMedit(model, matrix, cell, value)` now also creates a copy of model instead of modifying inplace.
    - Removed old `MCMSEM` and `.fn` functions from code
    - Removed old Usage text from README
    - Added options for negative versions of parameters (mainly for `-a1` as negative confounder).
@@ -27,12 +38,14 @@ Patch notes thus far (v0.2.0-dev):
 
 ### Things still TODO:
 1. Check if results of positive/negative confounder are identical to master branch
-2. Create detailed manual page for MCMedit
-3. Change MCMedit argument names to sensible ones
-4. Make bootstrap MCMfit run in parallel
+2. Rename columns of MCMfit output to better reflect column names of input data, e.g. `b_age_pheno` instead of `b1_2`
+   - Easiest is probably to store these names somewhere and simply replace them.
+3. Create detailed manual page for MCMedit
+4. Change MCMedit argument names to sensible ones
+5. Make bootstrap MCMfit run in parallel
    - Note: current progress bar is not suited for parallel bootstrap
-5. Update tests to reflect new coding style.
-6. Move these semi-improvised notes to README and/or manual:
+6. Update tests to reflect new coding style.
+7. Move these semi-improvised notes to README and/or manual:
 ```
 # Create model
 mcmmodel <- MCMmodel(data, n_confounding = 1, constrained_a=TRUE)  # n_p is n_phenotypes, will be replaced with data eventually
@@ -72,12 +85,16 @@ mcmmodel$bounds
 mcmmodel <- MCMedit(mcmmodel, "bound", "a1", c(-1, 1))
 mcmmodel$bounds
 # Set lower and upper bounds of all b parameters to -1, 1
-mcmmodel <- MCMedit(mcmmodel, "bound", "b", <- c(-1, 1))
+mcmmodel <- MCMedit(mcmmodel, "bound", "b", c(-1, 1))
 mcmmodel$bounds
 # Set upper bound of all k parameters to 200
-mcmmodel <- MCMedit(mcmmodel, "ubound", "k", <- 200)
+mcmmodel <- MCMedit(mcmmodel, "ubound", "k", 200)
 mcmmodel$bounds
-# a2 is added, Fm1 is added, and b1 is removed
+# Set the starting value of b2 to 1.5
+mcmmodel <- MCMedit(mcmmodel, "start", "b2", 1.5)
+# Set the starting value of all a parameters to 1.0
+mcmmodel <- MCMedit(mcmmodel, "start", "a", 1.0)
+
 # Fit the model
 MCMfit(mcmmodel, estimate_SE=TRUE, bootstrap_iter=2000)
 ```

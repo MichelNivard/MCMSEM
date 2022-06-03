@@ -43,9 +43,17 @@ MCMedit <- function(model, y, z, value) {
     row_to_change <- list(bound=c(1, 2), lbound=1, ubound=2)[[y]]
     x$bounds[row_to_change, col_to_change] <- value
   } else if (y == "start") {
-    if (!(z %in% x$param_names))
+    if ((!(z %in% x$param_names)) & !(z %in% c("a", "b", "s", "sk", "k", "fm")) ) {
       stop(paste0("Parameter ", z, " not found"))
-    x$param_values[x$param_names == z] <- value
+    } else if (z %in% c("a", "b", "s", "sk", "k", "fm")) {
+      cols_to_change <- which(sub("^([[:alpha:]]*).*", "\\1", colnames(x$start_values)) == z)
+      x$start_values["start", cols_to_change] <- value
+      x$param_values[cols_to_change] <- value
+    } else {
+      x$start_values[z] <- value
+      x$param_values[x$param_names == z] <- value
+    }
+    x$inverse_parse()
   } else {
     stop("Second input argument not recognized")
   }
