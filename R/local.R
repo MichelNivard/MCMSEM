@@ -66,3 +66,54 @@
   matrices[['K']] <- K
   return(matrices)
 }
+
+# Make pseudo obs for standard errors:
+t4crossprod <- function(x){
+  
+  c(.m2m2v(tcrossprod(x)),.m3m2v(t(x%o%x%x%x)),.m4m2v(t(x%o%x%x%x%x%x)))
+  
+}
+
+######## Compute Jacobian:
+  jac.fn <- function(par,model){
+    
+    n_p <- model$meta_data$n_phenotypes + model$meta_data$n_confounding
+    # Model function
+    ### Assign new parameter values to the matrices
+    model$param_values <- par
+    for (i in 1:length(model$param_coords)) {
+      model$num_matrices[[model$param_coords[[i]][[1]]]][model$param_coords[[i]][[2]]] <- model$param_values[i] * model$param_coords[[i]][[3]]
+    }
+    # Extract matrices
+    A  <- model$num_matrices[["A"]]
+    Fm <- model$num_matrices[["Fm"]]
+    S  <- model$num_matrices[["S"]]
+    Sk <- model$num_matrices[["Sk"]]
+    K <- model$num_matrices[["K"]]
+    
+    K[,] <- 0
+    # there are some non 0 entries in S4, fix those using existing K1_ref
+    K[model$num_matrices[["K1_ref"]]] <- 1
+    # these are function of S2 matrix
+    K <- sqrt(S) %*% K %*% (sqrt(S) %x% sqrt(S) %x% sqrt(S))
+    for (i in 1:model$meta_data$n_confounding) {
+      K[i, i + (i-1)*(n_p) + (i-1)*((n_p)^2)]  <- 3
+    }
+    # Re-enter values for K
+    for (i in 1:length(model$param_coords)) {
+      if (model$param_coords[[i]][[1]] == "K") {
+        K[model$param_coords[[i]][[2]]] <- model$param_values[i]
+      }
+    }
+    
+    ###### Compute the observed cov, cosk, and cokurt matrices #################
+    ############################################### (see section 2.2 paper) ####
+    M2 <- Fm %*% solve(diag(n_p) - A) %*% S %*%  t(solve(diag(n_p)-A))  %*% t(Fm)
+    M3 <- Fm %*% solve(diag(n_p) - A) %*% Sk %*% (t(solve(diag(n_p)-A)) %x% t(solve(diag(n_p)-A))) %*% (t(Fm) %x% t(Fm))
+    M4 <- Fm %*% solve(diag(n_p) - A) %*% K %*%  (t(solve(diag(n_p)-A)) %x% t(solve(diag(n_p)-A))  %x%  t(solve(diag(n_p)-A))) %*% (t(Fm) %x% t(Fm) %x% t(Fm))
+    
+    ### Loss function
+    value <- c(.m2m2v(M2),.m3m2v(M3),.m4m2v(M4))
+    value
+  }
+
