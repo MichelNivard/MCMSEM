@@ -42,13 +42,13 @@
 }
 
 
-MCMfit <- function(model, data, compute_se=TRUE, bootstrap_type='two-step', bootstrap_iter=200,bootstrap_chunks=1000) {
+MCMfit <- function(model, data, compute_se=TRUE, se_type='asymptotic', bootstrap_iter=200,bootstrap_chunks=1000) {
   #TODO: Add arguments for fitting either x->y or y->x path as opposed to both (which should remain the default)
   #TODO: Expand manual
   #if (!(confounding %in% c('positive', 'negative', 'both')))
   #  stop("confounding should be one of c('positive', 'negative', 'both')")
-  if (!(bootstrap_type %in% c('two-step', 'one-step')))
-    stop("confounding should be one of c('two-step', 'one-step')")
+  if (!(se_type %in% c('two-step', 'one-step','asymptotic')))
+    stop("se_type should be one of c('two-step', 'one-step','asymptotic')")
   if (ncol(data) != 2)
     warning("Use of a dataframe with more than 2 columns is still experimental.")
   if (nrow(data) < 1000)
@@ -72,7 +72,7 @@ MCMfit <- function(model, data, compute_se=TRUE, bootstrap_type='two-step', boot
       }
   }
 
-  if (compute_se)
+  if (compute_se) ###????
     model_copy <- model$copy()
 
   # Obtain covariance, coskewness and cokurtosis matrices
@@ -101,6 +101,12 @@ MCMfit <- function(model, data, compute_se=TRUE, bootstrap_type='two-step', boot
   # This might be something that should be built in automatically.
 
   if (compute_se) {
+    
+    if(se_type = 'asymptotic'){
+      SEs <- std.err(data=data,par=nlminb.out$par,model=model)
+      }
+      
+    if(se_type != 'asymptotic') {
     # Matrix where bootstraps will be stored
     pars.boot <- matrix(NA,bootstrap_iter,length(model$param_values))
     # Lower and Upper bounds
@@ -108,7 +114,8 @@ MCMfit <- function(model, data, compute_se=TRUE, bootstrap_type='two-step', boot
     U <- as.numeric(model$bounds["U", ])
     cat("Starting bootstrap MCMSEM\n")
     pb <- txtProgressBar(0, bootstrap_iter, style = 3, width=min(c(options()$width, 107)))
-    if (bootstrap_type == 'one-step') {
+      }
+    if (se_type == 'one-step') {
       #### BOOT 1:  NORMAL BOOTSTRAP
       ##############################
       timestart <- Sys.time()
@@ -136,10 +143,10 @@ MCMfit <- function(model, data, compute_se=TRUE, bootstrap_type='two-step', boot
 
       }
       close(pb)
-      SEs_boot <- apply(pars.boot, 2, sd)
+      SEs <- apply(pars.boot, 2, sd)
       timeend <- Sys.time()
       boot1 <- timeend-timestart
-    } else if (bootstrap_type == 'two-step') {
+    } else if (se_type == 'two-step') {
       #### BOOT 2: TWO STEP BOOTSTRAP
       ##############################
       starttime <- Sys.time()
@@ -176,13 +183,13 @@ MCMfit <- function(model, data, compute_se=TRUE, bootstrap_type='two-step', boot
 
       }
       close(pb)
-      SEs_boot <- apply(pars.boot2, 2, sd)
+      SEs <- apply(pars.boot2, 2, sd)
       endtime <- Sys.time()
       boot2 <- endtime - starttime
     }
     #cat("\n")  # Prevent things from printing over completed progress bar
     # Table of point estimates and SE's
-    results <- rbind(results, c(SEs_boot,NA))
+    results <- rbind(results, c(SEs,NA))
   }
 
   colnames(results) <- c(model$param_names, "mimize.obj")
