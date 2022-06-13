@@ -117,3 +117,39 @@ t4crossprod <- function(x){
     value
   }
 
+
+### pull it together to make std errors:
+std.err <- function(data,par,model){
+  
+n <- nrow(data)
+# if there is too much data for spoeedly opperation, sample 200000 observations to base this on
+ if(n > 200000){
+   
+   samp <- sample(1:n,200000,T)
+   data <- data[samp,]
+ }
+
+
+# observed cov between pseudo obsertvations ovver n-1 gets us cov betwene moments moments
+S.m <- cov(t(apply(scale(data,center = T,scale = F),1,t4crossprod)))/(n-1)
+
+# weights matrix, works well if N is large
+W <- solve(S.m)
+  
+
+
+
+G <- jacobian(func = jac.fn,x = par,model=model)
+print(dim(G))
+print(dim(W))
+Asycov <- solve(t(G)%*%W%*%G)
+
+
+se <- sqrt(diag(Asycov))
+
+se
+
+}
+
+
+
