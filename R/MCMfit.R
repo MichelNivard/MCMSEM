@@ -91,7 +91,7 @@ MCMfit <- function(model, data, compute_se=TRUE, se_type='asymptotic', bootstrap
   nlminb.out <-nlminb(start,objective = .objective,model=model,M2.obs=M2.obs,M3.obs=M3.obs,M4.obs=M4.obs,lower = L, upper = U)
 
   # Store estimates including minimization objective, using this to evaluate/compare fit
-  results        <-  as.data.frame(matrix(c(nlminb.out$par, nlminb.out$objective), nrow = 1))
+  results <-  as.data.frame(matrix(c(nlminb.out$par, nlminb.out$objective), nrow = 1))
 
   ## NOTE:
   # When fitting to real data, we compare model with pos. confounder with
