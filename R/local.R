@@ -140,8 +140,6 @@ W <- solve(S.m)
 
 
 G <- jacobian(func = jac.fn,x = par,model=model)
-print(dim(G))
-print(dim(W))
 Asycov <- solve(t(G)%*%W%*%G)
 
 
