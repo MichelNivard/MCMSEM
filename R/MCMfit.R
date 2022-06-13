@@ -101,11 +101,11 @@ MCMfit <- function(model, data, compute_se=TRUE, se_type='asymptotic', bootstrap
   # This might be something that should be built in automatically.
 
   if (compute_se) {
-    
+
     if(se_type == 'asymptotic'){
       SEs <- std.err(data=data,par=nlminb.out$par,model=model)
       }
-      
+
     if(se_type != 'asymptotic') {
     # Matrix where bootstraps will be stored
     pars.boot <- matrix(NA,bootstrap_iter,length(model$param_values))
