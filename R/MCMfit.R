@@ -102,7 +102,7 @@ MCMfit <- function(model, data, compute_se=TRUE, se_type='asymptotic', bootstrap
 
   if (compute_se) {
     
-    if(se_type = 'asymptotic'){
+    if(se_type == 'asymptotic'){
       SEs <- std.err(data=data,par=nlminb.out$par,model=model)
       }
       
