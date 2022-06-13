@@ -118,7 +118,7 @@ jac.fn <- function(par,model){
 }
 
 ### pull it together to make std errors:
-std.err <- function(data,par,model){
+.std.err <- function(data,par,model){
 
   n <- nrow(data)
   # if there is too much data for spoeedly opperation, sample 200000 observations to base this on
@@ -132,7 +132,8 @@ std.err <- function(data,par,model){
   S.m <- cov(t(apply(scale(data,center = T,scale = F),1,t4crossprod)))/(n-1)
   # weights matrix, works well if N is large
   W <- solve(S.m)
-
+  print(par)
+  print(model)
   G <- jacobian(func = jac.fn,x = par,model=model)
   Asycov <- solve(t(G)%*%W%*%G)
 
@@ -143,4 +144,34 @@ std.err <- function(data,par,model){
 }
 
 
+# wrapper function to make the code more R-like
+.torch_kron <- function(a, b) {
+  return(a$kron(b))
+}
 
+# Turn 1D index into 2D index
+.r_1to2d_idx <- function(x, nrows) {
+  row <- (x-1) %% nrows + 1
+  col <- floor((x-1) / nrows) +1
+  return(c(row, col))
+}
+
+.get_torch_coords <- function(model) {
+  # parameter coordinates need to be translated as torch does not accept single intiger index for 2d matrix
+  torch_coords <- list()
+  for (i in 1:length(model$param_coords)) {
+    i_par <- model$param_coords[[i]]
+    i_mat_name <- i_par[[1]]
+    i_coords <- i_par[[2]]
+    i_mult <- i_par[[3]]
+    i_mat <- model$num_matrices[[i_mat_name]]
+    for (j in 1:length(i_coords)) {
+      i_row_coords <- .r_1to2d_idx(i_coords[j], nrow(i_mat))[1]
+      i_col_coords <- .r_1to2d_idx(i_coords[j], nrow(i_mat))[2]
+      torch_coords <- append(torch_coords, list(list(
+        mat_name=i_mat_name, row=i_row_coords, col=i_col_coords,
+        par=i, mult=torch_tensor(i_mult[j]))))
+    }
+  }
+  return(torch_coords)
+}

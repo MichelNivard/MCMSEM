@@ -72,8 +72,8 @@ MCMmodel <- function(data, n_confounding=1, constrained_a=TRUE, scale_data=TRUE)
     k_starts <- c(k_starts, M4.obs[i, i + (i-1)*n_p + (i-1)*n_p**2])
   }
   par <- list(
-    a=rep(0, length(par_names[['a']])),
-    b=rep(0, length(par_names[['b']])),
+    a=rep(0.2, length(par_names[['a']])),
+    b=rep(0.2, length(par_names[['b']])),
     s=rep(1, length(par_names[['s']])),
     sk=sk_starts,
     k=k_starts
