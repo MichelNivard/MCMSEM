@@ -130,17 +130,18 @@ std.err <- function(data,par,model){
 
   # observed cov between pseudo obsertvations ovver n-1 gets us cov betwene moments moments
   S.m <- cov(t(apply(scale(data,center = T,scale = F),1,t4crossprod)))/(n-1)
-  # weights matrix, works well if N is large
-  W <- solve(S.m)
+  # weights matrix is based on diagonal, may be better behaved?
+  W <- solve(diag(nrow(S.m)) * S.m)
 
   G <- jacobian(func = jac.fn,x = par,model=model)
-  Asycov <- solve(t(G)%*%W%*%G)
+  Asycov <- solve(t(G)%*%W%*%G) %*% t(G)%*%W%*%S.m %*%W%*%G %*% solve(t(G)%*%W%*%G)
 
   se <- sqrt(diag(Asycov))
 
   se
 
 }
+
 
 
 
