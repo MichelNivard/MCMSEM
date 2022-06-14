@@ -17,17 +17,14 @@ MCMmodel <- function(data, n_confounding=1, constrained_a=TRUE, scale_data=TRUE)
   if (n_confounding > ncol(data)) {
     stop("Cannot use more confounding factors than phenotypes present in the data")
   }
-  data <- as.matrix(data)
   # Scale data
-  data_unscaled <- data
-  data_scaled <- data
-  for (i in 1:ncol(data)) {
-    data[,i] <- scale(data[,i])
-  }
-  data_was_scaled <- all(round(data_unscaled, 2) == round(data_scaled, 2))
+  data_scaled <- apply(data, 2, scale)
+  data_was_scaled <- all(round(data, 2) == round(data_scaled, 2))
   if (scale_data) {
     data <- data_scaled
   }
+
+  data <- as.matrix(data)
 
   n_f <- n_confounding
   n_p <- ncol(data)
@@ -69,11 +66,11 @@ MCMmodel <- function(data, n_confounding=1, constrained_a=TRUE, scale_data=TRUE)
   k_starts <- c()
   for (i in 1:n_p) {
     sk_starts <- c(sk_starts, M3.obs[i, i + (i-1)*n_p])
-    k_starts <- c(k_starts, M4.obs[i, i + (i-1)*n_p + (i-1)*n_p**2])
+    k_starts <- c(k_starts, M4.obs[i, i + (i-1)*n_p + (i-1)*n_p^2])
   }
   par <- list(
-    a=rep(0, length(par_names[['a']])),
-    b=rep(0, length(par_names[['b']])),
+    a=rep(0.1, length(par_names[['a']])),
+    b=rep(0.1, length(par_names[['b']])),
     s=rep(1, length(par_names[['s']])),
     sk=sk_starts,
     k=k_starts

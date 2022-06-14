@@ -13,8 +13,11 @@ This branch is for a potential move to torch for R backend
  - Setting the confounder to be negative is slightly harder than in the previous version, as it (for now) requires manual edits to the model:  
    `model <- MCMedit(model, "A", c(2,1), "-a1")`, note `c(2, 1)` are parameter coordinates in the A matrix and may depend on the number of confounders added to the model.
  - Output column names have changed to be identical to parameter names  
-
+ 
 ### Code updates
+ - Update 14-06-2022:
+   - Added parametric computation of standard errors
+   - Fixed bug with standardizing data 
  - Update 03-06-2022:
    - Fixed an issue causing error with dataframe input.
    - Fixed an issue causing starting values to not be properly assigned to a-parameters with >1 confounding
