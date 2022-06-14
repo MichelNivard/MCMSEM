@@ -1,5 +1,43 @@
 # Fit MCM model
 # Objective function
+# torch-ready versions of
+.torch_m2m2v <- function(x) {
+  return(x[lower.tri(x, diag=TRUE)])
+}
+.torch_m3m2v <- function(x) {
+  p <- x$shape[1]
+  M3vec <- torch_empty(p * (p + 1) * (p + 2) / 6)
+  iter <- 1
+  for (i in 0:(p-1)) {
+    for (j in i:(p-1)) {
+      for (k in j:(p-1)) {
+        coords <- .r_1to2d_idx(((i * p + j) * p + k)+1, p)
+        M3vec[iter] <- x[coords[1], coords[2]]
+        iter <- iter + 1
+      }
+    }
+  }
+  return(M3vec)
+}
+
+.torch_m4m2v <- function(x) {
+  p <- nrow(x)
+  M4vec <- torch_empty(p * (p + 1) * (p + 2) * (p + 3) / 24)
+  iter <- 1
+  for (i in 0:(p-1)) {
+    for (j in i:(p-1)) {
+      for (k in j:(p-1)) {
+        for (l in k:(p-1)) {
+          coords <- .r_1to2d_idx(((i * p * p + j * p + k) * p + l) + 1, p)
+          M4vec[iter] <- x[coords[1], coords[2]]
+          iter <- iter + 1
+        }
+      }
+    }
+  }
+  return(M4vec)
+}
+
 .torch_objective <- function(.par, model, torch_coords, M2.obs, M3.obs, M4.obs) {
   torch_A  <- torch_tensor(model$num_matrices[["A"]])
   torch_Fm <- torch_tensor(model$num_matrices[["Fm"]])
@@ -57,27 +95,38 @@
 
   ### Loss function
   # value <- sum((.m2m2v(M2.obs) - .m2m2v(M2))^2) + sum((.m3m2v(M3.obs) - .m3m2v(M3))^2) + sum((.m4m2v(M4.obs)- .m4m2v(M4))^2)
-  value <- torch_sum((torch_square(torch_tril(M2.obs) - torch_tril(M2))))  +  torch_sum((torch_square(torch_tril(M3.obs$reshape(c(2,2,2))) - torch_tril(M3$reshape(c(2,2,2)))))) + torch_sum((torch_square(torch_tril(M4.obs$reshape(c(2,2,2,2)))- torch_tril(M4$reshape(c(2,2,2,2))))))
+  # value <- torch_sum((torch_square(torch_tril(M2.obs) - torch_tril(M2))))  +  torch_sum((torch_square(torch_tril(M3.obs$reshape(c(2,2,2))) - torch_tril(M3$reshape(c(2,2,2)))))) + torch_sum((torch_square(torch_tril(M4.obs$reshape(c(2,2,2,2)))- torch_tril(M4$reshape(c(2,2,2,2))))))
+  value <- torch_sum((torch_square(.torch_m2m2v(M2.obs) - .torch_m2m2v(M2))))  +  torch_sum((torch_square(.torch_m3m2v(M3.obs) - .torch_m3m2v(M3)))) + torch_sum((torch_square(.torch_m4m2v(M4.obs)- .torch_m4m2v(M4))))
   return(value)
 }
 
-.torch_fit <- function(model, torch_coords, M2.obs, M3.obs, M4.obs, learning_rate, max_iter, optim_tol) {
-  .par <- torch_tensor(model$param_values, requires_grad=TRUE)
-  optim <- optim_rprop(.par, lr=learning_rate)
-  for (i in 1:max_iter) {
+.torch_fit <- function(model, torch_coords, M2.obs, M3.obs, M4.obs, learning_rate) {
+  .par <- torch_tensor(as.numeric(model$start_values), requires_grad=TRUE)
+  optim <- optim_rprop(.par,lr = learning_rate)
+  for (i in 1:50) {
     optim$zero_grad()
     loss <- .torch_objective(.par, model, torch_coords, M2.obs, M3.obs, M4.obs)
     loss$backward()
     optim$step()
-    #if (i > 1) cat(paste0("step",i,": loss", round(as.numeric(loss), 2), "diff:", round(as.numeric(loss-previous_loss), 2), "\n"))
-    if (i > 2) {if (as.numeric(torch_less_equal(torch_abs(previous_loss-loss), optim_tol))) break}
-    previous_loss <- loss
+    cat(paste0("loss", as.numeric(loss), "\n"))
+  }
+  # Use lbfgs to get really close....
+  learning_rate <-1
+  optim <- optim_lbfgs(.par,lr= learning_rate)
+  calc_loss_torchfit <- function() {
+    optim$zero_grad()
+    loss <- .torch_objective(.par, model, torch_coords, M2.obs, M3.obs, M4.obs)
+    cat(paste0("loss", as.numeric(loss), "\n"))
+    loss$backward()
+  }
+  for (i in 1:12) {
+    optim$step(calc_loss_torchfit)
   }
   return(.par)
 }
 
 MCMfit <- function(model, data, compute_se=TRUE, se_type='asymptotic', bootstrap_iter=200,bootstrap_chunks=1000,
-                   learning_rate=0.005, max_iter=5000, optim_tol=1e-8) {
+                   learning_rate=0.02) {
   #TODO: Add arguments for fitting either x->y or y->x path as opposed to both (which should remain the default)
   #TODO: Expand manual
   #if (!(confounding %in% c('positive', 'negative', 'both')))
@@ -115,7 +164,7 @@ MCMfit <- function(model, data, compute_se=TRUE, se_type='asymptotic', bootstrap
 
   torch_coords <- .get_torch_coords(model)
   # Obtain estimates with optimizer
-  .par <- .torch_fit(model, torch_coords, M2.obs, M3.obs, M4.obs, learning_rate, max_iter, optim_tol)
+  .par <- .torch_fit(model, torch_coords, M2.obs, M3.obs, M4.obs, learning_rate)
   # Store estimates including minimization objective, using this to evaluate/compare fit
   results <-  as.data.frame(matrix(as.numeric(.par), nrow = 1))
 
