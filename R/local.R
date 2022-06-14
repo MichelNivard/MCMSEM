@@ -136,7 +136,7 @@ std.err <- function(data,par,model){
   G <- jacobian(func = jac.fn,x = par,model=model)
   Asycov <- solve(t(G)%*%W%*%G) %*% t(G)%*%W%*%S.m %*%W%*%G %*% solve(t(G)%*%W%*%G)
 
-  se <- sqrt(diag(Asycov))
+  se <- sqrt(2)*sqrt(diag(Asycov))
 
   se
 
