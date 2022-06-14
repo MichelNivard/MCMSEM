@@ -100,6 +100,13 @@
   return(value)
 }
 
+calc_loss_torchfit <- function() {
+  optim$zero_grad()
+  loss <- .torch_objective(.par, model, torch_coords, M2.obs, M3.obs, M4.obs)
+  cat(paste0("loss", as.numeric(loss), "\n"))
+  loss$backward()
+}
+
 .torch_fit <- function(model, torch_coords, M2.obs, M3.obs, M4.obs, learning_rate) {
   .par <- torch_tensor(as.numeric(model$start_values), requires_grad=TRUE)
   optim <- optim_rprop(.par,lr = learning_rate)
@@ -113,12 +120,6 @@
   # Use lbfgs to get really close....
   learning_rate <-1
   optim <- optim_lbfgs(.par,lr= learning_rate)
-  calc_loss_torchfit <- function() {
-    optim$zero_grad()
-    loss <- .torch_objective(.par, model, torch_coords, M2.obs, M3.obs, M4.obs)
-    cat(paste0("loss", as.numeric(loss), "\n"))
-    loss$backward()
-  }
   for (i in 1:12) {
     optim$step(calc_loss_torchfit)
   }
