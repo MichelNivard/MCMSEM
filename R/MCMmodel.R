@@ -19,13 +19,9 @@ MCMmodel <- function(data, n_confounding=1, constrained_a=TRUE, scale_data=TRUE)
   }
   data <- as.matrix(data)
   # Scale data
-  data_unscaled <- data
-  data_scaled <- data
-  for (i in 1:ncol(data)) {
-    data[,i] <- scale(data[,i])
-  }
-  data_was_scaled <- all(round(data_unscaled, 2) == round(data_scaled, 2))
-  if (scale_data) {
+  data_scaled <- apply(data, 2, scale)
+  data_was_scaled <- all(round(data, 2) == round(data_scaled, 2))
+  if ((scale_data) & !(data_was_scaled)) {
     data <- data_scaled
   }
 

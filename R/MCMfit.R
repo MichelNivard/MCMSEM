@@ -101,10 +101,8 @@ MCMfit <- function(model, data, compute_se=TRUE, se_type='asymptotic', bootstrap
   #}
   data <- as.matrix(data)
   # Scale data
-  if (model$meta_data$scale_data) {
-      for (i in 1:ncol(data)) {
-        data[,i] <- scale(data[,i])
-      }
+  if ((model$meta_data$scale_data) & !(model$meta_data$data_was_scaled)) {
+      data <- apply(data, 2, scale)
   }
 
   if (compute_se) ###????
