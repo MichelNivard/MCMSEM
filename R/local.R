@@ -121,10 +121,10 @@ jac.fn <- function(par,model){
 std.err <- function(data,par,model){
 
   n <- nrow(data)
-  # if there is too much data for spoeedly opperation, sample 25000 observations to base this on
-  if(n > 25000){
+  # if there is too much data for spoeedly opperation, sample 250000 observations to base this on
+  if(n > 250000){
 
-    samp <- sample(1:n,25000,F)
+    samp <- sample(1:n,250000,F)
     data <- data[samp,]
   }
 
