@@ -83,7 +83,7 @@
   # Use lbfgs to get really close....
   learning_rate <-1
   optim <- optim_lbfgs(.par,lr= learning_rate)
-  for (i in 1:iters[1]) {
+  for (i in 1:iters[2]) {
     optim$step(calc_loss_torchfit)
   }
   return(.par)
