@@ -63,12 +63,14 @@
   return(value)
 }
 
-.torch_fit <- function(model, torch_coords, M2.obs, M3.obs, M4.obs, learning_rate, iters, silent) {
+.torch_fit <- function(model, torch_coords, M2.obs, M3.obs, M4.obs, learning_rate, iters, silent, return_history=FALSE) {
   .par <- torch_tensor(as.numeric(model$start_values), requires_grad=TRUE)
+  loss_hist <- c()
   optim <- optim_rprop(.par,lr = learning_rate)
   for (i in 1:iters[1]) {
     optim$zero_grad()
     loss <- .torch_objective(.par, model, torch_coords, M2.obs, M3.obs, M4.obs)
+    loss_hist <- c(loss_hist, as.numeric(loss))
     loss$backward()
     optim$step()
     if (!(silent)) cat(paste0("loss", as.numeric(loss), "\n"))
@@ -76,6 +78,7 @@
   calc_loss_torchfit <- function() {
     optim$zero_grad()
     loss <- .torch_objective(.par, model, torch_coords, M2.obs, M3.obs, M4.obs)
+    loss_hist <<- c(loss_hist, as.numeric(loss))
     if (!(silent)) {cat(paste0("loss", as.numeric(loss), "\n"))}
     loss$backward()
     return(loss)
@@ -86,7 +89,12 @@
   for (i in 1:iters[1]) {
     optim$step(calc_loss_torchfit)
   }
-  return(.par)
+  if (return_history) {
+    return(list(par=.par, loss_hist=loss_hist))
+  } else {
+    return(.par)
+  }
+
 }
 
 MCMfit <- function(model, data, compute_se=TRUE, se_type='asymptotic', bootstrap_iter=200,bootstrap_chunks=1000,
@@ -130,7 +138,9 @@ MCMfit <- function(model, data, compute_se=TRUE, se_type='asymptotic', bootstrap
   # Obtain estimates with optimizer
   # TODO: Number of iterations is fixed to a default 50 (rprop) and 12 (lbfgs) for now
   iters <- c(50, 12)
-  .par <- .torch_fit(model, torch_coords, M2.obs, M3.obs, M4.obs, learning_rate, iters, silent)
+  out <- .torch_fit(model, torch_coords, M2.obs, M3.obs, M4.obs, learning_rate, iters, silent, return_history = TRUE)
+  .par <- out[['par']]
+  loss_hist <- out[['loss_hist']]
   # Store estimates including minimization objective, using this to evaluate/compare fit
   results <-  as.data.frame(matrix(as.numeric(.par), nrow = 1))
 
@@ -233,6 +243,10 @@ MCMfit <- function(model, data, compute_se=TRUE, se_type='asymptotic', bootstrap
 
   colnames(results) <- model$param_names
   rownames(results) <- if(compute_se) c("est", "se") else c("est")
-  return(results)
+  return(mcmresultclass(df=results, loss=loss_hist[length(loss_hist)],
+                      history=list(
+                        model=model$copy(),
+                        loss=loss_hist
+                      )))
 }
 
