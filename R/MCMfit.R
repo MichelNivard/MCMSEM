@@ -108,7 +108,7 @@ MCMfit <- function(model, data, compute_se=TRUE, se_type='asymptotic', optim_ite
   if (ncol(data) != 2)
     warning("Use of a dataframe with more than 2 columns is still experimental.")
   if (length(optim_iters) != 2) {
-    if (len(optim_iters) == 2) {
+    if (length(optim_iters) == 2) {
       optim_iters <- c(optim_iters, 12) # If one value is passed to optim_iters I'm assuming that would be for RPROP
     } else {
       stop("optim_iters should be of length 2")
