@@ -19,6 +19,7 @@ This branch is for a potential move to torch for R backend
    - Removed updates and todo that belong to `dev`
    - Added `silent` argument to `MCMfit()` to prevent printing loss at every step
    - Added MCMresult object to hold result as dataframe, loss, and history (all loss values, and model used)
+   - Added `optim_iters` argument to `MCMfit()` to enable changing number of iterations of each optimizer
 
 ### Things still TODO:
 1. Find a way to change .std.err and/or .jac.fn to use torch_tensors, if that's faster than R-matrices

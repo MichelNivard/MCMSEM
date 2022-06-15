@@ -63,11 +63,11 @@
   return(value)
 }
 
-.torch_fit <- function(model, torch_coords, M2.obs, M3.obs, M4.obs, learning_rate, iters, silent, return_history=FALSE) {
+.torch_fit <- function(model, torch_coords, M2.obs, M3.obs, M4.obs, learning_rate, optim_iters, silent, return_history=FALSE) {
   .par <- torch_tensor(as.numeric(model$start_values), requires_grad=TRUE)
   loss_hist <- c()
   optim <- optim_rprop(.par,lr = learning_rate)
-  for (i in 1:iters[1]) {
+  for (i in 1:optim_iters[1]) {
     optim$zero_grad()
     loss <- .torch_objective(.par, model, torch_coords, M2.obs, M3.obs, M4.obs)
     loss_hist <- c(loss_hist, as.numeric(loss))
@@ -86,7 +86,7 @@
   # Use lbfgs to get really close....
   learning_rate <-1
   optim <- optim_lbfgs(.par,lr= learning_rate)
-  for (i in 1:iters[2]) {
+  for (i in 1:optim_iters[2]) {
     optim$step(calc_loss_torchfit)
   }
   if (return_history) {
@@ -97,7 +97,7 @@
 
 }
 
-MCMfit <- function(model, data, compute_se=TRUE, se_type='asymptotic', bootstrap_iter=200,bootstrap_chunks=1000,
+MCMfit <- function(model, data, compute_se=TRUE, se_type='asymptotic', optim_iters=c(50, 12), bootstrap_iter=200,bootstrap_chunks=1000,
                    learning_rate=0.02, silent=TRUE) {
   #TODO: Add arguments for fitting either x->y or y->x path as opposed to both (which should remain the default)
   #TODO: Expand manual
@@ -107,6 +107,13 @@ MCMfit <- function(model, data, compute_se=TRUE, se_type='asymptotic', bootstrap
     stop("se_type should be one of c('two-step', 'one-step','asymptotic')")
   if (ncol(data) != 2)
     warning("Use of a dataframe with more than 2 columns is still experimental.")
+  if (length(optim_iters) != 2) {
+    if (len(optim_iters) == 2) {
+      optim_iters <- c(optim_iters, 12) # If one value is passed to optim_iters I'm assuming that would be for RPROP
+    } else {
+      stop("optim_iters should be of length 2")
+    }
+  }
   if (nrow(data) < 1000)
     stop("Currently only a dataframe with at least 1000 rows is supported.")
   if (ncol(data) != model$meta_data$n_phenotypes) {
@@ -136,9 +143,7 @@ MCMfit <- function(model, data, compute_se=TRUE, se_type='asymptotic', bootstrap
 
   torch_coords <- .get_torch_coords(model)
   # Obtain estimates with optimizer
-  # TODO: Number of iterations is fixed to a default 50 (rprop) and 12 (lbfgs) for now
-  iters <- c(50, 12)
-  out <- .torch_fit(model, torch_coords, M2.obs, M3.obs, M4.obs, learning_rate, iters, silent, return_history = TRUE)
+  out <- .torch_fit(model, torch_coords, M2.obs, M3.obs, M4.obs, learning_rate, optim_iters, silent, return_history = TRUE)
   .par <- out[['par']]
   loss_hist <- out[['loss_hist']]
   # Store estimates including minimization objective, using this to evaluate/compare fit
@@ -188,7 +193,7 @@ MCMfit <- function(model, data, compute_se=TRUE, se_type='asymptotic', bootstrap
 
         #3. Fit model
         # Estimate parameters with model function specified above
-        .par <- .torch_fit(model2, torch_coords, M2.obs, M3.obs, M4.obs, learning_rate, iters, silent)
+        .par <- .torch_fit(model2, torch_coords, M2.obs, M3.obs, M4.obs, learning_rate, optim_iters, silent)
         # Store point estimates of bootstraps
         pars.boot[i,] <- as.numeric(.par)
 
@@ -228,7 +233,7 @@ MCMfit <- function(model, data, compute_se=TRUE, se_type='asymptotic', bootstrap
 
         #4. Fit model
         # Estimate parameters with model function specified above
-        .par <- .torch_fit(model2, torch_coords, M2.obs, M3.obs, M4.obs, learning_rate, iters, silent)
+        .par <- .torch_fit(model2, torch_coords, M2.obs, M3.obs, M4.obs, learning_rate, optim_iters, silent)
         # Store point estimates of bootstraps
         pars.boot[i,] <- as.numeric(.par)
 
