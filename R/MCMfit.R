@@ -43,7 +43,6 @@
 
 
 MCMfit <- function(model, data, compute_se=TRUE, se_type='asymptotic', bootstrap_iter=200,bootstrap_chunks=1000) {
-  #TODO: Add arguments for fitting either x->y or y->x path as opposed to both (which should remain the default)
   #TODO: Expand manual
   #if (!(confounding %in% c('positive', 'negative', 'both')))
   #  stop("confounding should be one of c('positive', 'negative', 'both')")
@@ -57,7 +56,7 @@ MCMfit <- function(model, data, compute_se=TRUE, se_type='asymptotic', bootstrap
     msg <- paste0("Model expected ", model$meta_data$n_phenotypes, " phenotypes but ", ncol(data), " were found in the data. Please create a new model with this dataset.")
     stop(msg)
   }
-  #TODO: There is no way to do both currently
+  #TODO: There is no way to do both currently, unlikely to return given current structure?
   #if (confounding == 'both') {
   #  model2 <- model$copy()  # Make a copy of the model instance first, as parameter values are modified inplace
   #  result_positive <- MCMSEM(model, data, confounding="positive", compute_se=compute_se, bootstrap_type=bootstrap_type, bootstrap_iter=bootstrap_iter,bootstrap_chunks=bootstrap_chunks)
@@ -70,7 +69,7 @@ MCMfit <- function(model, data, compute_se=TRUE, se_type='asymptotic', bootstrap
       data <- apply(data, 2, scale)
   }
 
-  if (compute_se) ###????
+  if (compute_se)
     model_copy <- model$copy()
 
   # Obtain covariance, coskewness and cokurtosis matrices
@@ -101,7 +100,7 @@ MCMfit <- function(model, data, compute_se=TRUE, se_type='asymptotic', bootstrap
   if (compute_se) {
 
     if(se_type == 'asymptotic'){
-      SEs <- std.err(data=data,par=nlminb.out$par,model=model)
+      SEs <- .std.err(data=data,par=nlminb.out$par,model=model)
       }
 
     if(se_type != 'asymptotic') {

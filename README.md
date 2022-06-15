@@ -15,8 +15,11 @@ This branch is for a potential move to torch for R backend
  - Output column names have changed to be identical to parameter names  
  
 ### Code updates
+ - Update 15-06-2022:
+   - Significantly improved performance of asymptotic SE calculation
+   - Removed TODO "Add arguments for fitting either x->y or y->x path as opposed to both (which should remain the default)", this can easily be achieved through MCMedit, up to the user.
  - Update 14-06-2022:
-   - Added parametric computation of standard errors
+   - Added asymptotic computation of standard errors
    - Fixed bug with standardizing data 
  - Update 03-06-2022:
    - Fixed an issue causing error with dataframe input.

@@ -68,14 +68,16 @@
 }
 
 # Make pseudo obs for standard errors:
-t4crossprod <- function(x){
-
-  c(.m2m2v(tcrossprod(x)),.m3m2v(t(x%o%x%x%x)),.m4m2v(t(x%o%x%x%x%x%x)))
-
+.t4crossprod <- function(x, idx){
+  # c(.m2m2v(tcrossprod(x)), .m3m2v(t(x %o% x %x% x)), .m4m2v(t(x %o% x %x% x %x% x)))
+  x2 <- x %o% x
+  x3 <- x2 %x% x
+  x4 <- x3 %x% x
+  c(as.vector(t(x2)), as.vector(t(x3)), as.vector(t(x4)))[idx]
 }
 
 ######## Compute Jacobian:
-jac.fn <- function(par,model){
+.jac.fn <- function(par,model){
 
   n_p <- model$meta_data$n_phenotypes + model$meta_data$n_confounding
   # Model function
@@ -117,23 +119,53 @@ jac.fn <- function(par,model){
   value
 }
 
+.dimlocations <- function(p, dims=2) {
+  if (dims == 2) vect <- rep(0, p * (p + 1)  / 3)
+  if (dims == 3) vect <- rep(0, p * (p + 1) * (p + 2) / 6)
+  if (dims == 4) vect <- rep(0, p * (p + 1) * (p + 2) * (p + 3) / 24)
+  iter <- 1
+  for (i in 0:(p-1)) {
+    for (j in i:(p-1)) {
+      if (dims == 2) {
+        vect[iter] <- ((i * p + j))+1; iter <- iter+1
+      } else {
+        for (k in j:(p-1)) {
+          if (dims == 3) {
+            vect[iter] <- ((i * p + j) * p + k)+1; iter <- iter+1
+        } else {
+            for (l in k:(p-1)){
+              vect[iter] <- (((i * p * p + j * p + k) * p + l) + 1); iter <- iter + 1
+          }}}}}}
+  return(vect)
+}
+
+
 ### pull it together to make std errors:
-std.err <- function(data,par,model){
+.std.err <- function(data,par,model){
 
   n <- nrow(data)
   # if there is too much data for spoeedly opperation, sample 250000 observations to base this on
-  if(n > 250000){
+  if(n > 100000){
 
-    samp <- sample(1:n,250000,F)
-    data <- data[samp,]
+    samp <- sample(1:n,100000,F)
+    data <- data[samp, ]
   }
 
   # observed cov between pseudo obsertvations ovver n-1 gets us cov betwene moments moments
-  S.m <- cov(t(apply(scale(data,center = T,scale = F),1,t4crossprod)))/(n-1)
+  dim2 <- data[1, ] %o% data[1, ]
+  dim3 <- dim2 %x% data[1, ]
+  dim4 <- dim3 %x% data[1, ]
+  dim2locs <- .dimlocations(nrow(dim2), dims=2)
+  dim3locs <- .dimlocations(nrow(t(dim3)), dims=3)
+  dim4locs <- .dimlocations(nrow(t(dim4)), dims=4)
+  idx <- c(dim2locs, length(as.vector(dim2)) + dim3locs,  length(as.vector(dim2)) + length(as.vector(dim3)) + dim4locs)
+  S.m <- apply(scale(data, center = T, scale = F),1, .t4crossprod, idx=idx)
+  S.m <- cov(t(S.m))/(n-1)
+
   # weights matrix is based on diagonal, may be better behaved?
   W <- solve(diag(nrow(S.m)) * S.m)
 
-  G <- jacobian(func = jac.fn,x = par,model=model)
+  G <- jacobian(func = .jac.fn,x = par,model=model)
   Asycov <- solve(t(G)%*%W%*%G) %*% t(G)%*%W%*%S.m %*%W%*%G %*% solve(t(G)%*%W%*%G)
 
   se <- sqrt(2)*sqrt(diag(Asycov))
