@@ -5,7 +5,7 @@ R-package which allows users to run multi co-moment structural equation models.
 Note this is the `dev` branch, and **not** intended for end-users. If you would like to use MCMSEM yourself, please go to the main branch. If you would like to contribute to the code, feel free to check this branch out.  
 This branch is for a potential move to torch for R backend
 
-### Patch notes thus far (v0.2.0-dev)
+### Patch notes thus far (v0.2.1-dev)
  - Added mcmmodelclass, this class describes the layout of the MCMSEM model complete with parameter matrices, parameter/starting values, and bounds.
  - Addded MCMmodel wrapper function to enable easy creation of mcmmodelclass instances for users
  - Added MCMedit to make editing a model easier (e.g. adding or constraining parameters, changing bounds, etc.)
@@ -13,6 +13,7 @@ This branch is for a potential move to torch for R backend
  - Setting the confounder to be negative is slightly harder than in the previous version, as it (for now) requires manual edits to the model:  
    `model <- MCMedit(model, "A", c(2,1), "-a1")`, note `c(2, 1)` are parameter coordinates in the A matrix and may depend on the number of confounders added to the model.
  - Output column names have changed to be identical to parameter names  
+ - Added asymptotic calculation of standard errors for much faster runtimes
  
 ### Code updates
  - Update 15-06-2022 (labelled v0.2.1):
