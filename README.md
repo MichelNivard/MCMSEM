@@ -17,6 +17,8 @@ This branch is for a potential move to torch for R backend
 ### Code updates
  - Update 15-06-2022-torch:
    - Fixed MCMfit so it now actually works
+   - Merged changes to std.err from `dev`
+   - For now, SE calculation is still done with R-matrices (similar to `dev`) as opposed to torch tensors, as I haven't found a way to make it work without significantly impacting performance.
  - Update 03-06-2022:
    - Fixed an issue causing error with dataframe input.
    - Fixed an issue causing starting values to not be properly assigned to a-parameters with >1 confounding

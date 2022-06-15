@@ -1,43 +1,6 @@
 # Fit MCM model
 # Objective function
 # torch-ready versions of
-.torch_m2m2v <- function(x) {
-  return(x[lower.tri(x, diag=TRUE)])
-}
-.torch_m3m2v <- function(x) {
-  p <- x$shape[1]
-  M3vec <- torch_empty(p * (p + 1) * (p + 2) / 6)
-  iter <- 1
-  for (i in 0:(p-1)) {
-    for (j in i:(p-1)) {
-      for (k in j:(p-1)) {
-        coords <- .r_1to2d_idx(((i * p + j) * p + k)+1, p)
-        M3vec[iter] <- x[coords[1], coords[2]]
-        iter <- iter + 1
-      }
-    }
-  }
-  return(M3vec)
-}
-
-.torch_m4m2v <- function(x) {
-  p <- nrow(x)
-  M4vec <- torch_empty(p * (p + 1) * (p + 2) * (p + 3) / 24)
-  iter <- 1
-  for (i in 0:(p-1)) {
-    for (j in i:(p-1)) {
-      for (k in j:(p-1)) {
-        for (l in k:(p-1)) {
-          coords <- .r_1to2d_idx(((i * p * p + j * p + k) * p + l) + 1, p)
-          M4vec[iter] <- x[coords[1], coords[2]]
-          iter <- iter + 1
-        }
-      }
-    }
-  }
-  return(M4vec)
-}
-
 .torch_objective <- function(.par, model, torch_coords, M2.obs, M3.obs, M4.obs) {
   torch_A  <- torch_tensor(model$num_matrices[["A"]])
   torch_Fm <- torch_tensor(model$num_matrices[["Fm"]])
@@ -100,7 +63,7 @@
   return(value)
 }
 
-.torch_fit <- function(model, torch_coords, M2.obs, M3.obs, M4.obs, learning_rate, iters) {
+.torch_fit <- function(model, torch_coords, M2.obs, M3.obs, M4.obs, learning_rate, iters, silent) {
   .par <- torch_tensor(as.numeric(model$start_values), requires_grad=TRUE)
   optim <- optim_rprop(.par,lr = learning_rate)
   for (i in 1:iters[1]) {
@@ -108,12 +71,12 @@
     loss <- .torch_objective(.par, model, torch_coords, M2.obs, M3.obs, M4.obs)
     loss$backward()
     optim$step()
-    cat(paste0("loss", as.numeric(loss), "\n"))
+    if (!(silent)) cat(paste0("loss", as.numeric(loss), "\n"))
   }
   calc_loss_torchfit <- function() {
     optim$zero_grad()
     loss <- .torch_objective(.par, model, torch_coords, M2.obs, M3.obs, M4.obs)
-    cat(paste0("loss", as.numeric(loss), "\n"))
+    if (!(silent)) {cat(paste0("loss", as.numeric(loss), "\n"))}
     loss$backward()
     return(loss)
   }
@@ -127,7 +90,7 @@
 }
 
 MCMfit <- function(model, data, compute_se=TRUE, se_type='asymptotic', bootstrap_iter=200,bootstrap_chunks=1000,
-                   learning_rate=0.02) {
+                   learning_rate=0.02, silent=TRUE) {
   #TODO: Add arguments for fitting either x->y or y->x path as opposed to both (which should remain the default)
   #TODO: Expand manual
   #if (!(confounding %in% c('positive', 'negative', 'both')))
@@ -166,8 +129,8 @@ MCMfit <- function(model, data, compute_se=TRUE, se_type='asymptotic', bootstrap
   torch_coords <- .get_torch_coords(model)
   # Obtain estimates with optimizer
   # TODO: Number of iterations is fixed to a default 50 (rprop) and 12 (lbfgs) for now
-  iters
-  .par <- .torch_fit(model, torch_coords, M2.obs, M3.obs, M4.obs, learning_rate, iters=iters)
+  iters <- c(50, 12)
+  .par <- .torch_fit(model, torch_coords, M2.obs, M3.obs, M4.obs, learning_rate, iters, silent)
   # Store estimates including minimization objective, using this to evaluate/compare fit
   results <-  as.data.frame(matrix(as.numeric(.par), nrow = 1))
 
@@ -215,7 +178,7 @@ MCMfit <- function(model, data, compute_se=TRUE, se_type='asymptotic', bootstrap
 
         #3. Fit model
         # Estimate parameters with model function specified above
-        .par <- .torch_fit(model2, torch_coords, M2.obs, M3.obs, M4.obs, learning_rate, iters=iters)
+        .par <- .torch_fit(model2, torch_coords, M2.obs, M3.obs, M4.obs, learning_rate, iters, silent)
         # Store point estimates of bootstraps
         pars.boot[i,] <- as.numeric(.par)
 
@@ -255,7 +218,7 @@ MCMfit <- function(model, data, compute_se=TRUE, se_type='asymptotic', bootstrap
 
         #4. Fit model
         # Estimate parameters with model function specified above
-        .par <- .torch_fit(model2, torch_coords, M2.obs, M3.obs, M4.obs, learning_rate, iters=iters)
+        .par <- .torch_fit(model2, torch_coords, M2.obs, M3.obs, M4.obs, learning_rate, iters, silent)
         # Store point estimates of bootstraps
         pars.boot[i,] <- as.numeric(.par)
 
