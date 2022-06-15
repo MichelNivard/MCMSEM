@@ -100,27 +100,27 @@
   return(value)
 }
 
-calc_loss_torchfit <- function() {
-  optim$zero_grad()
-  loss <- .torch_objective(.par, model, torch_coords, M2.obs, M3.obs, M4.obs)
-  cat(paste0("loss", as.numeric(loss), "\n"))
-  loss$backward()
-}
-
-.torch_fit <- function(model, torch_coords, M2.obs, M3.obs, M4.obs, learning_rate) {
+.torch_fit <- function(model, torch_coords, M2.obs, M3.obs, M4.obs, learning_rate, iters) {
   .par <- torch_tensor(as.numeric(model$start_values), requires_grad=TRUE)
   optim <- optim_rprop(.par,lr = learning_rate)
-  for (i in 1:50) {
+  for (i in 1:iters[1]) {
     optim$zero_grad()
     loss <- .torch_objective(.par, model, torch_coords, M2.obs, M3.obs, M4.obs)
     loss$backward()
     optim$step()
     cat(paste0("loss", as.numeric(loss), "\n"))
   }
+  calc_loss_torchfit <- function() {
+    optim$zero_grad()
+    loss <- .torch_objective(.par, model, torch_coords, M2.obs, M3.obs, M4.obs)
+    cat(paste0("loss", as.numeric(loss), "\n"))
+    loss$backward()
+    return(loss)
+  }
   # Use lbfgs to get really close....
   learning_rate <-1
   optim <- optim_lbfgs(.par,lr= learning_rate)
-  for (i in 1:12) {
+  for (i in 1:iters[1]) {
     optim$step(calc_loss_torchfit)
   }
   return(.par)
@@ -165,7 +165,9 @@ MCMfit <- function(model, data, compute_se=TRUE, se_type='asymptotic', bootstrap
 
   torch_coords <- .get_torch_coords(model)
   # Obtain estimates with optimizer
-  .par <- .torch_fit(model, torch_coords, M2.obs, M3.obs, M4.obs, learning_rate)
+  # TODO: Number of iterations is fixed to a default 50 (rprop) and 12 (lbfgs) for now
+  iters
+  .par <- .torch_fit(model, torch_coords, M2.obs, M3.obs, M4.obs, learning_rate, iters=iters)
   # Store estimates including minimization objective, using this to evaluate/compare fit
   results <-  as.data.frame(matrix(as.numeric(.par), nrow = 1))
 
@@ -207,21 +209,20 @@ MCMfit <- function(model, data, compute_se=TRUE, se_type='asymptotic', bootstrap
         sample <- data[boot,]
 
         #2. Get covariance, coskewness and cokurtosis matrices
-        M2.obs <-   cov(sample)
-        M3.obs <- M3.MM(sample)
-        M4.obs <- M4.MM(sample)
+        M2.obs <- torch_tensor(cov(sample))
+        M3.obs <- torch_tensor(M3.MM(sample))
+        M4.obs <- torch_tensor(M4.MM(sample))
 
         #3. Fit model
         # Estimate parameters with model function specified above
-        nlminb.out <-nlminb(model2$param_values,objective = .objective,model=model2,M2.obs=M2.obs,M3.obs=M3.obs,M4.obs=M4.obs,lower = L, upper = U)
+        .par <- .torch_fit(model2, torch_coords, M2.obs, M3.obs, M4.obs, learning_rate, iters=iters)
         # Store point estimates of bootstraps
-        pars.boot[i,] <- nlminb.out$par
+        pars.boot[i,] <- as.numeric(.par)
 
       }
       close(pb)
       SEs <- apply(pars.boot, 2, sd)
-      timeend <- Sys.time()
-      boot1 <- timeend-timestart
+
     } else if (se_type == 'two-step') {
       #### BOOT 2: TWO STEP BOOTSTRAP
       ##############################
@@ -248,20 +249,19 @@ MCMfit <- function(model, data, compute_se=TRUE, se_type='asymptotic', bootstrap
         # 3. Sample cov/cosk/cokrt matrices and obtain mean of the sampled matrices
         #to use as cov/cosk/cokrt matrix in the model
         boot <-   sample(1:bootstrap_chunks,bootstrap_chunks,T)
-        M2.obs <-   matrix(colMeans(sample.cov [boot,-1]),ncol(data),ncol(data), byrow=T)
-        M3.obs <-   matrix(colMeans(sample.cosk[boot,-1]),ncol(data),ncol(data)^2, byrow=T)
-        M4.obs <-   matrix(colMeans(sample.cokr[boot,-1]),ncol(data),ncol(data)^3, byrow=T)
+        M2.obs <-   torch_tensor(matrix(colMeans(sample.cov [boot,-1]),ncol(data),ncol(data), byrow=T))
+        M3.obs <-   torch_tensor(matrix(colMeans(sample.cosk[boot,-1]),ncol(data),ncol(data)^2, byrow=T))
+        M4.obs <-   torch_tensor(matrix(colMeans(sample.cokr[boot,-1]),ncol(data),ncol(data)^3, byrow=T))
 
-
-        # 4. Fit model,
-        nlminb.out <-nlminb(model2$param_values,objective = .objective,model=model,M2.obs=M2.obs,M3.obs=M3.obs,M4.obs=M4.obs,lower = L, upper = U)
-        pars.boot2[i,] <- nlminb.out$par
+        #4. Fit model
+        # Estimate parameters with model function specified above
+        .par <- .torch_fit(model2, torch_coords, M2.obs, M3.obs, M4.obs, learning_rate, iters=iters)
+        # Store point estimates of bootstraps
+        pars.boot[i,] <- as.numeric(.par)
 
       }
       close(pb)
       SEs <- apply(pars.boot2, 2, sd)
-      endtime <- Sys.time()
-      boot2 <- endtime - starttime
     }
     #cat("\n")  # Prevent things from printing over completed progress bar
     # Table of point estimates and SE's

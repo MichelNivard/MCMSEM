@@ -15,6 +15,8 @@ This branch is for a potential move to torch for R backend
  - Output column names have changed to be identical to parameter names  
 
 ### Code updates
+ - Update 15-06-2022-torch:
+   - Fixed MCMfit so it now actually works
  - Update 03-06-2022:
    - Fixed an issue causing error with dataframe input.
    - Fixed an issue causing starting values to not be properly assigned to a-parameters with >1 confounding
