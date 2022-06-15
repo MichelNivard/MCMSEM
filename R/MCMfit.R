@@ -43,7 +43,6 @@
 
 
 MCMfit <- function(model, data, compute_se=TRUE, se_type='asymptotic', bootstrap_iter=200,bootstrap_chunks=1000) {
-  #TODO: Expand manual
   #if (!(confounding %in% c('positive', 'negative', 'both')))
   #  stop("confounding should be one of c('positive', 'negative', 'both')")
   if (!(se_type %in% c('two-step', 'one-step','asymptotic')))
@@ -66,7 +65,7 @@ MCMfit <- function(model, data, compute_se=TRUE, se_type='asymptotic', bootstrap
   data <- as.matrix(data)
   # Scale data
   if ((model$meta_data$scale_data) & !(model$meta_data$data_was_scaled)) {
-      data <- apply(data, 2, scale)
+    data <- apply(data, 2, scale)
   }
 
   if (compute_se)
@@ -90,28 +89,19 @@ MCMfit <- function(model, data, compute_se=TRUE, se_type='asymptotic', bootstrap
   # Store estimates including minimization objective, using this to evaluate/compare fit
   results <-  as.data.frame(matrix(c(nlminb.out$par, nlminb.out$objective), nrow = 1))
 
-  ## NOTE:
-  # When fitting to real data, we compare model with pos. confounder with
-  # model with neg. confounder (see matrix A; section 2.2 paper). That is,
-  # the sign in front of one of the a1s in A becomes (-) (see code above).
-  # We run both models and choose the model with the lowest minimize.obj
-  # This might be something that should be built in automatically.
-
   if (compute_se) {
 
     if(se_type == 'asymptotic'){
       SEs <- .std.err(data=data,par=nlminb.out$par,model=model)
-      }
-
-    if(se_type != 'asymptotic') {
-    # Matrix where bootstraps will be stored
-    pars.boot <- matrix(NA,bootstrap_iter,length(model$param_values))
-    # Lower and Upper bounds
-    L <- as.numeric(model$bounds["L", ])
-    U <- as.numeric(model$bounds["U", ])
-    cat("Starting bootstrap MCMSEM\n")
-    pb <- txtProgressBar(0, bootstrap_iter, style = 3, width=min(c(options()$width, 107)))
-      }
+    } else  {
+      # Matrix where bootstraps will be stored
+      pars.boot <- matrix(NA,bootstrap_iter,length(model$param_values))
+      # Lower and Upper bounds
+      L <- as.numeric(model$bounds["L", ])
+      U <- as.numeric(model$bounds["U", ])
+      cat("Starting bootstrap MCMSEM\n")
+      pb <- txtProgressBar(0, bootstrap_iter, style = 3, width=min(c(options()$width, 107)))
+    }
     if (se_type == 'one-step') {
       #### BOOT 1:  NORMAL BOOTSTRAP
       ##############################
@@ -166,8 +156,7 @@ MCMfit <- function(model, data, compute_se=TRUE, se_type='asymptotic', bootstrap
         ## Progress bar stuff
         setTxtProgressBar(pb, i)
         model2 <- model_copy$copy()  # Create new empty model
-        # 3. Sample cov/cosk/cokrt matrices and obtain mean of the sampled matrices
-        #to use as cov/cosk/cokrt matrix in the model
+        # 3. Sample cov/cosk/cokrt matrices and obtain mean of the sampled matrices to use as cov/cosk/cokrt matrix in the model
         boot <-   sample(1:bootstrap_chunks,bootstrap_chunks,T)
         M2.obs <-   matrix(colMeans(sample.cov [boot,-1]),ncol(data),ncol(data), byrow=T)
         M3.obs <-   matrix(colMeans(sample.cosk[boot,-1]),ncol(data),ncol(data)^2, byrow=T)
@@ -184,7 +173,6 @@ MCMfit <- function(model, data, compute_se=TRUE, se_type='asymptotic', bootstrap
       endtime <- Sys.time()
       boot2 <- endtime - starttime
     }
-    #cat("\n")  # Prevent things from printing over completed progress bar
     # Table of point estimates and SE's
     results <- rbind(results, c(SEs,NA))
   }

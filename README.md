@@ -15,9 +15,13 @@ This branch is for a potential move to torch for R backend
  - Output column names have changed to be identical to parameter names  
  
 ### Code updates
- - Update 15-06-2022:
+ - Update 15-06-2022 (labelled v0.2.1):
    - Significantly improved performance of asymptotic SE calculation
    - Removed TODO "Add arguments for fitting either x->y or y->x path as opposed to both (which should remain the default)", this can easily be achieved through MCMedit, up to the user.
+   - Changed MCMedit argument names to more sensible ones
+   - Moved `simulate_data` to MCMsimulate_data.R for more consistency in filenames.
+   - Changed manual pages to new coding format
+   - Changed test to new coding format
  - Update 14-06-2022:
    - Added asymptotic computation of standard errors
    - Fixed bug with standardizing data 
@@ -49,15 +53,12 @@ This branch is for a potential move to torch for R backend
      - In a future version we may want to write a wrapper function to do `model <- MCMedit(model, "A", c(2,1), "-a1")` in a more user-friendly way?
 
 ### Things still TODO:
-1. Check if results of positive/negative confounder are identical to master branch
-2. Rename columns of MCMfit output to better reflect column names of input data, e.g. `b_age_pheno` instead of `b1_2`
+1. Rename columns of MCMfit output to better reflect column names of input data, e.g. `b_age_pheno` instead of `b1_2`
    - Easiest is probably to store these names somewhere and simply replace them.
-3. Create detailed manual page for MCMedit
-4. Change MCMedit argument names to sensible ones
-5. Make bootstrap MCMfit run in parallel
+2. Make bootstrap MCMfit run in parallel
    - Note: current progress bar is not suited for parallel bootstrap
-6. Update tests to reflect new coding style.
-7. Move these semi-improvised notes to README and/or manual:
+3. Expand tests
+4. Move these semi-improvised notes to README and/or manual:
 ```
 # Create model
 mcmmodel <- MCMmodel(data, n_confounding = 1, constrained_a=TRUE)  # n_p is n_phenotypes, will be replaced with data eventually

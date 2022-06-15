@@ -1,7 +1,6 @@
 # Wrapper function to create mcmmodel instance
 MCMmodel <- function(data, n_confounding=1, constrained_a=TRUE, scale_data=TRUE) {
   # TODO: Expand checks on how many confoundings can/should be used with or without constrained a depending on input data
-  # This should take data instead of n_p, but for now while it doesn't really do anything I left it at n_phenotypes
   ## Make matrices with names
   if (nrow(data) < 1000)
     stop("Currently only a dataframe with at least 1000 rows is supported.")
