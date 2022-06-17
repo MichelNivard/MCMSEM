@@ -69,7 +69,7 @@ MCMmodel <- function(data, n_confounding=1, constrained_a=TRUE, scale_data=TRUE)
   }
   par <- list(
     a=rep(0.2, length(par_names[['a']])),
-    b=rep(0.2, length(par_names[['b']])),
+    b=rep(0.0, length(par_names[['b']])),
     s=rep(1, length(par_names[['s']])),
     sk=sk_starts,
     k=k_starts
