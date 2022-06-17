@@ -1,3 +1,7 @@
 test_that("MCMSEM works", {
-  expect_type(MCMSEM(simulate_data(), bootstrap_iter=10), "double")
+  expect_type({
+    data <- simulate_data()
+    model <- MCMmodel(data)
+    res <- MCMfit(data, compute_se=FALSE)
+  }, "double")
 })

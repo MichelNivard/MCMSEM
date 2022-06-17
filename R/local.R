@@ -5,6 +5,7 @@
 # Uncomment these, and expand them to make them readable when that happens
 # .m3m2v <- function(x) {p <- nrow(x); M3vec <- rep(0, p * (p + 1) * (p + 2) / 6); iter <- 1; for (i in 0:(p-1)) {for (j in i:(p-1)) {for (k in j:(p-1)) {M3vec[iter] <- x[((i * p + j) * p + k)+1]; iter <- iter + 1}}}; return(M3vec)}
 # .m4m2v <- function(x) {p <- nrow(x); M4vec <- rep(0, p * (p + 1) * (p + 2) * (p + 3) / 24); iter <- 1; for (i in 0:(p-1)) {for (j in i:(p-1)) {for (k in j:(p-1)) {for (l in k:(p-1)) {M4vec[iter] <- x[((i * p * p + j * p + k) * p + l) + 1]; iter <- iter + 1}}}}; return(M4vec)}
+
 .gen_matrices <- function(par, n_p, n_f, base_value=0) {
   matrices <- list()
   ############## A
@@ -69,7 +70,6 @@
 
 # Make pseudo obs for standard errors:
 .t4crossprod <- function(x, idx){
-  # c(.m2m2v(tcrossprod(x)), .m3m2v(t(x %o% x %x% x)), .m4m2v(t(x %o% x %x% x %x% x)))
   x2 <- x %o% x
   x3 <- x2 %x% x
   x4 <- x3 %x% x
@@ -78,7 +78,6 @@
 
 ######## Compute Jacobian:
 .jac.fn <- function(par,model){
-
   n_p <- model$meta_data$n_phenotypes + model$meta_data$n_confounding
   # Model function
   ### Assign new parameter values to the matrices
@@ -94,27 +93,21 @@
   K <- model$num_matrices[["K"]]
 
   K[,] <- 0
-  # there are some non 0 entries in S4, fix those using existing K1_ref
   K[model$num_matrices[["K1_ref"]]] <- 1
-  # these are function of S2 matrix
   K <- sqrt(S) %*% K %*% (sqrt(S) %x% sqrt(S) %x% sqrt(S))
   for (i in 1:model$meta_data$n_confounding) {
     K[i, i + (i-1)*(n_p) + (i-1)*((n_p)^2)]  <- 3
   }
-  # Re-enter values for K
   for (i in 1:length(model$param_coords)) {
     if (model$param_coords[[i]][[1]] == "K") {
       K[model$param_coords[[i]][[2]]] <- model$param_values[i]
     }
   }
 
-  ###### Compute the observed cov, cosk, and cokurt matrices #################
-  ############################################### (see section 2.2 paper) ####
   M2 <- Fm %*% solve(diag(n_p) - A) %*% S %*%  t(solve(diag(n_p)-A))  %*% t(Fm)
   M3 <- Fm %*% solve(diag(n_p) - A) %*% Sk %*% (t(solve(diag(n_p)-A)) %x% t(solve(diag(n_p)-A))) %*% (t(Fm) %x% t(Fm))
   M4 <- Fm %*% solve(diag(n_p) - A) %*% K %*%  (t(solve(diag(n_p)-A)) %x% t(solve(diag(n_p)-A))  %x%  t(solve(diag(n_p)-A))) %*% (t(Fm) %x% t(Fm) %x% t(Fm))
 
-  ### Loss function
   value <- c(.m2m2v(M2),.m3m2v(M3),.m4m2v(M4))
   value
 }
@@ -163,16 +156,14 @@
   S.m <- apply(scale(data, center = T, scale = F),1, .t4crossprod, idx=idx)
   S.m <- cov(t(S.m))/(n-1)
 
-
   # weights matrix is based on diagonal, may be better behaved?
   W <- solve(diag(nrow(S.m)) * S.m)
-  torch_coords <- .get_torch_coords(model)
   G <- jacobian(func = .jac.fn,x = as.numeric(par),model=model)
   Asycov <- solve(t(G)%*%W%*%G) %*% t(G)%*%W%*%S.m %*%W%*%G %*% solve(t(G)%*%W%*%G)
 
   se <- sqrt(2)*sqrt(diag(Asycov))
 
-  se
+  return(se)
 
 }
 

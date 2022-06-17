@@ -43,8 +43,7 @@ mcmmodelclass$methods(
   },
   parse=function() {
     # Parse named matrices to param_values, param_coords and bounds (to make it easy to access these during optimization)
-    # Updata param_values and param_coords
-
+    # Update param_values and param_coords
     .self$param_values <- c(0)  # vector cannot be empty due to it being set as vector in class fields
     .self$param_names <- c("")
     .self$param_coords <- list()
@@ -101,4 +100,3 @@ mcmmodelclass$methods(
     }
   }
 )
-

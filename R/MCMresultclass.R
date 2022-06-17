@@ -4,6 +4,7 @@ mcmresultclass <- setRefClass("mcmresultclass",
                                loss="numeric",
                                history="list"
                              ))
+
 mcmresultclass$methods(
   initialize=function(df, loss, history) {
     .self$df <- df
@@ -13,6 +14,9 @@ mcmresultclass$methods(
   show=function(){
     cat("  MCM model Result\n")
     print(.self$df)
+  },
+  copy=function(){
+    return(mcmresultclass(df, loss, history))
   }
 )
 

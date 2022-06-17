@@ -46,7 +46,6 @@
   }
 
   ###### Compute the observed cov, cosk, and cokurt matrices #################
-  ############################################### (see section 2.2 paper) ####
   diag_np_a_inv <- torch_inverse(diag_n_p - A)
   diag_np_a_inv_t <- torch_transpose(torch_inverse(diag_n_p - A), 1, 2)
   # M2 <- Fm %*% solve(diag(n_p) - A) %*% S %*%  t(solve(diag(n_p)-A))  %*% t(Fm)
@@ -99,10 +98,6 @@
 
 MCMfit <- function(model, data, compute_se=TRUE, se_type='asymptotic', optim_iters=c(50, 12), bootstrap_iter=200,bootstrap_chunks=1000,
                    learning_rate=0.02, silent=TRUE) {
-  #TODO: Add arguments for fitting either x->y or y->x path as opposed to both (which should remain the default)
-  #TODO: Expand manual
-  #if (!(confounding %in% c('positive', 'negative', 'both')))
-  #  stop("confounding should be one of c('positive', 'negative', 'both')")
   if (!(se_type %in% c('two-step', 'one-step','asymptotic')))
     stop("se_type should be one of c('two-step', 'one-step','asymptotic')")
   if (ncol(data) != 2)
@@ -120,13 +115,7 @@ MCMfit <- function(model, data, compute_se=TRUE, se_type='asymptotic', optim_ite
     msg <- paste0("Model expected ", model$meta_data$n_phenotypes, " phenotypes but ", ncol(data), " were found in the data. Please create a new model with this dataset.")
     stop(msg)
   }
-  #TODO: There is no way to do both currently
-  #if (confounding == 'both') {
-  #  model2 <- model$copy()  # Make a copy of the model instance first, as parameter values are modified inplace
-  #  result_positive <- MCMSEM(model, data, confounding="positive", compute_se=compute_se, bootstrap_type=bootstrap_type, bootstrap_iter=bootstrap_iter,bootstrap_chunks=bootstrap_chunks)
-  #  result_negative <- MCMSEM(model2, data, confounding="negative", compute_se=compute_se, bootstrap_type=bootstrap_type, bootstrap_iter=bootstrap_iter,bootstrap_chunks=bootstrap_chunks)
-  #  return(list(positive_confounder=result_positive, negative_confounder=result_negative))
-  #}
+
   data <- as.matrix(data)
   # Scale data
   if ((model$meta_data$scale_data) & !(model$meta_data$data_was_scaled)) {
@@ -149,13 +138,6 @@ MCMfit <- function(model, data, compute_se=TRUE, se_type='asymptotic', optim_ite
   # Store estimates including minimization objective, using this to evaluate/compare fit
   results <-  as.data.frame(matrix(as.numeric(.par), nrow = 1))
 
-  ## NOTE:
-  # When fitting to real data, we compare model with pos. confounder with
-  # model with neg. confounder (see matrix A; section 2.2 paper). That is,
-  # the sign in front of one of the a1s in A becomes (-) (see code above).
-  # We run both models and choose the model with the lowest minimize.obj
-  # This might be something that should be built in automatically.
-
   if (compute_se) {
 
     if(se_type == 'asymptotic'){
@@ -174,8 +156,6 @@ MCMfit <- function(model, data, compute_se=TRUE, se_type='asymptotic', optim_ite
     if (se_type == 'one-step') {
       #### BOOT 1:  NORMAL BOOTSTRAP
       ##############################
-      timestart <- Sys.time()
-
       # Matrix where bootstraps will be stored
       # Bootstrap
       for (i in 1:bootstrap_iter){
@@ -204,8 +184,6 @@ MCMfit <- function(model, data, compute_se=TRUE, se_type='asymptotic', optim_ite
     } else if (se_type == 'two-step') {
       #### BOOT 2: TWO STEP BOOTSTRAP
       ##############################
-      starttime <- Sys.time()
-
       ### STEP 1
       # 1. Bind the data to a random sample binning people into "bootstrap_chunks" groups
       step1 <- cbind(data,sample(1:bootstrap_chunks,nrow(data),replace=T))
@@ -219,13 +197,11 @@ MCMfit <- function(model, data, compute_se=TRUE, se_type='asymptotic', optim_ite
       pars.boot2 <- matrix(NA,nrow=bootstrap_iter,ncol=length(model$param_values))
 
       ### STEP 2
-
       for (i in 1:bootstrap_iter){
         ## Progress bar stuff
         setTxtProgressBar(pb, i)
         model2 <- model_copy$copy()  # Create new empty model
-        # 3. Sample cov/cosk/cokrt matrices and obtain mean of the sampled matrices
-        #to use as cov/cosk/cokrt matrix in the model
+        # 3. Sample cov/cosk/cokrt matrices and obtain mean of the sampled matrices to use as cov/cosk/cokrt matrix in the model
         boot <-   sample(1:bootstrap_chunks,bootstrap_chunks,T)
         M2.obs <-   torch_tensor(matrix(colMeans(sample.cov [boot,-1]),ncol(data),ncol(data), byrow=T))
         M3.obs <-   torch_tensor(matrix(colMeans(sample.cosk[boot,-1]),ncol(data),ncol(data)^2, byrow=T))
@@ -241,7 +217,6 @@ MCMfit <- function(model, data, compute_se=TRUE, se_type='asymptotic', optim_ite
       close(pb)
       SEs <- apply(pars.boot2, 2, sd)
     }
-    #cat("\n")  # Prevent things from printing over completed progress bar
     # Table of point estimates and SE's
     results <- rbind(results, c(SEs))
   }
