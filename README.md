@@ -12,7 +12,7 @@ This branch is for a potential move to torch for R backend
  - Added MCMresultclass to hold MCMfit results
  - Can be converted to a dataframe using `as.data.frame(result)`, then it is in line again with that of the non-torch version
  - Note the torch implementation is slightly slower in the simplest use-case (2 variables + 1 confounder), but scales significantly better to more variables and confounders.
- - It is now possible to disable using skewness or kurtosis in larger models to improve perforamnce. Use either `use_skewness` and `use_kurtosis` arguments to `MCMfit()`.
+ - It is now possible to disable using skewness or kurtosis in larger models to improve performance by reducing reliance on all co-moments. Set either `use_skewness` and `use_kurtosis` arguments to `MCMfit()` to `FALSE` to ignore specific co-moments.
 ### From v0.2.1-dev
  - Added mcmmodelclass, this class describes the layout of the MCMSEM model complete with parameter matrices, parameter/starting values, and bounds.
  - Addded MCMmodel wrapper function to enable easy creation of mcmmodelclass instances for users
