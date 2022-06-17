@@ -69,15 +69,26 @@
 }
 
 # Make pseudo obs for standard errors:
-.t4crossprod <- function(x, idx){
+.t4crossprod <- function(x, idx, use_skewness, use_kurtosis){
   x2 <- x %o% x
   x3 <- x2 %x% x
-  x4 <- x3 %x% x
-  c(as.vector(t(x2)), as.vector(t(x3)), as.vector(t(x4)))[idx]
+  if (use_kurtosis) {
+    x4 <- x3 %x% x
+  }
+  if (use_skewness & use_kurtosis) {
+    return(c(as.vector(t(x2)), as.vector(t(x3)), as.vector(t(x4)))[idx])
+  } else if (use_skewness) {
+    return(c(as.vector(t(x2)), as.vector(t(x3)))[idx])
+  } else if (use_kurtosis) {
+    return(c(as.vector(t(x2)), as.vector(t(x4)))[idx])
+  } else {
+    stop("Oops, something went wrong. 3")
+  }
+
 }
 
 ######## Compute Jacobian:
-.jac.fn <- function(par,model){
+.jac.fn <- function(par,model, use_skewness, use_kurtosis){
   n_p <- model$meta_data$n_phenotypes + model$meta_data$n_confounding
   # Model function
   ### Assign new parameter values to the matrices
@@ -91,25 +102,37 @@
   S  <- model$num_matrices[["S"]]
   Sk <- model$num_matrices[["Sk"]]
   K <- model$num_matrices[["K"]]
-
-  K[,] <- 0
-  K[model$num_matrices[["K1_ref"]]] <- 1
-  K <- sqrt(S) %*% K %*% (sqrt(S) %x% sqrt(S) %x% sqrt(S))
-  for (i in 1:model$meta_data$n_confounding) {
-    K[i, i + (i-1)*(n_p) + (i-1)*((n_p)^2)]  <- 3
-  }
-  for (i in 1:length(model$param_coords)) {
-    if (model$param_coords[[i]][[1]] == "K") {
-      K[model$param_coords[[i]][[2]]] <- model$param_values[i]
+  if (use_kurtosis) {
+    K[,] <- 0
+    K[model$num_matrices[["K1_ref"]]] <- 1
+    K <- sqrt(S) %*% K %*% (sqrt(S) %x% sqrt(S) %x% sqrt(S))
+    for (i in 1:model$meta_data$n_confounding) {
+      K[i, i + (i-1)*(n_p) + (i-1)*((n_p)^2)]  <- 3
+    }
+    for (i in 1:length(model$param_coords)) {
+      if (model$param_coords[[i]][[1]] == "K") {
+        K[model$param_coords[[i]][[2]]] <- model$param_values[i]
+      }
     }
   }
 
-  M2 <- Fm %*% solve(diag(n_p) - A) %*% S %*%  t(solve(diag(n_p)-A))  %*% t(Fm)
-  M3 <- Fm %*% solve(diag(n_p) - A) %*% Sk %*% (t(solve(diag(n_p)-A)) %x% t(solve(diag(n_p)-A))) %*% (t(Fm) %x% t(Fm))
-  M4 <- Fm %*% solve(diag(n_p) - A) %*% K %*%  (t(solve(diag(n_p)-A)) %x% t(solve(diag(n_p)-A))  %x%  t(solve(diag(n_p)-A))) %*% (t(Fm) %x% t(Fm) %x% t(Fm))
 
-  value <- c(.m2m2v(M2),.m3m2v(M3),.m4m2v(M4))
-  value
+  M2 <- Fm %*% solve(diag(n_p) - A) %*% S %*%  t(solve(diag(n_p)-A))  %*% t(Fm)
+  if (use_skewness) {
+    M3 <- Fm %*% solve(diag(n_p) - A) %*% Sk %*% (t(solve(diag(n_p)-A)) %x% t(solve(diag(n_p)-A))) %*% (t(Fm) %x% t(Fm))
+  }
+  if (use_kurtosis) {
+    M4 <- Fm %*% solve(diag(n_p) - A) %*% K %*%  (t(solve(diag(n_p)-A)) %x% t(solve(diag(n_p)-A))  %x%  t(solve(diag(n_p)-A))) %*% (t(Fm) %x% t(Fm) %x% t(Fm))
+  }
+  if (use_skewness & use_kurtosis) {
+    return(c(.m2m2v(M2),.m3m2v(M3),.m4m2v(M4)))
+  } else if (use_skewness) {
+    return(c(.m2m2v(M2),.m3m2v(M3)))
+  } else if (use_kurtosis) {
+    return(c(.m2m2v(M2),.m4m2v(M4)))
+  } else {
+    stop("Oops, something went wrong. 4")
+  }
 }
 
 
@@ -135,7 +158,7 @@
 
 
 ### pull it together to make std errors:
-.std.err <- function(data,par,model){
+.std.err <- function(data,par,model, use_skewness, use_kurtosis){
 
   n <- nrow(data)
   # if there is too much data for spoeedly opperation, sample 250000 observations to base this on
@@ -147,18 +170,27 @@
 
   # observed cov between pseudo obsertvations ovver n-1 gets us cov betwene moments moments
   dim2 <- data[1, ] %o% data[1, ]
-  dim3 <- dim2 %x% data[1, ]
-  dim4 <- dim3 %x% data[1, ]
   dim2locs <- .dimlocations(nrow(dim2), dims=2)
+  dim3 <- dim2 %x% data[1, ]
   dim3locs <- .dimlocations(nrow(t(dim3)), dims=3)
+  dim4 <- dim3 %x% data[1, ]
   dim4locs <- .dimlocations(nrow(t(dim4)), dims=4)
-  idx <- c(dim2locs, length(as.vector(dim2)) + dim3locs,  length(as.vector(dim2)) + length(as.vector(dim3)) + dim4locs)
-  S.m <- apply(scale(data, center = T, scale = F),1, .t4crossprod, idx=idx)
+  if (use_skewness & use_kurtosis) {
+    idx <- c(dim2locs, length(as.vector(dim2)) + dim3locs,  length(as.vector(dim2)) + length(as.vector(dim3)) + dim4locs)
+  } else if (use_skewness) {
+    idx <- c(dim2locs, length(as.vector(dim2)) + dim3locs)
+  } else if (use_kurtosis) {
+    idx <- c(dim2locs, length(as.vector(dim2)) + dim4locs)
+  } else {
+    stop("Oops, something went wrong. 2")
+  }
+
+  S.m <- apply(scale(data, center = T, scale = F),1, .t4crossprod, idx=idx, use_skewness=use_skewness, use_kurtosis=use_kurtosis)
   S.m <- cov(t(S.m))/(n-1)
 
   # weights matrix is based on diagonal, may be better behaved?
   W <- solve(diag(nrow(S.m)) * S.m)
-  G <- jacobian(func = .jac.fn,x = as.numeric(par),model=model)
+  G <- jacobian(func = .jac.fn,x = as.numeric(par),model=model, use_skewness=use_skewness, use_kurtosis=use_kurtosis)
   Asycov <- solve(t(G)%*%W%*%G) %*% t(G)%*%W%*%S.m %*%W%*%G %*% solve(t(G)%*%W%*%G)
 
   se <- sqrt(2)*sqrt(diag(Asycov))

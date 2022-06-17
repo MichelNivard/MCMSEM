@@ -5,8 +5,8 @@
   Fits an MCM sturctural equation model as defined in the MCMmodelclass object
 }
 \usage{
-MCMfit(model, data, compute_se=TRUE, se_type='asymptotic', optim_iters=c(50, 12), bootstrap_iter=200,bootstrap_chunks=1000,
-                   learning_rate=0.02, silent=TRUE)
+MCMfit(mcmmodel, data, compute_se=TRUE, se_type='asymptotic', optim_iters=c(50, 12), bootstrap_iter=200,bootstrap_chunks=1000,
+                   learning_rate=0.02, silent=TRUE, use_skewness=TRUE, use_kurtosis=TRUE)
 }
 \arguments{
   \item{model}{MCMmodelclass object}
@@ -18,6 +18,8 @@ MCMfit(model, data, compute_se=TRUE, se_type='asymptotic', optim_iters=c(50, 12)
   \item{bootstrap_chunk}{Chunksize of two-step bootstrap. Lower numbers will lead to better performance but may lead to less accurate estimates.}
   \item{learning_rate}{learning rate of the RPROP optimizer. Increase if the optimizer has difficulty finding a minimum, decrease if loss quickly jumps to NA}
   \item{silent}{Run the analysis silently. If set to FALSE, will print the optimizer loss at every step}
+  \item{use_skewness}{Use skewness and co-skewness to estimate parameters}
+  \item{use_kurtosis}{Use kurtosis and co-kurtosis to estimate parameters}
 }
 \value{
   MCMresult object. This can be converted to a dataframe with as.data.frame(result)
