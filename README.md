@@ -32,6 +32,7 @@ This branch is for a potential move to torch for R backend
    - Changed manual pages to new coding format
    - Changed test to new coding format
    - Added `use_skewness` and `use_kurtosis` arguments to `MCMfit()` to disable using one of them to estimate parameters in larger models.
+   - Added `use_bounds` in MCMfit, if enabled, loss will be dramatically increased as parameter estimates get further away from bounds.
    - Added USAGE to readme
  - Update 15-06-2022-torch:
    - Fixed MCMfit so it now actually works
@@ -122,9 +123,27 @@ Set the starting value of all a parameters to 0.5
 ```
 my_model <- MCMedit(my_model, "start", "a", 0.5)
 ```
-
-> **_NOTE:_**  Bounds can also be changed using MCMedit, but bounds are not used by current optimizers.
-
+Change the upper bound of a1 to 2
+```
+mcmmodel <- MCMedit(mcmmodel, "ubound", "a1", 2)
+```
+Set lower and upper bounds of a1 to c(-1, 1)
+```
+mcmmodel <- MCMedit(mcmmodel, "bound", "a1", c(-1, 1))
+```
+Set lower and upper bounds of all b parameters to -1, 1
+```
+mcmmodel <- MCMedit(mcmmodel, "bound", "b", c(-1, 1))
+```
+Set upper bound of all k parameters to 200
+```
+mcmmodel <- MCMedit(mcmmodel, "ubound", "k", 200)
+```
+Check the current bounds
+```
+mcmmodel$bounds
+```
+> **__NOTE__**: If you are using bounds, ensure `use_bounds` is set to TRUE in `MCMfit`
 ### Fitting a model
 Now that you have applied the changes you want you can fit the model. You will have the pass your data to the `MCMfit` function again, we could store your data in the MCMmodel object, but that would result in unnecessary copies of potentially large datasets (not ideal).
 ```

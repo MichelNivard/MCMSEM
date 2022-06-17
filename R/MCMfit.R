@@ -1,7 +1,42 @@
 # Fit MCM model
 # Objective function
 # torch-ready versions of
-.torch_objective <- function(.par, model, torch_coords, M2.obs, M3.obs, M4.obs, use_skewness, use_kurtosis) {
+.loss_power_bounds <- function(.par, model) {
+  par <- as.numeric(.par)
+  bounds <- as.matrix(model$bounds)
+  lbound_check <- par > bounds[1,]
+  ubound_check <- par < bounds[2,]
+  if (all(lbound_check & ubound_check)) {
+    return(0)
+  } else {
+    pow <- 1
+    if (!all(lbound_check)) {
+      idx_fail <- which(!(lbound_check))
+      # Add absolute distance from the bounds to power
+      pow <- pow + sum(abs(par[idx_fail]) - abs(bounds[1, idx_fail]))
+    }
+    if (!all(ubound_check)) {
+      idx_fail <- which(!(lbound_check))
+      # Add absolute distance from the bounds to power
+      pow <- pow + sum(abs(par[idx_fail]) - abs(bounds[1, idx_fail]))
+    }
+    return(pow)
+  }
+}
+
+.loss_power_bounds_torch <- function(.par, model) {
+  # Does not work for some reason, loss does not change, then jumps to NA
+  torch_bounds <- torch_tensor(as.matrix(model$bounds))  # If it works, this only needs to be done once and can be passed as argument
+  lbound_check <- !(.par > torch_bounds[1,])  # 0 if parameter is in bounds, 1 if parameter is out of bounds
+  ubound_check <- !(.par < torch_bounds[2,])  # 0 if parameter is in bounds, 1 if parameter is out of bounds
+  lbound_dist <- torch_square(.par - torch_bounds[1, ])  # Distance from lbound
+  ubound_dist <- torch_square(.par - torch_bounds[2, ])  # Distance from ubound
+  ldist_sum <- torch_sqrt(torch_sum(lbound_dist * lbound_check))  # Distance multiplied by check: 0 if in bounds
+  udist_sum <- torch_sqrt(torch_sum(ubound_dist * ubound_check))  # Distance multiplied by check: 0 if in bounds
+  return(torch_sum(ldist_sum) + torch_sum(udist_sum))
+}
+
+.torch_objective <- function(.par, model, torch_coords, M2.obs, M3.obs, M4.obs, use_bounds, use_skewness, use_kurtosis) {
   torch_A  <- torch_tensor(model$num_matrices[["A"]])
   torch_Fm <- torch_tensor(model$num_matrices[["Fm"]])
   torch_S  <- torch_tensor(model$num_matrices[["S"]])
@@ -72,17 +107,25 @@
   } else {
     stop("Oops, something went wrong.")
   }
+  if (use_bounds) {
+    pow <- .loss_power_bounds(.par, model)
+    loss <- value * (2^pow)
+    return(loss)
+  } else {
+    return(value)
+  }
 
-  return(value)
 }
 
-.torch_fit <- function(model, torch_coords, M2.obs, M3.obs, M4.obs, learning_rate, optim_iters, silent, use_skewness, use_kurtosis, return_history=FALSE) {
+
+
+.torch_fit <- function(model, torch_coords, M2.obs, M3.obs, M4.obs, learning_rate, optim_iters, silent, use_bounds, use_skewness, use_kurtosis, return_history=FALSE) {
   .par <- torch_tensor(as.numeric(model$start_values), requires_grad=TRUE)
   loss_hist <- c()
   optim <- optim_rprop(.par,lr = learning_rate)
   for (i in 1:optim_iters[1]) {
     optim$zero_grad()
-    loss <- .torch_objective(.par, model, torch_coords, M2.obs, M3.obs, M4.obs, use_skewness, use_kurtosis)
+    loss <- .torch_objective(.par, model, torch_coords, M2.obs, M3.obs, M4.obs, use_bounds, use_skewness, use_kurtosis)
     loss_hist <- c(loss_hist, as.numeric(loss))
     loss$backward()
     optim$step()
@@ -90,7 +133,7 @@
   }
   calc_loss_torchfit <- function() {
     optim$zero_grad()
-    loss <- .torch_objective(.par, model, torch_coords, M2.obs, M3.obs, M4.obs, use_skewness, use_kurtosis)
+    loss <- .torch_objective(.par, model, torch_coords, M2.obs, M3.obs, M4.obs, use_bounds, use_skewness, use_kurtosis)
     loss_hist <<- c(loss_hist, as.numeric(loss))
     if (!(silent)) {cat(paste0("loss", as.numeric(loss), "\n"))}
     loss$backward()
@@ -111,7 +154,7 @@
 }
 
 MCMfit <- function(mcmmodel, data, compute_se=TRUE, se_type='asymptotic', optim_iters=c(50, 12), bootstrap_iter=200,bootstrap_chunks=1000,
-                   learning_rate=0.02, silent=TRUE, use_skewness=TRUE, use_kurtosis=TRUE) {
+                   learning_rate=0.02, silent=TRUE, use_bounds=TRUE, use_skewness=TRUE, use_kurtosis=TRUE) {
   model <- mcmmodel$copy()  # Model is changed if either use_skewness or use_kurtosis is set to FALSE, so I make a local copy here to ensure the original object stays intact
   if (!(se_type %in% c('two-step', 'one-step','asymptotic')))
     stop("se_type should be one of c('two-step', 'one-step','asymptotic')")
@@ -179,7 +222,7 @@ MCMfit <- function(mcmmodel, data, compute_se=TRUE, se_type='asymptotic', optim_
 
   torch_coords <- .get_torch_coords(model)
   # Obtain estimates with optimizer
-  out <- .torch_fit(model, torch_coords, M2.obs, M3.obs, M4.obs, learning_rate, optim_iters, silent, use_skewness, use_kurtosis, return_history = TRUE)
+  out <- .torch_fit(model, torch_coords, M2.obs, M3.obs, M4.obs, learning_rate, optim_iters, silent, use_bounds, use_skewness, use_kurtosis, return_history = TRUE)
   .par <- out[['par']]
   loss_hist <- out[['loss_hist']]
   # Store estimates including minimization objective, using this to evaluate/compare fit
@@ -218,7 +261,7 @@ MCMfit <- function(mcmmodel, data, compute_se=TRUE, se_type='asymptotic', optim_
 
         #3. Fit model
         # Estimate parameters with model function specified above
-        .par <- .torch_fit(model2, torch_coords, M2.obs, M3.obs, M4.obs, learning_rate, optim_iters, silent, use_skewness, use_kurtosis)
+        .par <- .torch_fit(model2, torch_coords, M2.obs, M3.obs, M4.obs, learning_rate, optim_iters, silent, use_bounds, use_skewness, use_kurtosis)
         # Store point estimates of bootstraps
         pars.boot[i,] <- as.numeric(.par)
 
@@ -254,7 +297,7 @@ MCMfit <- function(mcmmodel, data, compute_se=TRUE, se_type='asymptotic', optim_
 
         #4. Fit model
         # Estimate parameters with model function specified above
-        .par <- .torch_fit(model2, torch_coords, M2.obs, M3.obs, M4.obs, learning_rate, optim_iters, silent, use_skewness, use_kurtosis)
+        .par <- .torch_fit(model2, torch_coords, M2.obs, M3.obs, M4.obs, learning_rate, optim_iters, silent, use_bounds, use_skewness, use_kurtosis)
         # Store point estimates of bootstraps
         pars.boot[i,] <- as.numeric(.par)
 
