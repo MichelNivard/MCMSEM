@@ -27,13 +27,14 @@
 .loss_power_bounds_torch <- function(.par, model) {
   # Does not work for some reason, loss does not change, then jumps to NA
   torch_bounds <- torch_tensor(as.matrix(model$bounds))  # If it works, this only needs to be done once and can be passed as argument
-  lbound_check <- !(.par > torch_bounds[1,])  # 0 if parameter is in bounds, 1 if parameter is out of bounds
-  ubound_check <- !(.par < torch_bounds[2,])  # 0 if parameter is in bounds, 1 if parameter is out of bounds
+  lbound_check <- torch_less_equal(.par, torch_bounds[1,])  # 0 if parameter is in bounds, 1 if parameter is out of bounds
+  ubound_check <- torch_greater_equal(.par, torch_bounds[2,])  # 0 if parameter is in bounds, 1 if parameter is out of bounds
   lbound_dist <- torch_square(.par - torch_bounds[1, ])  # Distance from lbound
   ubound_dist <- torch_square(.par - torch_bounds[2, ])  # Distance from ubound
   ldist_sum <- torch_sqrt(torch_sum(lbound_dist * lbound_check))  # Distance multiplied by check: 0 if in bounds
   udist_sum <- torch_sqrt(torch_sum(ubound_dist * ubound_check))  # Distance multiplied by check: 0 if in bounds
-  return(torch_sum(ldist_sum) + torch_sum(udist_sum))
+  pow <- torch_sum(ldist_sum) + torch_sum(udist_sum)
+  return(pow)
 }
 
 .torch_objective <- function(.par, model, torch_coords, M2.obs, M3.obs, M4.obs, use_bounds, use_skewness, use_kurtosis) {
@@ -116,8 +117,6 @@
   }
 
 }
-
-
 
 .torch_fit <- function(model, torch_coords, M2.obs, M3.obs, M4.obs, learning_rate, optim_iters, silent, use_bounds, use_skewness, use_kurtosis, return_history=FALSE) {
   .par <- torch_tensor(as.numeric(model$start_values), requires_grad=TRUE)
