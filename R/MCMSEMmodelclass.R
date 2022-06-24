@@ -11,6 +11,7 @@ mcmmodelclass <- setRefClass("mcmmodelclass",
                                param_coords="list"
                              ))
 # Define MCM model class methods
+
 mcmmodelclass$methods(
     initialize=function(named_matrices, num_matrices, start_values, bounds, meta_data, param_values=c(0), param_names=c(""), param_coords=list()){
     # This is executed upon initialization, required to force parse upon initialization of class instance

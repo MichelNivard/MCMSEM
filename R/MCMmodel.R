@@ -47,7 +47,6 @@ MCMmodel <- function(data, n_confounding=1, constrained_a=TRUE, scale_data=TRUE)
       b_names <- c(b_names, paste0("b",j,"_", i))
     }
   }
-
   par_names <- list(
     a=a_names,
     b=b_names,

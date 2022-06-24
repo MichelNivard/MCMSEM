@@ -1,6 +1,7 @@
 ##################################################
 # DATA SIMULATION
 ##################################################
+
 simulate_data <- function(n=500000, a1=0.35, b1=0.3, b2=-.1, shape=4, df=10) {
   cat("  Note this data simulation is not exact and may contain sampling error.\n")
   if (n < 100000) {

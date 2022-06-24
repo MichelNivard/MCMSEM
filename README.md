@@ -27,7 +27,7 @@ This branch is for a potential move to torch for R backend
    `model <- MCMedit(model, "A", c(2,1), "-a1")`, note `c(2, 1)` are parameter coordinates in the A matrix and may depend on the number of confounders added to the model.
  - Output column names have changed to be identical to parameter names  
  - Added asymptotic calculation of standard errors for much faster runtimes
-
+ 
 ### Code updates
  - Update 17-06-2021 (labelled v0.3.1):
    - Removed several fixed TODO notes
