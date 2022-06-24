@@ -5,7 +5,12 @@ R-package which allows users to run multi co-moment structural equation models.
 Note this is the `torch-dev` branch, and **not** intended for end-users. If you would like to use MCMSEM yourself, please go to the main branch. If you would like to contribute to the code, feel free to check this branch out.  
 This branch is for a potential move to torch for R backend
 
-## Patch notes thus far (v0.3.1-dev-torch)
+## Patch notes thus far (v0.4.0-dev-torch)
+### Torch-specific (v0.4.0)
+ - Added `device` argument to `MCMfit`, and reformated `MCMfit` to be device-agnostic. This enables using cuda (GPU)
+   - Note that from my testing using cuda was not noticeably faster than using CPU, your results may vary.
+ - Overhauled backend of `MCMfit` and `.objective` for improved performance:  
+   - Optimizer-only runtime down from 30 minutes to 30 seconds (30 variables, 5 confounders, c(100, 25) iters, no SE, no kurtosis, no bounds)
 ### Torch-specific (v0.3.1)
  - Moved to torch backend
  - Optimization is now performed using a combination of RPROP and LBFGS optimizers, instead of nlminb
@@ -13,7 +18,7 @@ This branch is for a potential move to torch for R backend
  - Can be converted to a dataframe using `as.data.frame(result)`, then it is in line again with that of the non-torch version
  - Note the torch implementation is slightly slower in the simplest use-case (2 variables + 1 confounder), but scales significantly better to more variables and confounders.
  - It is now possible to disable using skewness or kurtosis in larger models to improve perforamnce. Use either `use_skewness` and `use_kurtosis` arguments to `MCMfit()`.
-### From v0.2.1-dev
+### From v0.2.1
  - Added mcmmodelclass, this class describes the layout of the MCMSEM model complete with parameter matrices, parameter/starting values, and bounds.
  - Addded MCMmodel wrapper function to enable easy creation of mcmmodelclass instances for users
  - Added MCMedit to make editing a model easier (e.g. adding or constraining parameters, changing bounds, etc.)
@@ -24,6 +29,17 @@ This branch is for a potential move to torch for R backend
  - Added asymptotic calculation of standard errors for much faster runtimes
 
 ### Code updates
+ - Update 24-06-2021 (labelled v0.4.0):
+   - Significant backend changes to `MCMfit` to significantly improve performance
+     - (Nearly) everything ported to pure torch, no more indexing in `.objective`, no more `.m3m2v` loops etc.
+     - Note this requires significantly more upfront work (creating base matrices, masks, etc), but results in ~60x performance boost in optimization
+   - Enabled using with CUDA device
+   - Fixed torch-implementation of quadratic scaling when parameters are out of bounds
+   - Enabled using `use_bounds` with a CUDA device
+   - Changed bootstrap code to be in line with current versions
+ - Update 20-06-2021:
+   - Added `runtimes` element to MCMresult that gives some insight intor runtimes of several steps (mostly for development purpposes). 
+   - Added `device` argument to `MCMfit` in preparation of CUDA-enabled version
  - Update 17-06-2021 (labelled v0.3.1):
    - Removed several fixed TODO notes
      - Also removed notes about not being able to run MCMSEM for both positive and negative confounding, as this is not feasible in the current code format. It is easy enough now for users do this themselves through MCMedit.
@@ -44,7 +60,9 @@ This branch is for a potential move to torch for R backend
    - Added `optim_iters` argument to `MCMfit()` to enable changing number of iterations of each optimizer
 
 ### Things still TODO:
-1. Find a way to change .std.err and/or .jac.fn to use torch_tensors, if that's faster than R-matrices?
+1. Improve performance of SE:
+   1. Main culprit is likely to be .t4crossprod 
+   2. If possible find a way to change .std.err and/or .jac.fn to use torch_tensors, if that's faster than R-matrices?
 
 ## Patch notes
 - v0.1.1 

@@ -1,87 +1,31 @@
 # Fit MCM model
-# Objective function
-# torch-ready versions of
-.loss_power_bounds <- function(.par, model) {
-  par <- as.numeric(.par)
-  bounds <- as.matrix(model$bounds)
-  lbound_check <- par > bounds[1,]
-  ubound_check <- par < bounds[2,]
-  if (all(lbound_check & ubound_check)) {
-    return(0)
-  } else {
-    pow <- 1
-    if (!all(lbound_check)) {
-      idx_fail <- which(!(lbound_check))
-      # Add absolute distance from the bounds to power
-      pow <- pow + sum(abs(par[idx_fail]) - abs(bounds[1, idx_fail]))
-    }
-    if (!all(ubound_check)) {
-      idx_fail <- which(!(lbound_check))
-      # Add absolute distance from the bounds to power
-      pow <- pow + sum(abs(par[idx_fail]) - abs(bounds[1, idx_fail]))
-    }
-    return(pow)
-  }
-}
-
-.loss_power_bounds_torch <- function(.par, model) {
+# Function to quadratically scale loss if estimates are out of bounds
+.loss_power_bounds <- function(par, torch_bounds) {
   # Does not work for some reason, loss does not change, then jumps to NA
-  torch_bounds <- torch_tensor(as.matrix(model$bounds))  # If it works, this only needs to be done once and can be passed as argument
-  lbound_check <- torch_less_equal(.par, torch_bounds[1,])  # 0 if parameter is in bounds, 1 if parameter is out of bounds
-  ubound_check <- torch_greater_equal(.par, torch_bounds[2,])  # 0 if parameter is in bounds, 1 if parameter is out of bounds
-  lbound_dist <- torch_square(.par - torch_bounds[1, ])  # Distance from lbound
-  ubound_dist <- torch_square(.par - torch_bounds[2, ])  # Distance from ubound
-  ldist_sum <- torch_sqrt(torch_sum(lbound_dist * lbound_check))  # Distance multiplied by check: 0 if in bounds
-  udist_sum <- torch_sqrt(torch_sum(ubound_dist * ubound_check))  # Distance multiplied by check: 0 if in bounds
+  lbound_check <- torch_less_equal(torch_cat(par), torch_bounds[["L"]])  # 0 if parameter is in bounds, 1 if parameter is out of bounds
+  ubound_check <- torch_greater_equal(torch_cat(par), torch_bounds[["U"]])  # 0 if parameter is in bounds, 1 if parameter is out of bounds
+  lbound_dist <- torch_square(torch_cat(par) - torch_bounds[["L"]])  # Distance from lbound
+  ubound_dist <- torch_square(torch_cat(par) - torch_bounds[["U"]])  # Distance from ubound
+  ldist_sum <- torch_sqrt(torch_sum(lbound_dist * lbound_check)+1e-15)  # Distance multiplied by check: 0 if in bounds
+  udist_sum <- torch_sqrt(torch_sum(ubound_dist * ubound_check)+1e-15)  # Distance multiplied by check: 0 if in bounds
+  # 1e-15 is added to the lines above to prevent NAN gradients due to sqrt(0) issue
   pow <- torch_sum(ldist_sum) + torch_sum(udist_sum)
   return(pow)
 }
-
-.torch_objective <- function(.par, model, torch_coords, M2.obs, M3.obs, M4.obs, use_bounds, use_skewness, use_kurtosis) {
-  torch_A  <- torch_tensor(model$num_matrices[["A"]])
-  torch_Fm <- torch_tensor(model$num_matrices[["Fm"]])
-  torch_S  <- torch_tensor(model$num_matrices[["S"]])
-  torch_Sk <- torch_tensor(model$num_matrices[["Sk"]])
-  torch_K <- torch_tensor(model$num_matrices[["K"]])
-  torch_matrices <- list(
-    A=torch_A,
-    Fm= torch_Fm,
-    S=torch_S,
-    Sk=torch_Sk,
-    K=torch_K,
-    diag_n_p=torch_diagflat(rep(1, model$meta_data$n_phenotypes + model$meta_data$n_confounding))
-  )
-  n_p <- model$meta_data$n_phenotypes + model$meta_data$n_confounding
-  # Model function
-  ### Assign new parameter values to the matrices
-  for (i in torch_coords) {
-    torch_matrices[[i$mat_name]][i$row, i$col] <- .par[i$par] * i$mult
+# Objective function
+.torch_objective <- function(.par_list, torch_bounds, torch_masks, torch_maps, base_matrices, M2.obs, M3.obs, M4.obs, m2v_masks, use_bounds, use_skewness, use_kurtosis) {
+  A <- torch_add(base_matrices[['A']], torch_sum(torch_mul(torch_maps[['A']], .par_list[['A']]), dim=3))
+  Fm <- torch_add(base_matrices[['Fm']], torch_sum(torch_mul(torch_maps[['Fm']], .par_list[['Fm']]), dim=3))
+  S <- torch_add(base_matrices[['S']], torch_sum(torch_mul(torch_maps[['S']], .par_list[['S']]), dim=3))
+  if (use_skewness) {
+    Sk <- torch_add(base_matrices[['Sk']], torch_sum(torch_mul(torch_maps[['Sk']], .par_list[['Sk']]), dim=3))
   }
-  # Extract matrices
-  A  <- torch_matrices[["A"]]
-  Fm <- torch_matrices[["Fm"]]
-  S  <- torch_matrices[["S"]]
-  Sk <- torch_matrices[["Sk"]]
-  K <- torch_matrices[["K"]]
-  diag_n_p <- torch_matrices[['diag_n_p']]
   if (use_kurtosis) {
-    K[,] <- 0
-    # there are some non 0 entries in S4, fix those using existing K1_ref
-    K[model$num_matrices[["K1_ref"]]] <- 1
-    # these are function of S2 matrix
-    sqrtS <- torch_sqrt(S)
-    K <- torch_matmul(torch_matmul(sqrtS, K), .torch_kron(sqrtS, .torch_kron(sqrtS, sqrtS)))
-    for (i in 1:model$meta_data$n_confounding) {
-      K[i, i + (i-1)*(n_p) + (i-1)*((n_p)^2)]  <- 3
-    }
-    # Re-enter values for K
-    for (i in torch_coords) {
-      if (i$mat_name == "K") {
-        K[i$row, i$col] <- .par[i$par] * i$mult
-      }
-    }
+    K_part1 <- torch_matmul(torch_matmul(torch_sqrt(S), base_matrices[['K']]), .torch_kron(torch_sqrt(S), .torch_kron(torch_sqrt(S), torch_sqrt(S))))
+    K <- torch_add(torch_add(torch_mul(K_part1, torch_masks[['K']]), torch_sum(torch_mul(torch_maps[['K']], .par_list[['K']]), dim=3)), base_matrices[['K2']])
   }
 
+  diag_n_p <- base_matrices[['diag_n_p']]
   ###### Compute the observed cov, cosk, and cokurt matrices #################
   diag_np_a_inv <- torch_inverse(diag_n_p - A)
   diag_np_a_inv_t <- torch_transpose(torch_inverse(diag_n_p - A), 1, 2)
@@ -98,63 +42,76 @@
 
   ### Loss function
   # value <- sum((.m2m2v(M2.obs) - .m2m2v(M2))^2) + sum((.m3m2v(M3.obs) - .m3m2v(M3))^2) + sum((.m4m2v(M4.obs)- .m4m2v(M4))^2)
-  # value <- torch_sum((torch_square(torch_tril(M2.obs) - torch_tril(M2))))  +  torch_sum((torch_square(torch_tril(M3.obs$reshape(c(2,2,2))) - torch_tril(M3$reshape(c(2,2,2)))))) + torch_sum((torch_square(torch_tril(M4.obs$reshape(c(2,2,2,2)))- torch_tril(M4$reshape(c(2,2,2,2))))))
   if (use_skewness & use_kurtosis) {
-    value <- torch_sum((torch_square(.torch_m2m2v(M2.obs) - .torch_m2m2v(M2))))  +  torch_sum((torch_square(.torch_m3m2v(M3.obs) - .torch_m3m2v(M3)))) + torch_sum((torch_square(.torch_m4m2v(M4.obs)- .torch_m4m2v(M4))))
+    value <- torch_sum((torch_square(torch_mul(M2.obs, m2v_masks[['m2']]) - torch_mul(M2, m2v_masks[['m2']]))))  +
+      torch_sum((torch_square(torch_mul(M3.obs, m2v_masks[['m3']]) - torch_mul(M3, m2v_masks[['m3']])))) +
+      torch_sum((torch_square(torch_mul(M4.obs, m2v_masks[['m4']]) - torch_mul(M4, m2v_masks[['m4']]))))
   } else if (use_skewness) {
-    value <- torch_sum((torch_square(.torch_m2m2v(M2.obs) - .torch_m2m2v(M2))))  +  torch_sum((torch_square(.torch_m3m2v(M3.obs) - .torch_m3m2v(M3))))
+    value <- torch_sum((torch_square(torch_mul(M2.obs, m2v_masks[['m2']]) - torch_mul(M2, m2v_masks[['m2']]))))  +
+      torch_sum((torch_square(torch_mul(M3.obs, m2v_masks[['m3']]) - torch_mul(M3, m2v_masks[['m3']]))))
   } else if (use_kurtosis) {
-    value <- torch_sum((torch_square(.torch_m2m2v(M2.obs) - .torch_m2m2v(M2)))) + torch_sum((torch_square(.torch_m4m2v(M4.obs)- .torch_m4m2v(M4))))
+    value <- torch_sum((torch_square(torch_mul(M2.obs, m2v_masks[['m2']]) - torch_mul(M2, m2v_masks[['m2']]))))  +
+      torch_sum((torch_square(torch_mul(M4.obs, m2v_masks[['m4']]) - torch_mul(M4, m2v_masks[['m4']]))))
   } else {
     stop("Oops, something went wrong.")
   }
   if (use_bounds) {
-    pow <- .loss_power_bounds(.par, model)
+    pow <- .loss_power_bounds(.par_list, torch_bounds)
     loss <- value * (2^pow)
     return(loss)
   } else {
     return(value)
   }
-
 }
 
-.torch_fit <- function(model, torch_coords, M2.obs, M3.obs, M4.obs, learning_rate, optim_iters, silent, use_bounds, use_skewness, use_kurtosis, return_history=FALSE) {
-  .par <- torch_tensor(as.numeric(model$start_values), requires_grad=TRUE)
+# Fit wrapper function
+.torch_fit <- function(M2.obs, M3.obs, M4.obs, m2v_masks, torch_bounds, torch_masks, torch_maps, base_matrices, .par_list, learning_rate, optim_iters, silent, use_bounds, use_skewness, use_kurtosis, return_history=FALSE) {
   loss_hist <- c()
-  optim <- optim_rprop(.par,lr = learning_rate)
+  optim <- optim_rprop(.par_list,lr = learning_rate)
   for (i in 1:optim_iters[1]) {
     optim$zero_grad()
-    loss <- .torch_objective(.par, model, torch_coords, M2.obs, M3.obs, M4.obs, use_bounds, use_skewness, use_kurtosis)
-    loss_hist <- c(loss_hist, as.numeric(loss))
+    loss <- .torch_objective(.par_list, torch_bounds, torch_masks, torch_maps, base_matrices, M2.obs, M3.obs, M4.obs, m2v_masks, use_bounds, use_skewness, use_kurtosis)
     loss$backward()
+    loss_hist <- c(loss_hist, loss$detach())
     optim$step()
     if (!(silent)) cat(paste0("loss", as.numeric(loss), "\n"))
   }
   calc_loss_torchfit <- function() {
     optim$zero_grad()
-    loss <- .torch_objective(.par, model, torch_coords, M2.obs, M3.obs, M4.obs, use_bounds, use_skewness, use_kurtosis)
-    loss_hist <<- c(loss_hist, as.numeric(loss))
-    if (!(silent)) {cat(paste0("loss", as.numeric(loss), "\n"))}
+    loss <- .torch_objective(.par_list, torch_bounds, torch_masks, torch_maps, base_matrices, M2.obs, M3.obs, M4.obs, m2v_masks, use_bounds, use_skewness, use_kurtosis)
     loss$backward()
+    loss_hist <<- c(loss_hist, loss$detach())
+    if (!(silent)) {cat(paste0("loss", as.numeric(loss), "\n"))}
     return(loss)
   }
   # Use lbfgs to get really close....
   learning_rate <-1
-  optim <- optim_lbfgs(.par,lr= learning_rate)
+  optim <- optim_lbfgs(.par_list,lr= learning_rate)
   for (i in 1:optim_iters[2]) {
     optim$step(calc_loss_torchfit)
   }
   if (return_history) {
-    return(list(par=.par, loss_hist=loss_hist))
+    return(list(par=.par_list, loss_hist=loss_hist))
   } else {
-    return(.par)
+    return(.par_list)
   }
 
 }
-
+# Exported MCMfit function
 MCMfit <- function(mcmmodel, data, compute_se=TRUE, se_type='asymptotic', optim_iters=c(50, 12), bootstrap_iter=200,bootstrap_chunks=1000,
-                   learning_rate=0.02, silent=TRUE, use_bounds=TRUE, use_skewness=TRUE, use_kurtosis=TRUE) {
+                   learning_rate=0.02, silent=TRUE, use_bounds=TRUE, use_skewness=TRUE, use_kurtosis=TRUE, device=NULL) {
+  START_MCMfit <- Sys.time()
   model <- mcmmodel$copy()  # Model is changed if either use_skewness or use_kurtosis is set to FALSE, so I make a local copy here to ensure the original object stays intact
+  if (is.null(device)) {
+    device <- torch_device("cpu")
+  }
+  if (device == torch_device("cuda")) {
+    if (!(silent)) {
+      warning("silent was re-enabled as it is incompatible with a CUDA device.")
+      silent <- TRUE
+    }
+  }
+  cpu_device <- torch_device("cpu")
   if (!(se_type %in% c('two-step', 'one-step','asymptotic')))
     stop("se_type should be one of c('two-step', 'one-step','asymptotic')")
   if (ncol(data) != 2)
@@ -215,22 +172,38 @@ MCMfit <- function(mcmmodel, data, compute_se=TRUE, se_type='asymptotic', optim_
     model$param_coords <- new_coords
   }
   # Obtain covariance, coskewness and cokurtosis matrices
-  M2.obs <- torch_tensor(cov(data))
-  M3.obs <- torch_tensor(M3.MM(data))
-  M4.obs <- torch_tensor(M4.MM(data))
+  M2.obs <- torch_tensor(cov(data), device=device)
+  M3.obs <- torch_tensor(M3.MM(data), device=device)
+  M4.obs <- torch_tensor(M4.MM(data), device=device)
 
-  torch_coords <- .get_torch_coords(model)
+  torch_matrices <- .get_torch_matrices(model, device, M2.obs, M3.obs, M4.obs)
+  param_list <- torch_matrices[['param_list']]
+  m2v_masks <- torch_matrices[['m2v_masks']]
+  torch_bounds <- torch_matrices[['torch_bounds']]
+  torch_masks <- torch_matrices[['torch_masks']]
+  torch_maps <- torch_matrices[['torch_maps']]
+  base_matrices <- torch_matrices[['base_matrices']]
+  .par_list <- torch_matrices[['.par_list']]
   # Obtain estimates with optimizer
-  out <- .torch_fit(model, torch_coords, M2.obs, M3.obs, M4.obs, learning_rate, optim_iters, silent, use_bounds, use_skewness, use_kurtosis, return_history = TRUE)
-  .par <- out[['par']]
-  loss_hist <- out[['loss_hist']]
+  START_optim <- Sys.time()
+  TIME_prep <-  START_optim - START_MCMfit
+  out <- .torch_fit(M2.obs, M3.obs, M4.obs, m2v_masks, torch_bounds, torch_masks, torch_maps, base_matrices, .par_list, learning_rate, optim_iters, silent, use_bounds, use_skewness, use_kurtosis, return_history = TRUE)
+  .par_tensor <- out[['par']]
+  loss_hist <- as.numeric(torch_tensor(torch_vstack(out[["loss_hist"]]), device=cpu_device))
   # Store estimates including minimization objective, using this to evaluate/compare fit
-  results <-  as.data.frame(matrix(as.numeric(.par), nrow = 1))
-
+  .par <- list()
+  for (i in names(.par_tensor)) {
+    if (length(param_list[[i]]) > 0) {
+      .par[[i]] <- .par_tensor[[i]]  # Only include parameters that were actually estimated (requires_grad=TRUE)
+    }
+  }
+  results <-  as.data.frame(matrix(as.numeric(torch_tensor(torch_cat(.par), device=cpu_device)), nrow = 1))
+  START_se <- Sys.time()
+  TIME_optim <- START_se - START_optim
   if (compute_se) {
 
     if(se_type == 'asymptotic'){
-      SEs <- .std.err(data=data,par=as.numeric(.par),model=model, use_skewness, use_kurtosis)
+      SEs <- .std.err(data=data,par=as.numeric(torch_tensor(torch_cat(.par), device=cpu_device)), model=model, use_skewness, use_kurtosis)
     }
 
     if(se_type != 'asymptotic') {
@@ -254,15 +227,32 @@ MCMfit <- function(mcmmodel, data, compute_se=TRUE, se_type='asymptotic', optim_
         sample <- data[boot,]
 
         #2. Get covariance, coskewness and cokurtosis matrices
-        M2.obs <- torch_tensor(cov(sample))
-        M3.obs <- torch_tensor(M3.MM(sample))
-        M4.obs <- torch_tensor(M4.MM(sample))
+        M2.obs <- torch_tensor(cov(sample), device=device)
+        M3.obs <- torch_tensor(M3.MM(sample), device=device)
+        M4.obs <- torch_tensor(M4.MM(sample), device=device)
+        # Get new torch matrices from model copy
+        torch_matrices <- .get_torch_matrices(model2, device, M2.obs, M3.obs, M4.obs)
+        m2v_masks <- torch_matrices[['m2v_masks']]
+        torch_bounds <- torch_matrices[['torch_bounds']]
+        torch_masks <- torch_matrices[['torch_masks']]
+        torch_maps <- torch_matrices[['torch_maps']]
+        base_matrices <- torch_matrices[['base_matrices']]
+        .par_list <- torch_matrices[['.par_list']]
+        # Obtain estimates with optimizer
+        START_optim <- Sys.time()
+        TIME_prep <-  START_optim - START_MCMfit
 
         #3. Fit model
         # Estimate parameters with model function specified above
-        .par <- .torch_fit(model2, torch_coords, M2.obs, M3.obs, M4.obs, learning_rate, optim_iters, silent, use_bounds, use_skewness, use_kurtosis)
+        .par_tensor <- .torch_fit(M2.obs, M3.obs, M4.obs, m2v_masks, torch_bounds, torch_masks, torch_maps, base_matrices, .par_list, learning_rate, optim_iters, silent, use_bounds, use_skewness, use_kurtosis)
+        .par <- list()
+        for (j in names(.par_tensor)) {
+          if (length(param_list[[j]]) > 0) {
+            .par[[j]] <- .par_tensor[[j]]  # Only include parameters that were actually estimated (requires_grad=TRUE)
+          }
+        }
         # Store point estimates of bootstraps
-        pars.boot[i,] <- as.numeric(.par)
+        pars.boot[i,] <- as.numeric(torch_tensor(torch_cat(.par), device=cpu_device))
 
       }
       close(pb)
@@ -290,30 +280,51 @@ MCMfit <- function(mcmmodel, data, compute_se=TRUE, se_type='asymptotic', optim_
         model2 <- model_copy$copy()  # Create new empty model
         # 3. Sample cov/cosk/cokrt matrices and obtain mean of the sampled matrices to use as cov/cosk/cokrt matrix in the model
         boot <-   sample(1:bootstrap_chunks,bootstrap_chunks,T)
-        M2.obs <-   torch_tensor(matrix(colMeans(sample.cov [boot,-1]),ncol(data),ncol(data), byrow=T))
-        M3.obs <-   torch_tensor(matrix(colMeans(sample.cosk[boot,-1]),ncol(data),ncol(data)^2, byrow=T))
-        M4.obs <-   torch_tensor(matrix(colMeans(sample.cokr[boot,-1]),ncol(data),ncol(data)^3, byrow=T))
+        M2.obs <-   torch_tensor(matrix(colMeans(sample.cov [boot,-1]),ncol(data),ncol(data), byrow=T), device=device)
+        M3.obs <-   torch_tensor(matrix(colMeans(sample.cosk[boot,-1]),ncol(data),ncol(data)^2, byrow=T), device=device)
+        M4.obs <-   torch_tensor(matrix(colMeans(sample.cokr[boot,-1]),ncol(data),ncol(data)^3, byrow=T), device=device)
+        # Get new torch matrices from model copy
+        torch_matrices <- .get_torch_matrices(model2, device, M2.obs, M3.obs, M4.obs)
+        m2v_masks <- torch_matrices[['m2v_masks']]
+        torch_bounds <- torch_matrices[['torch_bounds']]
+        torch_masks <- torch_matrices[['torch_masks']]
+        torch_maps <- torch_matrices[['torch_maps']]
+        base_matrices <- torch_matrices[['base_matrices']]
+        .par_list <- torch_matrices[['.par_list']]
+        # Obtain estimates with optimizer
+        START_optim <- Sys.time()
+        TIME_prep <-  START_optim - START_MCMfit
 
-        #4. Fit model
+        #3. Fit model
         # Estimate parameters with model function specified above
-        .par <- .torch_fit(model2, torch_coords, M2.obs, M3.obs, M4.obs, learning_rate, optim_iters, silent, use_bounds, use_skewness, use_kurtosis)
+        .par_tensor <- .torch_fit(M2.obs, M3.obs, M4.obs, m2v_masks, torch_bounds, torch_masks, torch_maps, base_matrices, .par_list, learning_rate, optim_iters, silent, use_bounds, use_skewness, use_kurtosis)
+        .par <- list()
+        for (j in names(.par_tensor)) {
+          if (length(param_list[[j]]) > 0) {
+            .par[[j]] <- .par_tensor[[j]]  # Only include parameters that were actually estimated (requires_grad=TRUE)
+          }
+        }
         # Store point estimates of bootstraps
-        pars.boot[i,] <- as.numeric(.par)
+        pars.boot2[i,] <- as.numeric(torch_tensor(torch_cat(.par), device=cpu_device))
 
       }
       close(pb)
       SEs <- apply(pars.boot2, 2, sd)
     }
     # Table of point estimates and SE's
-    results <- rbind(results, c(SEs))
+    results <- rbind(results, SEs)
   }
 
   colnames(results) <- model$param_names
-  rownames(results) <- if(compute_se) c("est", "se") else c("est")
+  rownames(results) <- if(compute_se) c("est", "se") else "est"
+  STOP <- Sys.time()
+  TIME_se <- STOP - START_se
+  TIME_total <- STOP - START_MCMfit
   return(mcmresultclass(df=results, loss=loss_hist[length(loss_hist)],
                       history=list(
                         model=model$copy(),
-                        loss=loss_hist
-                      )))
+                        loss=loss_hist),
+                        runtimes=list(Preparation=TIME_prep, Optimizer=TIME_optim, SE=TIME_se, Total=TIME_total)
+                      ))
 }
 
