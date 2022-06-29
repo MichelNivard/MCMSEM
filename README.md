@@ -5,7 +5,9 @@ R-package which allows users to run multi co-moment structural equation models.
 Note this is the `torch-dev` branch, and **not** intended for end-users. If you would like to use MCMSEM yourself, please go to the main branch. If you would like to contribute to the code, feel free to check this branch out.  
 This branch is for a potential move to torch for R backend
 
-## Patch notes thus far (v0.4.0-dev-torch)
+## Patch notes thus far (v0.4.1-dev-torch)
+### Torch-specific (v0.4.0)
+ - Minor tweaks to `MCMfit` to slightly reduce (V)RAM usage
 ### Torch-specific (v0.4.0)
  - Added `device` argument to `MCMfit`, and reformated `MCMfit` to be device-agnostic. This enables using cuda (GPU)
    - Note that from my testing using cuda was not noticeably faster than using CPU, your results may vary.
@@ -29,6 +31,19 @@ This branch is for a potential move to torch for R backend
  - Added asymptotic calculation of standard errors for much faster runtimes
  
 ### Code updates
+ - Update 29-06-2021 (labelled v0.4.1):
+   - Minor RAM tweaks in `MCMfit`, storing fewer R objects saves some VRAM (particularly for CUDA devices).
+ - Update 24-06-2021 (labelled v0.4.0):
+   - Significant backend changes to `MCMfit` to significantly improve performance
+     - (Nearly) everything ported to pure torch, no more indexing in `.objective`, no more `.m3m2v` loops etc.
+     - Note this requires significantly more upfront work (creating base matrices, masks, etc), but results in ~60x performance boost in optimization
+   - Enabled using with CUDA device
+   - Fixed torch-implementation of quadratic scaling when parameters are out of bounds
+   - Enabled using `use_bounds` with a CUDA device
+   - Changed bootstrap code to be in line with current versions
+ - Update 20-06-2021:
+   - Added `runtimes` element to MCMresult that gives some insight intor runtimes of several steps (mostly for development purpposes). 
+   - Added `device` argument to `MCMfit` in preparation of CUDA-enabled version
  - Update 17-06-2021 (labelled v0.3.1):
    - Removed several fixed TODO notes
      - Also removed notes about not being able to run MCMSEM for both positive and negative confounding, as this is not feasible in the current code format. It is easy enough now for users do this themselves through MCMedit.

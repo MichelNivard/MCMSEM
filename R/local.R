@@ -270,13 +270,13 @@
 }
 
 
-.torch_m2m2v_mask <- function(x, device) {
-  mask <- torch_zeros_like(x, device=device)
+.torch_m2m2v_mask <- function(x, device, dtype) {
+  mask <- torch_zeros_like(x, device=device, dtype=dtype)
   mask[lower.tri(x, diag=TRUE)] <- 1
   return(mask)
 }
-.torch_m3m2v_mask <- function(x, device) {
-  mask <- torch_zeros_like(x, device=device)
+.torch_m3m2v_mask <- function(x, device, dtype) {
+  mask <- torch_zeros_like(x, device=device, dtype=dtype)
   p <- mask$shape[1]
   for (i in 0:(p-1)) {
     for (j in i:(p-1)) {
@@ -289,8 +289,8 @@
   return(mask)
 }
 
-.torch_m4m2v_mask <- function(x, device) {
-  mask <- torch_zeros_like(x, device=device)
+.torch_m4m2v_mask <- function(x, device, dtype) {
+  mask <- torch_zeros_like(x, device=device, dtype=dtype)
   p <- mask$shape[1]
   for (i in 0:(p-1)) {
     for (j in i:(p-1)) {
@@ -305,28 +305,28 @@
   return(mask)
 }
 
-.get_torch_matrices <- function(model, device, M2.obs, M3.obs, M4.obs) {
+.get_torch_matrices <- function(model, device, M2.obs, M3.obs, M4.obs, torch_dtype) {
     torch_coords <- .get_torch_coords(model, device)
 
   torch_matrices <- list(
-    A=torch_tensor(model$num_matrices[["A"]], device=device),
-    Fm= torch_tensor(model$num_matrices[["Fm"]], device=device),
-    S=torch_tensor(model$num_matrices[["S"]], device=device),
-    Sk=torch_tensor(model$num_matrices[["Sk"]], device=device),
-    K=torch_tensor(model$num_matrices[["K1_ref"]]+1-1, device=device),
-    diag_n_p=torch_tensor(torch_diagflat(rep(1, model$meta_data$n_phenotypes + model$meta_data$n_confounding)), device=device)
+    A=torch_tensor(model$num_matrices[["A"]], device=device, dtype=torch_dtype),
+    Fm= torch_tensor(model$num_matrices[["Fm"]], device=device, dtype=torch_dtype),
+    S=torch_tensor(model$num_matrices[["S"]], device=device, dtype=torch_dtype),
+    Sk=torch_tensor(model$num_matrices[["Sk"]], device=device, dtype=torch_dtype),
+    K=torch_tensor(model$num_matrices[["K1_ref"]]+1-1, device=device, dtype=torch_dtype),
+    diag_n_p=torch_tensor(torch_diagflat(rep(1, model$meta_data$n_phenotypes + model$meta_data$n_confounding)), device=device, dtype=torch_dtype)
   )
   param_list <- list(A=c(), Fm= c(), S=c(), Sk=c(), K=c())
   torch_maps <- list(A=list(), Fm= list(), S=list(), Sk=list(), K=list())
   torch_masks <- list(
-    A=torch_ones_like(torch_matrices[["A"]], dtype = torch_float(), device=device),
-    Fm= torch_ones_like(torch_matrices[["Fm"]], dtype = torch_float(), device=device),
-    S=torch_ones_like(torch_matrices[["S"]], dtype = torch_float(), device=device),
-    Sk=torch_ones_like(torch_matrices[["Sk"]], dtype = torch_float(), device=device),
-    K=torch_ones_like(torch_matrices[["K"]], dtype = torch_float(), device=device)
+    A=torch_ones_like(torch_matrices[["A"]], dtype=torch_dtype, device=device),
+    Fm= torch_ones_like(torch_matrices[["Fm"]], dtype=torch_dtype, device=device),
+    S=torch_ones_like(torch_matrices[["S"]], dtype=torch_dtype, device=device),
+    Sk=torch_ones_like(torch_matrices[["Sk"]], dtype=torch_dtype, device=device),
+    K=torch_ones_like(torch_matrices[["K"]], dtype=torch_dtype, device=device)
   )
   for (i in torch_coords) {
-    new_mat <- torch_zeros_like(torch_matrices[[i$mat_name]], device=device)
+    new_mat <- torch_zeros_like(torch_matrices[[i$mat_name]], device=device, dtype=torch_dtype)
     new_mat[i$row, i$col] <- 1 * i$mult
     torch_masks[[i$mat_name]][i$row, i$col] <- 0.0
     param_name <- model$named_matrices[[i$mat_name]][i$row, i$col]
@@ -344,11 +344,11 @@
   }
   # 3D tensors defining locations of paramters that require grad
   torch_maps <- list(
-    A=if (length(torch_maps[['A']]) > 0) {torch_dstack(torch_maps[['A']])} else {torch_zeros_like(torch_matrices[["A"]], device=device)},
-    Fm=if (length(torch_maps[['Fm']]) > 0) {torch_dstack(torch_maps[['Fm']])} else {torch_zeros_like(torch_matrices[["Fm"]], device=device)},
-    S=if (length(torch_maps[['S']]) > 0) {torch_dstack(torch_maps[['S']])} else {torch_zeros_like(torch_matrices[["S"]], device=device)},
-    Sk=if (length(torch_maps[['Sk']]) > 0) {torch_dstack(torch_maps[['Sk']])} else {torch_zeros_like(torch_matrices[["Sk"]], device=device)},
-    K=if (length(torch_maps[['K']]) > 0) {torch_dstack(torch_maps[['K']])} else {torch_zeros_like(torch_matrices[["K"]], device=device)}
+    A=if (length(torch_maps[['A']]) > 0) {torch_dstack(torch_maps[['A']])} else {torch_zeros_like(torch_matrices[["A"]], device=device, dtype=torch_dtype)},
+    Fm=if (length(torch_maps[['Fm']]) > 0) {torch_dstack(torch_maps[['Fm']])} else {torch_zeros_like(torch_matrices[["Fm"]], device=device, dtype=torch_dtype)},
+    S=if (length(torch_maps[['S']]) > 0) {torch_dstack(torch_maps[['S']])} else {torch_zeros_like(torch_matrices[["S"]], device=device, dtype=torch_dtype)},
+    Sk=if (length(torch_maps[['Sk']]) > 0) {torch_dstack(torch_maps[['Sk']])} else {torch_zeros_like(torch_matrices[["Sk"]], device=device, dtype=torch_dtype)},
+    K=if (length(torch_maps[['K']]) > 0) {torch_dstack(torch_maps[['K']])} else {torch_zeros_like(torch_matrices[["K"]], device=device, dtype=torch_dtype)}
   )
   # Reshape to 3D is necessary as we sum over 3rd axis later on
   for (i in names(torch_maps)) {
@@ -357,47 +357,48 @@
       torch_maps[[i]] <- torch_reshape(torch_maps[[i]], c(shape[1], shape[2], 1))
     }
   }
-  K2 <- torch_zeros_like(torch_matrices[['K']], device=device)
+  K2 <- torch_zeros_like(torch_matrices[['K']], device=device, dtype=torch_dtype)
   for (i in 1:model$meta_data$n_confounding) {
     K2[i, i + (i-1)*(n_p) + (i-1)*((n_p)^2)]  <- 3
   }
   base_matrices <- list(
-    A=torch_mul(torch_tensor(model$num_matrices[["A"]], device=device), torch_masks[['A']]),
-    Fm=torch_mul(torch_tensor(model$num_matrices[["Fm"]], device=device), torch_masks[['Fm']]),
-    S=torch_mul(torch_tensor(model$num_matrices[["S"]], device=device), torch_masks[['S']]),
-    Sk=torch_mul(torch_tensor(model$num_matrices[["Sk"]], device=device), torch_masks[['Sk']]),
-    K=torch_tensor(model$num_matrices[["K1_ref"]]+1-1, device=device),
+    A=torch_mul(torch_tensor(model$num_matrices[["A"]], device=device, dtype=torch_dtype), torch_masks[['A']]),
+    Fm=torch_mul(torch_tensor(model$num_matrices[["Fm"]], device=device, dtype=torch_dtype), torch_masks[['Fm']]),
+    S=torch_mul(torch_tensor(model$num_matrices[["S"]], device=device, dtype=torch_dtype), torch_masks[['S']]),
+    Sk=torch_mul(torch_tensor(model$num_matrices[["Sk"]], device=device, dtype=torch_dtype), torch_masks[['Sk']]),
+    K=torch_tensor(model$num_matrices[["K1_ref"]]+1-1, device=device, dtype=torch_dtype),
     K2=K2,
-    diag_n_p=torch_tensor(torch_diagflat(rep(1, model$meta_data$n_phenotypes + model$meta_data$n_confounding)), device=device)
+    diag_n_p=torch_tensor(torch_diagflat(rep(1, model$meta_data$n_phenotypes + model$meta_data$n_confounding)), device=device, dtype=torch_dtype)
   )
   # Zeros can produce NAN gradients, therefore set values in S matrices to very low values
   base_matrices[['S']] <- base_matrices[['S']] + torch_tensor(1e-16, device=device)
   # If the matrix (A, Fm, S, Sk, or K) does not have free parameters, use a constant 1 to ensure code will always work
   .par_list <- list(
-    A=if (length(param_list[['A']]) > 0) {torch_tensor(as.numeric(param_list[['A']]), requires_grad = TRUE, device=device)} else {torch_tensor(1, device=device)},
-    Fm=if (length(param_list[['Fm']]) > 0) {torch_tensor(as.numeric(param_list[['Fm']]), requires_grad = TRUE, device=device)} else {torch_tensor(1, device=device)},
-    S=if (length(param_list[['S']]) > 0) {torch_tensor(as.numeric(param_list[['S']]), requires_grad = TRUE, device=device)} else {torch_tensor(1, device=device)},
-    Sk=if (length(param_list[['Sk']]) > 0) {torch_tensor(as.numeric(param_list[['Sk']]), requires_grad = TRUE, device=device)} else {torch_tensor(1, device=device)},
-    K=if (length(param_list[['K']]) > 0) {torch_tensor(as.numeric(param_list[['K']]), requires_grad = TRUE, device=device)} else {torch_tensor(1, device=device)}
+    A=if (length(param_list[['A']]) > 0) {torch_tensor(as.numeric(param_list[['A']]), requires_grad = TRUE, device=device, dtype=torch_dtype)} else {torch_tensor(1, device=device, dtype=torch_dtype)},
+    Fm=if (length(param_list[['Fm']]) > 0) {torch_tensor(as.numeric(param_list[['Fm']]), requires_grad = TRUE, device=device, dtype=torch_dtype)} else {torch_tensor(1, device=device, dtype=torch_dtype)},
+    S=if (length(param_list[['S']]) > 0) {torch_tensor(as.numeric(param_list[['S']]), requires_grad = TRUE, device=device, dtype=torch_dtype)} else {torch_tensor(1, device=device, dtype=torch_dtype)},
+    Sk=if (length(param_list[['Sk']]) > 0) {torch_tensor(as.numeric(param_list[['Sk']]), requires_grad = TRUE, device=device, dtype=torch_dtype)} else {torch_tensor(1, device=device, dtype=torch_dtype)},
+    K=if (length(param_list[['K']]) > 0) {torch_tensor(as.numeric(param_list[['K']]), requires_grad = TRUE, device=device, dtype=torch_dtype)} else {torch_tensor(1, device=device, dtype=torch_dtype)}
   )
   torch_bounds <- list(L=list(), U=list())
   for (i in names(.par_list)) {
     if (.par_list[[i]]$requires_grad) {
-      torch_bounds[["L"]][[i]] <- torch_tensor(as.numeric(model$bounds["L", names(param_list[[i]])]), device=device)
-      torch_bounds[["U"]][[i]] <- torch_tensor(as.numeric(model$bounds["U", names(param_list[[i]])]), device=device)
+      torch_bounds[["L"]][[i]] <- torch_tensor(as.numeric(model$bounds["L", names(param_list[[i]])]), device=device, dtype=torch_dtype)
+      torch_bounds[["U"]][[i]] <- torch_tensor(as.numeric(model$bounds["U", names(param_list[[i]])]), device=device, dtype=torch_dtype)
     } else {
       # Non-grad parameters also need bounds in order for the shapes to match
-      torch_bounds[["L"]][[i]] <- torch_ones_like(.par_list[[i]], device=device) - 100
-      torch_bounds[["U"]][[i]] <- torch_tensor(.par_list[[i]], device=device) + 100
+      torch_bounds[["L"]][[i]] <- torch_ones_like(.par_list[[i]], device=device, dtype=torch_dtype) - 100
+      torch_bounds[["U"]][[i]] <- torch_tensor(.par_list[[i]], device=device, dtype=torch_dtype) + 100
     }
   }
   torch_bounds[['L']] <- torch_cat(torch_bounds[['L']])
   torch_bounds[['U']] <- torch_cat(torch_bounds[['U']])
   m2v_masks <- list(
-    m2=.torch_m2m2v_mask(M2.obs, device=device),
-    m3=.torch_m3m2v_mask(M3.obs, device=device),
-    m4=.torch_m4m2v_mask(M4.obs, device=device)
+    m2=.torch_m2m2v_mask(M2.obs, device=device, dtype=torch_dtype),
+    m3=.torch_m3m2v_mask(M3.obs, device=device, dtype=torch_dtype),
+    m4=.torch_m4m2v_mask(M4.obs, device=device, dtype=torch_dtype)
   )
+  torch_masks <- list(K=torch_masks[['K']])
   return(list(
     m2v_masks=m2v_masks,
     param_list=param_list,
