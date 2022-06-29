@@ -11,7 +11,7 @@ If you use this package please include the following citation:
 Currently this packge is not listed on CRAN and should therefore be installed from GitHub directly.
 ```
 library(devtools)
-install_github("https://github.com/matthijsz/MCMSEM")
+install_github("https://github.com/zenabtamimy/MCMSEM")
 ```
 
 ## Usage
