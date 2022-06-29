@@ -4,8 +4,7 @@ R-package which allows users to run multi co-moment structural equation models.
 ## DEPRECATED development branch
 Note this is the old `dev` branch of version 0.2 of MCMSEM, this is **not** intended for end-users.  
 If you would like to use MCMSEM yourself, please go to the `main` branch.   
-If you would like to contribute to the code, please go the `dev-torch` branch as development continues there
-This branch is for a potential move to torch for R backend
+If you would like to contribute to the code, please go the `dev-torch` branch as development continues there.
 
 ### Patch notes thus far (v0.2.1-dev)
  - Added mcmmodelclass, this class describes the layout of the MCMSEM model complete with parameter matrices, parameter/starting values, and bounds.
