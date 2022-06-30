@@ -8,14 +8,12 @@ mcmresultclass <- setRefClass("mcmresultclass",
                              ))
 
 mcmresultclass$methods(
-  initialize=function(df=NULL, model=NULL, loss=NULL, history=NULL, runtimes=NULL) {
-    if (!is.null(df)) {
-      .self$df <- df
-      .self$model <- model
-      .self$loss <- loss
-      .self$history <- history
-      .self$runtimes <- runtimes
-    }
+  initialize=function(df, model, loss, history, runtimes) {
+    .self$df <- df
+    .self$model <- model
+    .self$loss <- loss
+    .self$history <- history
+    .self$runtimes <- runtimes
   },
   show=function(){
     cat("  MCM model Result\n")
