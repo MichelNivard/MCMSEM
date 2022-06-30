@@ -7,13 +7,13 @@ MCMedit <- function(model, pointer, name, value) {
       if (length(value) > 1) {
         for (i in value) {
           i_pos <- gsub("-", "", i)
-          if (!(sub("^([[:alpha:]]*).*", "\\1", i_pos) %in% c("a", "b", "sk", "k", "fm")))
-            stop("Named parameters must only contain one of [a, b, sk, k, fm] and numbers or other symbols")
+          if (!(sub("^([[:alpha:]]*).*", "\\1", i_pos) %in% c("a", "s", "b", "sk", "k", "fm")))
+            stop("Named parameters must only contain one of [a, s, b, sk, k, fm] and numbers or other symbols")
         }
       } else {
         value_pos <- gsub("-", "", value)
-        if (!(sub("^([[:alpha:]]*).*", "\\1", value_pos) %in% c("a", "b", "sk", "k", "fm")))
-          stop("Named parameters must only contain one of [a, b, sk, k, fm] and numbers or other symbols")
+        if (!(sub("^([[:alpha:]]*).*", "\\1", value_pos) %in% c("a", "s", "b", "sk", "k", "fm")))
+          stop("Named parameters must only contain one of [a, b, s, sk, k, fm] and numbers or other symbols")
       }
     }
     if (length(name) > 1) {

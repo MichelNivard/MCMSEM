@@ -21,7 +21,7 @@ mcmresultclass$methods(
   },
   copy=function(){
     return(mcmresultclass(.self$df, .self$model, .self$loss, .self$history, .self$runtimes))
-  }
+  },
 )
 
 as.data.frame.mcmresultclass <- function(x) {
