@@ -2,13 +2,12 @@
 R-package which allows users to run multi co-moment structural equation models.
 
 ## Citation
-If you use this package please include the following citation:
-**#TODO: add reference**
+If you use this package please include the following citation: Tamimy, Z., van Bergen, E., van der Zee, M. D., Dolan, C. V., & Nivard, M. G. (n.d.). Multi Co-Moment Structural Equation Models: Discovering Direction of Causality in the Presence of Confounding. Retrieved from osf.io/preprints/socarxiv/ynam2
 
 
 ## Installation
 
-Currently this packge is not listed on CRAN and should therefore be installed from GitHub directly.
+Currently this package is not listed on CRAN and should therefore be installed from GitHub directly.
 ```
 library(devtools)
 install_github("https://github.com/zenabtamimy/MCMSEM")
