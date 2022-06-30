@@ -5,9 +5,9 @@ R-package which allows users to run multi co-moment structural equation models.
 Note this is the `dev-torch` branch, and **not** intended for end-users. If you would like to use MCMSEM yourself, please go to the main branch. If you would like to contribute to the code, feel free to check this branch out.  
 As of version 0.4.0 it is possible to run MCMSEM on a GPU, see [MCMSEM on GPU](#mcmsem-on-gpu).
 
-## Patch notes thus far (v0.4.1-dev-torch)
+## Patch notes thus far (v0.4.2-dev-torch)
 ### Torch-specific (v0.4.2)
- - Backend changed to standard error computation significantly improving performance.
+ - Backend changes to standard error computation significantly improving performance.
  - Moved `model` object in `mcmresultclass` one level up so it can be accessed via `result$model`
  - Updated `model` object in `result` such that results are also stored in the matrices at appropriate locations
 ### Torch-specific (v0.4.1)
