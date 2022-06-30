@@ -2,7 +2,8 @@
 R-package which allows users to run multi co-moment structural equation models.
 
 ## Development branch
-Note this is the `dev-torch` branch, and **not** intended for end-users. If you would like to use MCMSEM yourself, please go to the main branch. If you would like to contribute to the code, feel free to check this branch out.
+Note this is the `dev-torch` branch, and **not** intended for end-users. If you would like to use MCMSEM yourself, please go to the main branch. If you would like to contribute to the code, feel free to check this branch out.  
+As of version 0.4.0 it is possible to run MCMSEM on a GPU, see [MCMSEM on GPU](#mcmsem-on-gpu).
 
 ## Patch notes thus far (v0.4.1-dev-torch)
 ### Torch-specific (v0.4.2)
@@ -13,7 +14,6 @@ Note this is the `dev-torch` branch, and **not** intended for end-users. If you 
  - Minor tweaks to `MCMfit` to slightly reduce (V)RAM usage
 ### Torch-specific (v0.4.0)
  - Added `device` argument to `MCMfit`, and reformated `MCMfit` to be device-agnostic. This enables using cuda (GPU)
-   - Note that from my testing using cuda was not noticeably faster than using CPU, your results may vary.
  - Overhauled backend of `MCMfit` and `.objective` for improved performance:  
    - Optimizer-only runtime down from 30 minutes to 30 seconds (30 variables, 5 confounders, c(100, 25) iters, no SE, no kurtosis, no bounds)
 ### Torch-specific (v0.3.1)
@@ -39,6 +39,7 @@ Note this is the `dev-torch` branch, and **not** intended for end-users. If you 
    - Changed `mcmresultclass` definition so `model` is now at top level of the object
    - Changed `mcmmodelclass` definition so an empty instance can be generated (for parsing/loading purposes)
    - The local `model$copy()` in `MCMfit` is now updated with resulting parameter values at the end of the function, so the returned model contains all parameters in the correct matrix.
+   - Added [MCMSEM on GPU](#mcmsem-on-gpu) to README
  - Update 29-06-2021 (labelled v0.4.1):
    - Minor RAM tweaks in `MCMfit`, storing fewer R objects saves some VRAM (particularly for CUDA devices).
  - Update 24-06-2021 (labelled v0.4.0):
@@ -206,3 +207,32 @@ In large models using both skewness and kurtosis for parameter estimation may no
 my_result_no_skew <- MCMfit(my_model, data, use_skewness=FALSE)
 my_result_no_kurt <- MCMfit(my_model, data, use_kurtosis=FALSE)
 ```
+
+
+## MCMSEM on GPU
+> **__Preface__**: Using a GPU is only advantageous under certain circumstances. Generally, if your intended model contains 5 or fewer input variables, or if you intend to run a model without kurtosis it will likely not be worth it, though this will all depend on your model, data, CPU, GPU etc.
+
+### Requirements
+1. An NVIDIA CUDA-enabled GPU, see [NVIDIA's website](https://developer.nvidia.com/cuda-gpus).
+   - On top of this you will likely need a GPU with a significant VRAM capacity. For reference, our tests are performed on a GTX1080Ti (11GB VRAM) which is limited to running skew+kurtosis models with 18-20 input variables and 5 confounders.
+2. Installed NVIDIA CUDA toolkit version 11.3 (note it has to be **exactly** version 11.3)
+    - Make sure that environmental variables CUDA_HOME and CUDA_PATH are set properly
+3. Installed cuDNN 8.4 for CUDA toolkit 11.3 see [NVIDIA's website](https://docs.nvidia.com/deeplearning/cudnn/archives/cudnn-840/install-guide/index.html) (again, it has to be **exactly** version 8.4).
+4. Installed torch after all the above conditions are met.
+   - If you already have torch for R installed, remove it: `remove.packages("torch")`, restart R, and install it again.
+
+### Usage
+Before running MCMSEM, verify that CUDA is available to your torch installation. Note that the first time you run `library(torch)` might take a few minutes as torch will then download and install required gpu-torch libraries.
+``` 
+library(torch)
+cuda_is_available()  # Should return TRUE
+```
+
+If CUDA is available, setup a CUDA device and pass this to MCMfit.
+``` 
+cuda_device <- torch_device("cuda")
+res <- MCMfit(my_model, data, device=cuda_device)
+```
+
+Running `MCMfit` on a GPU can result in very significant runtime improvements, for instance from our testing a model with 15 input variables and 5 confounders, using both skewness and kurtosis took an hour on CPU compared to 20 minutes on GPU.  
+This, however, is contingent upon enough available VRAM. If you get a `CUDA out of memory` error your VRAM is insufficient given your model. We do our best to ensure the code uses as little VRAM as possible, but due to the nature of GPU computing VRAM requirements will likely remain substantially larger than RAM requirements.
