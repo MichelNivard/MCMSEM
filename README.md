@@ -28,7 +28,6 @@ result_positive <- MCMSEM(data, confounding='positive')
 result_negative <- MCMSEM(data, confounding='negative')
 results_combined <- MCMSEM(data, confounding='both')
 ```
-**#TODO: add some text about what to do when**
 
 By default Standard Errors for each estimate are computed through bootstrap, this can be disabled
 ```
@@ -40,11 +39,10 @@ If computing SE takes to long, an alternative is to reduce the number of iterati
 result <- MCMSEM(data, bootstrap_iter=100)
 ```
 
-As a default a faster, but slightly less precise, two-step bootstrap is performed this behaviour can be changed if needed.
+As a default a faster, two-step bootstrap is performed this behaviour can be changed if needed.
 ```
 result <- MCMSEM(data, bootstrap_type='one-step')
 ```
-**#TODO: maybe add some text about why this is faster and why this is (probably) just as accurate**
 
 For testing purposes, this package also includes a function to simulate data which will work directly with the `MCMSEM` function:
 ```
