@@ -2,11 +2,14 @@
 R-package which allows users to run multi co-moment structural equation models.
 
 ## Development branch
-Note this is the `torch-dev` branch, and **not** intended for end-users. If you would like to use MCMSEM yourself, please go to the main branch. If you would like to contribute to the code, feel free to check this branch out.  
-This branch is for a potential move to torch for R backend
+Note this is the `dev-torch` branch, and **not** intended for end-users. If you would like to use MCMSEM yourself, please go to the main branch. If you would like to contribute to the code, feel free to check this branch out.
 
 ## Patch notes thus far (v0.4.1-dev-torch)
-### Torch-specific (v0.4.0)
+### Torch-specific (v0.4.2)
+ - Backend changed to standard error computation significantly improving performance.
+ - Moved `model` object in `mcmresultclass` one level up so it can be accessed via `result$model`
+ - Updated `model` object in `result` such that results are also stored in the matrices at appropriate locations
+### Torch-specific (v0.4.1)
  - Minor tweaks to `MCMfit` to slightly reduce (V)RAM usage
 ### Torch-specific (v0.4.0)
  - Added `device` argument to `MCMfit`, and reformated `MCMfit` to be device-agnostic. This enables using cuda (GPU)
@@ -31,6 +34,11 @@ This branch is for a potential move to torch for R backend
  - Added asymptotic calculation of standard errors for much faster runtimes
  
 ### Code updates
+ - Update 30-06-2021 (labelled v0.4.2):
+   - Changed `.jac.fn` to use torch tensors within the function significantly improving performance.
+   - Changed `mcmresultclass` definition so `model` is now at top level of the object
+   - Changed `mcmmodelclass` definition so an empty instance can be generated (for parsing/loading purposes)
+   - The local `model$copy()` in `MCMfit` is now updated with resulting parameter values at the end of the function, so the returned model contains all parameters in the correct matrix.
  - Update 29-06-2021 (labelled v0.4.1):
    - Minor RAM tweaks in `MCMfit`, storing fewer R objects saves some VRAM (particularly for CUDA devices).
  - Update 24-06-2021 (labelled v0.4.0):

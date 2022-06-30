@@ -88,53 +88,45 @@
 }
 
 ######## Compute Jacobian:
-.jac.fn <- function(par,model, use_skewness, use_kurtosis){
-  n_p <- model$meta_data$n_phenotypes + model$meta_data$n_confounding
-  # Model function
-  ### Assign new parameter values to the matrices
-  model$param_values <- par
-  for (i in 1:length(model$param_coords)) {
-    model$num_matrices[[model$param_coords[[i]][[1]]]][model$param_coords[[i]][[2]]] <- model$param_values[i] * model$param_coords[[i]][[3]]
+.jac.fn_torch <- function(par_vec, .par_list, par_to_list_coords, torch_masks, torch_maps, base_matrices, use_skewness, use_kurtosis, Rm2vmasks, device) {
+  for (i in names(par_to_list_coords)) {
+    .par_list[[i]] <- torch_tensor(par_vec[par_to_list_coords[[i]]], device=device)
   }
-  # Extract matrices
-  A  <- model$num_matrices[["A"]]
-  Fm <- model$num_matrices[["Fm"]]
-  S  <- model$num_matrices[["S"]]
-  Sk <- model$num_matrices[["Sk"]]
-  K <- model$num_matrices[["K"]]
-  if (use_kurtosis) {
-    K[,] <- 0
-    K[model$num_matrices[["K1_ref"]]] <- 1
-    K <- sqrt(S) %*% K %*% (sqrt(S) %x% sqrt(S) %x% sqrt(S))
-    for (i in 1:model$meta_data$n_confounding) {
-      K[i, i + (i-1)*(n_p) + (i-1)*((n_p)^2)]  <- 3
-    }
-    for (i in 1:length(model$param_coords)) {
-      if (model$param_coords[[i]][[1]] == "K") {
-        K[model$param_coords[[i]][[2]]] <- model$param_values[i]
-      }
-    }
-  }
-
-
-  M2 <- Fm %*% solve(diag(n_p) - A) %*% S %*%  t(solve(diag(n_p)-A))  %*% t(Fm)
+  A <- torch_add(base_matrices[['A']], torch_sum(torch_mul(torch_maps[['A']], .par_list[['A']]), dim=3))
+  Fm <- torch_add(base_matrices[['Fm']], torch_sum(torch_mul(torch_maps[['Fm']], .par_list[['Fm']]), dim=3))
+  S <- torch_add(base_matrices[['S']], torch_sum(torch_mul(torch_maps[['S']], .par_list[['S']]), dim=3))
   if (use_skewness) {
-    M3 <- Fm %*% solve(diag(n_p) - A) %*% Sk %*% (t(solve(diag(n_p)-A)) %x% t(solve(diag(n_p)-A))) %*% (t(Fm) %x% t(Fm))
+    Sk <- torch_add(base_matrices[['Sk']], torch_sum(torch_mul(torch_maps[['Sk']], .par_list[['Sk']]), dim=3))
   }
   if (use_kurtosis) {
-    M4 <- Fm %*% solve(diag(n_p) - A) %*% K %*%  (t(solve(diag(n_p)-A)) %x% t(solve(diag(n_p)-A))  %x%  t(solve(diag(n_p)-A))) %*% (t(Fm) %x% t(Fm) %x% t(Fm))
+    K <- torch_add(torch_add(torch_mul(torch_matmul(torch_matmul(torch_sqrt(S), base_matrices[['K']]), .torch_kron(torch_sqrt(S), .torch_kron(torch_sqrt(S), torch_sqrt(S)))), torch_masks[['K']]), torch_sum(torch_mul(torch_maps[['K']], .par_list[['K']]), dim=3)), base_matrices[['K2']])
+  }
+
+  diag_n_p <- base_matrices[['diag_n_p']]
+  ###### Compute the observed cov, cosk, and cokurt matrices #################
+  diag_np_a_inv <- torch_inverse(diag_n_p - A)
+  diag_np_a_inv_t <- torch_transpose(torch_inverse(diag_n_p - A), 1, 2)
+
+  M2 <- torch_matmul(torch_matmul(torch_matmul(torch_matmul(Fm, diag_np_a_inv), S), diag_np_a_inv_t), torch_transpose(Fm, 1, 2))
+  M2 <- as.matrix(torch_tensor(M2, device=torch_device("cpu")))
+  if (use_skewness) {
+    M3 <- torch_matmul(torch_matmul(torch_matmul(torch_matmul(Fm, diag_np_a_inv), Sk), .torch_kron(diag_np_a_inv_t, diag_np_a_inv_t)), .torch_kron(torch_transpose(Fm, 1, 2), torch_transpose(Fm, 1, 2)))
+    M3 <- as.matrix(torch_tensor(M3, device=torch_device("cpu")))
+  }
+  if (use_kurtosis) {
+    M4 <- torch_matmul(torch_matmul(torch_matmul(Fm, diag_np_a_inv), K), torch_matmul(.torch_kron(.torch_kron(diag_np_a_inv_t, diag_np_a_inv_t), diag_np_a_inv_t), .torch_kron(.torch_kron(torch_transpose(Fm, 1, 2), torch_transpose(Fm, 1, 2)), torch_transpose(Fm, 1, 2))))
+    M4 <- as.matrix(torch_tensor(M4, device=torch_device("cpu")))
   }
   if (use_skewness & use_kurtosis) {
-    return(c(.m2m2v(M2),.m3m2v(M3),.m4m2v(M4)))
+    return(c(M2[Rm2vmasks[['m2']]], M3[Rm2vmasks[['m3']]], M4[Rm2vmasks[['m4']]]))
   } else if (use_skewness) {
-    return(c(.m2m2v(M2),.m3m2v(M3)))
+    return(c(M2[Rm2vmasks[['m2']]],M3[Rm2vmasks[['m3']]]))
   } else if (use_kurtosis) {
-    return(c(.m2m2v(M2),.m4m2v(M4)))
+    return(c(M2[Rm2vmasks[['m2']]],M4[Rm2vmasks[['m4']]]))
   } else {
     stop("Oops, something went wrong. 4")
   }
 }
-
 
 .dimlocations <- function(p, dims=2) {
   if (dims == 2) vect <- rep(0, p * (p + 1)  / 3)
@@ -156,12 +148,11 @@
   return(vect)
 }
 
-
 ### pull it together to make std errors:
-.std.err <- function(data,par,model, use_skewness, use_kurtosis){
-
+.std.err <- function(data, .par_list, use_skewness, use_kurtosis, torch_masks, torch_maps, base_matrices, m2v_masks, device) {
+  # .std.err <- function(data, .par_list, torch_masks, torch_maps, base_matrices, M2.obs, M3.obs, M4.obs, m2v_masks, use_skewness, use_kurtosis){
   n <- nrow(data)
-  # if there is too much data for spoeedly opperation, sample 250000 observations to base this on
+  # if there is too much data for spoeedly opperation, sample 100000 observations to base this on
   if(n > 100000){
 
     samp <- sample(1:n,100000,F)
@@ -184,18 +175,34 @@
   } else {
     stop("Oops, something went wrong. 2")
   }
+  Rm2vmasks <- list(
+    m2=which(as.logical(as.numeric(torch_tensor(m2v_masks[['m2']], device=torch_device("cpu"))))),
+    m3=which(as.logical(as.numeric(torch_tensor(m2v_masks[['m3']], device=torch_device("cpu"))))),
+    m4=which(as.logical(as.numeric(torch_tensor(m2v_masks[['m4']], device=torch_device("cpu")))))
+  )
+  S.m <- apply(scale(data, center = T, scale = F),1, .t4crossprod, idx=idx, use_skewness=use_skewness, use_kurtosis=use_kurtosis) # 00:24
 
-  S.m <- apply(scale(data, center = T, scale = F),1, .t4crossprod, idx=idx, use_skewness=use_skewness, use_kurtosis=use_kurtosis)
-  S.m <- cov(t(S.m))/(n-1)
+  S.m <- cov(t(S.m))/(n-1) # 1:01
 
   # weights matrix is based on diagonal, may be better behaved?
-  W <- solve(diag(nrow(S.m)) * S.m)
-  G <- jacobian(func = .jac.fn,x = as.numeric(par),model=model, use_skewness=use_skewness, use_kurtosis=use_kurtosis)
-  # call_torch_function("torch_autograd_functional_jacobian")
+  W <- solve(diag(nrow(S.m)) * S.m) # 00:00.1
+  par_vec <- c()
+  par_to_list_coords <- list()
+  coord_start <- 1
+  for (i in names(.par_list)) {
+    if (.par_list[[i]]$requires_grad) {
+      current_vec <- as.numeric(torch_tensor(.par_list[[i]], device=torch_device("cpu")))
+      par_vec <- c(par_vec, current_vec)
+      par_to_list_coords[[i]] <- coord_start:(coord_start+(length(current_vec)-1))
+      coord_start <- coord_start + length(current_vec)
+    }
+  }
+  G <- jacobian(func = .jac.fn_torch,x = par_vec, .par_list=.par_list, par_to_list_coords=par_to_list_coords, torch_masks=torch_masks,
+                torch_maps=torch_maps, base_matrices=base_matrices, use_skewness=use_skewness, use_kurtosis=use_kurtosis,
+                Rm2vmasks=Rm2vmasks, device=device)
+
   Asycov <- solve(t(G)%*%W%*%G) %*% t(G)%*%W%*%S.m %*%W%*%G %*% solve(t(G)%*%W%*%G)
-
   se <- sqrt(2)*sqrt(diag(Asycov))
-
   return(se)
 
 }

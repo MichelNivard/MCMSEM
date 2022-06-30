@@ -212,7 +212,8 @@ MCMfit <- function(mcmmodel, data, compute_se=TRUE, se_type='asymptotic', optim_
   if (compute_se) {
 
     if(se_type == 'asymptotic'){
-      SEs <- .std.err(data=data,par=as.numeric(torch_tensor(torch_cat(.par), device=cpu_device)), model=model, use_skewness, use_kurtosis)
+      # SEs <- .std.err(data=data,par=as.numeric(torch_tensor(torch_cat(.par), device=cpu_device)), model=model, use_skewness, use_kurtosis)
+      SEs <- .std.err(data, .par_list, use_skewness, use_kurtosis, torch_masks, torch_maps, base_matrices, m2v_masks, device)
     }
 
     if(se_type != 'asymptotic') {
@@ -323,15 +324,22 @@ MCMfit <- function(mcmmodel, data, compute_se=TRUE, se_type='asymptotic', optim_
     # Table of point estimates and SE's
     results <- rbind(results, SEs)
   }
-
+  # Place resulting parameter estimates back into model matrices
+  for (i in 1:length(model$param_coords)) {
+    idat <- model$param_coords[[i]]
+    model$num_matrices[[idat[[1]]]][idat[[2]]] <- as.numeric(results[1, i])
+    # Currently, if there is a parameter like "-a1", this will still return the base a1 value.
+    # If we want to change that so that the returned estimate is also flipped, use this
+    # model$num_matrices[[idat[[1]]]][idat[[2]]] <- as.numeric(results[1, i]) * idat[[3]]
+  }
+  model$param_values <- results[1, ]
   colnames(results) <- model$param_names
   rownames(results) <- if(compute_se) c("est", "se") else "est"
   STOP <- Sys.time()
   TIME_se <- STOP - START_se
   TIME_total <- STOP - START_MCMfit
-  return(mcmresultclass(df=results, loss=loss_hist[length(loss_hist)],
+  return(mcmresultclass(df=results, loss=loss_hist[length(loss_hist)], model=model$copy(),
                       history=list(
-                        model=model$copy(),
                         loss=loss_hist),
                         runtimes=list(Preparation=TIME_prep, Optimizer=TIME_optim, SE=TIME_se, Total=TIME_total)
                       ))

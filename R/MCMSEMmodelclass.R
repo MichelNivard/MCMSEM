@@ -13,20 +13,23 @@ mcmmodelclass <- setRefClass("mcmmodelclass",
 # Define MCM model class methods
 
 mcmmodelclass$methods(
-    initialize=function(named_matrices, num_matrices, start_values, bounds, meta_data, param_values=c(0), param_names=c(""), param_coords=list()){
-    # This is executed upon initialization, required to force parse upon initialization of class instance
-    .self$named_matrices <- named_matrices
-    .self$num_matrices <- num_matrices
-    .self$start_values <- start_values
-    .self$bounds <- bounds
-    .self$meta_data <- meta_data
-    .self$param_values <- param_values
-    .self$param_names <- param_names
-    .self$param_coords <- param_coords
-    if (all(param_names == c(""))) {
-      # When a new class is made: parse, if a copy is made parsing is not necessary
-      .self$parse()
-    }
+    initialize=function(named_matrices=NULL, num_matrices=NULL, start_values=NULL, bounds, meta_data=NULL,
+                        param_values=c(0), param_names=c(""), param_coords=list()){
+      if (!(is.null(named_matrices))) {
+        # This is executed upon initialization, required to force parse upon initialization of class instance
+        .self$named_matrices <- named_matrices
+        .self$num_matrices <- num_matrices
+        .self$start_values <- start_values
+        .self$bounds <- bounds
+        .self$meta_data <- meta_data
+        .self$param_values <- param_values
+        .self$param_names <- param_names
+        .self$param_coords <- param_coords
+        if (all(param_names == c(""))) {
+          # When a new class is made: parse, if a copy is made parsing is not necessary
+          .self$parse()
+        }
+      }
   },
   show=function() {
     # This is just what shows when you run 'mcmmodelinstance' in command prompt

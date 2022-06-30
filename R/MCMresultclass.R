@@ -1,14 +1,16 @@
 mcmresultclass <- setRefClass("mcmresultclass",
                              fields=list(
                                df="data.frame",
+                               model="mcmmodelclass",
                                loss="numeric",
                                history="list",
                                runtimes="list"
                              ))
 
 mcmresultclass$methods(
-  initialize=function(df, loss, history, runtimes) {
+  initialize=function(df, model, loss, history, runtimes) {
     .self$df <- df
+    .self$model <- model
     .self$loss <- loss
     .self$history <- history
     .self$runtimes <- runtimes
@@ -18,7 +20,7 @@ mcmresultclass$methods(
     print(.self$df)
   },
   copy=function(){
-    return(mcmresultclass(df, loss, history, runtimes))
+    return(mcmresultclass(.self$df, .self$model, .self$loss, .self$history, .self$runtimes))
   }
 )
 
