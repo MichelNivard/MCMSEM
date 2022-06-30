@@ -6,7 +6,7 @@ mcmmodelclass <- setRefClass("mcmmodelclass",
                                start_values="data.frame",
                                bounds="data.frame",
                                meta_data="list",
-                               param_values="vector",
+                               param_values="data.frame",
                                param_names="vector",
                                param_coords="list"
                              ))
