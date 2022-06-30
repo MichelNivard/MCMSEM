@@ -2,8 +2,7 @@
 R-package which allows users to run multi co-moment structural equation models.
 
 ## Citation
-If you use this package please include the following citation: 
-Tamimy, Z., van Bergen, E., van der Zee, M. D., Dolan, C. V., & Nivard, M. G. (2022). Multi Co-Moment Structural Equation Models: Discovering Direction of Causality in the Presence of Confounding. Retrieved from osf.io/preprints/socarxiv/ynam2
+If you use this package please include the following citation: Tamimy, Z., van Bergen, E., van der Zee, M. D., Dolan, C. V., & Nivard, M. G. (2022, June 30). Multi Co-Moment Structural Equation Models: Discovering Direction of Causality in the Presence of Confounding. https://doi.org/10.31235/osf.io/ynam2
 
 
 ## Installation
