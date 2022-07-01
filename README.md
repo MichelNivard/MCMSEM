@@ -36,6 +36,9 @@ As of version 0.4.0 it is possible to run MCMSEM on a GPU, see [MCMSEM on GPU](#
 ### Code updates
  - Update 01-07-2021:
    - Fixed `Error: invalid assignment for reference class field ‘param_values’`.
+   - Added `int/CITATION` to allow users to run `citation("MCMSEM")`.
+   - Renamed `MCMSEMmodelclass.R` to `MCMmodelclass` in line with other filenames.
+   - Removed `.m2m2v`, `.m3m2v`, `.m4m2v`, `.torch_m2m2v`, `.torch_m3m2v` and `.torch_m4m2v` from `local.R` as they are no longer used (superseded by mask functions like `.torch_m2m2v_mask`)
  - Update 30-06-2021 (labelled v0.4.2):
    - Changed `.jac.fn` to use torch tensors within the function significantly improving performance.
    - Changed `mcmresultclass` definition so `model` is now at top level of the object
@@ -88,8 +91,8 @@ As of version 0.4.0 it is possible to run MCMSEM on a GPU, see [MCMSEM on GPU](#
 - v0.1.0 - Initial commit
 
 ## Citation
-If you use this package please include the following citation:
-**#TODO: add reference**
+If you use this package please include the following citation:  
+Tamimy, Z., van Bergen, E., van der Zee, M. D., Dolan, C. V., & Nivard, M. G. (2022, June 30). Multi Co-Moment Structural Equation Models: Discovering Direction of Causality in the Presence of Confounding. [https://doi.org/10.31235/osf.io/ynam2](https://doi.org/10.31235/osf.io/ynam2)
 
 
 ## Installation

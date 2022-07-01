@@ -339,8 +339,9 @@ MCMfit <- function(mcmmodel, data, compute_se=TRUE, se_type='asymptotic', optim_
   TIME_se <- STOP - START_se
   TIME_total <- STOP - START_MCMfit
   return(mcmresultclass(df=results, loss=loss_hist[length(loss_hist)], model=model$copy(),
-                      history=list(
-                        loss=loss_hist),
+                        history=list(
+                          loss=loss_hist
+                        ),
                         runtimes=list(Preparation=TIME_prep, Optimizer=TIME_optim, SE=TIME_se, Total=TIME_total)
                       ))
 }

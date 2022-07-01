@@ -3,5 +3,6 @@ test_that("MCMSEM works", {
     data <- simulate_data()
     model <- MCMmodel(data)
     res <- MCMfit(data, compute_se=FALSE)
+    res
   }, "double")
 })

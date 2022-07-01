@@ -1,11 +1,3 @@
-.m3m2v <- utils::getFromNamespace("M3.mat2vec","PerformanceAnalytics")
-.m4m2v <- utils::getFromNamespace("M4.mat2vec","PerformanceAnalytics")
-.m2m2v <- function(x){c(x[lower.tri(x,diag=T)])}
-# Just in case M3.mat2vec and M4.mat2vec from Performanceanalytics ever changes I am leaving R alternatives for these functions here as translated from their C++ code
-# Uncomment these, and expand them to make them readable when that happens
-# .m3m2v <- function(x) {p <- nrow(x); M3vec <- rep(0, p * (p + 1) * (p + 2) / 6); iter <- 1; for (i in 0:(p-1)) {for (j in i:(p-1)) {for (k in j:(p-1)) {M3vec[iter] <- x[((i * p + j) * p + k)+1]; iter <- iter + 1}}}; return(M3vec)}
-# .m4m2v <- function(x) {p <- nrow(x); M4vec <- rep(0, p * (p + 1) * (p + 2) * (p + 3) / 24); iter <- 1; for (i in 0:(p-1)) {for (j in i:(p-1)) {for (k in j:(p-1)) {for (l in k:(p-1)) {M4vec[iter] <- x[((i * p * p + j * p + k) * p + l) + 1]; iter <- iter + 1}}}}; return(M4vec)}
-
 .gen_matrices <- function(par, n_p, n_f, base_value=0) {
   matrices <- list()
   ############## A
@@ -238,44 +230,6 @@
   }
   return(torch_coords)
 }
-
-.torch_m2m2v <- function(x) {
-  return(x[lower.tri(x, diag=TRUE)])
-}
-.torch_m3m2v <- function(x) {
-  p <- x$shape[1]
-  M3vec <- torch_empty(p * (p + 1) * (p + 2) / 6)
-  iter <- 1
-  for (i in 0:(p-1)) {
-    for (j in i:(p-1)) {
-      for (k in j:(p-1)) {
-        coords <- .r_1to2d_idx(((i * p + j) * p + k)+1, p)
-        M3vec[iter] <- x[coords[1], coords[2]]
-        iter <- iter + 1
-      }
-    }
-  }
-  return(M3vec)
-}
-
-.torch_m4m2v <- function(x) {
-  p <- x$shape[1]
-  M4vec <- torch_empty(p * (p + 1) * (p + 2) * (p + 3) / 24)
-  iter <- 1
-  for (i in 0:(p-1)) {
-    for (j in i:(p-1)) {
-      for (k in j:(p-1)) {
-        for (l in k:(p-1)) {
-          coords <- .r_1to2d_idx(((i * p * p + j * p + k) * p + l) + 1, p)
-          M4vec[iter] <- x[coords[1], coords[2]]
-          iter <- iter + 1
-        }
-      }
-    }
-  }
-  return(M4vec)
-}
-
 
 .torch_m2m2v_mask <- function(x, device, dtype) {
   mask <- torch_zeros_like(x, device=device, dtype=dtype)
