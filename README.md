@@ -34,6 +34,8 @@ As of version 0.4.0 it is possible to run MCMSEM on a GPU, see [MCMSEM on GPU](#
  - Added asymptotic calculation of standard errors for much faster runtimes
  
 ### Code updates
+ - Update 01-07-2021:
+   - Fixed `Error: invalid assignment for reference class field ‘param_values’`.
  - Update 30-06-2021 (labelled v0.4.2):
    - Changed `.jac.fn` to use torch tensors within the function significantly improving performance.
    - Changed `mcmresultclass` definition so `model` is now at top level of the object
