@@ -1,0 +1,13 @@
+citHeader("To cite MCMSEM in publications use:")
+
+citEntry(
+  entry    = "misc",
+  title    = "Multi Co-Moment Structural Equation Models: Discovering Direction of Causality in the Presence of Confounding",
+  author   = "Zenab Tamimy, Elsje van Bergen,  Matthijs D van der Zee,  Conor V Dolan, and Michel G Nivard",
+  publisher= "SocArXiv",
+  year     = 2022,
+  month    = "Jun",
+  DOI      = "10.31235/osf.io/ynam2",
+  url      = "https://osf.io/preprints/socarxiv/ynam2",
+  textVersion = "Tamimy, Z., van Bergen, E., van der Zee, M. D., Dolan, C. V., & Nivard, M. G. (2022, June 30). Multi Co-Moment Structural Equation Models: Discovering Direction of Causality in the Presence of Confounding. https://doi.org/10.31235/osf.io/ynam2"
+)
