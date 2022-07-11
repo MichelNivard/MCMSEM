@@ -328,11 +328,11 @@
     S=torch_mul(torch_tensor(model$num_matrices[["S"]], device=device, dtype=torch_dtype), torch_masks[['S']]),
     Sk=torch_mul(torch_tensor(model$num_matrices[["Sk"]], device=device, dtype=torch_dtype), torch_masks[['Sk']]),
     K=torch_tensor(model$num_matrices[["K1_ref"]]+1-1, device=device, dtype=torch_dtype),
-    K2=K2,
+    K2=K2$to_sparse(),
     diag_n_p=torch_tensor(torch_diagflat(rep(1, model$meta_data$n_phenotypes + model$meta_data$n_confounding)), device=device, dtype=torch_dtype)
   )
   # Zeros can produce NAN gradients, therefore set values in S matrices to very low values
-  base_matrices[['S']] <- base_matrices[['S']] + torch_tensor(1e-16, device=device)
+  base_matrices[['S']] <- (base_matrices[['S']] + torch_tensor(1e-16, device=device))
   # If the matrix (A, Fm, S, Sk, or K) does not have free parameters, use a constant 1 to ensure code will always work
   .par_list <- list(
     A=if (length(param_list[['A']]) > 0) {torch_tensor(as.numeric(param_list[['A']]), requires_grad = TRUE, device=device, dtype=torch_dtype)} else {torch_tensor(1, device=device, dtype=torch_dtype)},
@@ -348,8 +348,8 @@
       torch_bounds[["U"]][[i]] <- torch_tensor(as.numeric(model$bounds["U", names(param_list[[i]])]), device=device, dtype=torch_dtype)
     } else {
       # Non-grad parameters also need bounds in order for the shapes to match
-      torch_bounds[["L"]][[i]] <- torch_ones_like(.par_list[[i]], device=device, dtype=torch_dtype) - 100
-      torch_bounds[["U"]][[i]] <- torch_tensor(.par_list[[i]], device=device, dtype=torch_dtype) + 100
+      torch_bounds[["L"]][[i]] <- (torch_ones_like(.par_list[[i]], device=device, dtype=torch_dtype) - 100)
+      torch_bounds[["U"]][[i]] <- (torch_tensor(.par_list[[i]], device=device, dtype=torch_dtype) + 100)
     }
   }
   torch_bounds[['L']] <- torch_cat(torch_bounds[['L']])

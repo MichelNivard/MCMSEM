@@ -5,7 +5,14 @@ R-package which allows users to run multi co-moment structural equation models.
 Note this is the `dev-torch` branch, and **not** intended for end-users. If you would like to use MCMSEM yourself, please go to the main branch. If you would like to contribute to the code, feel free to check this branch out.  
 As of version 0.4.0 it is possible to run MCMSEM on a GPU, see [MCMSEM on GPU](#mcmsem-on-gpu).
 
-## Patch notes thus far (v0.4.2-dev-torch)
+## Patch notes thus far (v0.4.3-dev-torch)
+### Torch-specific (v0.4.3)
+ - Small memory tweaks in `MCMfit`
+ - Moved to `torch nn_mse_loss` function significantly improving performance and reducing memory usage further
+ - Added MCMedit option to change multiple parameters simultaneously using coordinates:
+   - `mcmmodel <- MCMedit(mcmmodel, "A", list(6:10, 1), c("a11", "a12", "a13", "a14", "a15"))`
+ - Added MCMedit option to remove all parameters of given type simultaneously:
+   - `mcmmodel <- MCMedit(mcmmodel, "A", 'b', 0)`
 ### Torch-specific (v0.4.2)
  - Backend changes to standard error computation significantly improving performance.
  - Moved `model` object in `mcmresultclass` one level up so it can be accessed via `result$model`

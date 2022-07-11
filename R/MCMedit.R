@@ -3,7 +3,7 @@ MCMedit <- function(model, pointer, name, value) {
   if (pointer %in% names(x$num_matrices)) {
     # For modifying parameters:
     # Verify integrity of named parameters, they should be a, b, s, sk or k if all but letters are dropped
-    if (is.character(value)) {
+    if (is.character(value) & all(is.na(suppressWarnings(as.numeric(value))))) {
       if (length(value) > 1) {
         for (i in value) {
           i_pos <- gsub("-", "", i)
@@ -17,15 +17,35 @@ MCMedit <- function(model, pointer, name, value) {
       }
     }
     if (length(name) > 1) {
-      if (is.character(value)) {
-        x$named_matrices[[pointer]][name[1], name[2]] <- value
+      if (is.list(name)) {
+        if (is.character(value)) {
+          x$named_matrices[[pointer]][name[[1]], name[[2]]] <- value
+        } else {
+          x$num_matrices[[pointer]][name[[1]], name[[2]]] <- value
+          old_name <- x$named_matrices[[pointer]][name[[1]], name[[2]]]
+          x$named_matrices[[pointer]][name[[1]], name[[2]]] <- as.character(value)
+          x$bounds[, old_name] <- NULL # Since paramter is set to a constant: Remove bounds
+        }
       } else {
-        x$num_matrices[[pointer]][name[1], name[2]] <- value
-        old_name <- x$named_matrices[[pointer]][name[1], name[2]]
-        x$named_matrices[[pointer]][name[1], name[2]] <- as.character(value)
-        x$bounds[, old_name] <- NULL # Since paramter is set to a constant: Remove bounds
+        if (is.character(value)) {
+          x$named_matrices[[pointer]][name[1], name[2]] <- value
+        } else {
+          x$num_matrices[[pointer]][name[1], name[2]] <- value
+          old_name <- x$named_matrices[[pointer]][name[1], name[2]]
+          x$named_matrices[[pointer]][name[1], name[2]] <- as.character(value)
+          x$bounds[, old_name] <- NULL # Since paramter is set to a constant: Remove bounds
+        }
       }
     } else {
+      if (name %in% c("a", "s", "b", "sk", "k", "fm")) {
+        idx <- which(startsWith(gsub("-", "", x$named_matrices[[pointer]]), name))
+        if (is.character(value)) {
+          x$named_matrices[[pointer]][idx] <- value
+        } else if (is.numeric(value)) {
+          x$num_matrices[[pointer]][idx] <- value
+          x$named_matrices[[pointer]][idx] <- as.character(value)
+        }
+      }
       if (is.character(value)) {
         x$named_matrices[[pointer]][x$named_matrices[[pointer]] == name] <- value
       } else if (is.numeric(value)) {
