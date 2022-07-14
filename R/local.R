@@ -80,19 +80,19 @@
 }
 
 ######## Compute Jacobian:
-.jac.fn_torch <- function(par_vec, .par_list, par_to_list_coords, torch_masks, torch_maps, base_matrices, use_skewness, use_kurtosis, Rm2vmasks, device) {
+.jac.fn_torch_ <- function(par_vec, .par_list, par_to_list_coords, torch_masks, torch_maps, base_matrices, use_skewness, use_kurtosis, Rm2vmasks, device) {
   for (i in names(par_to_list_coords)) {
     .par_list[[i]] <- torch_tensor(par_vec[par_to_list_coords[[i]]], device=device)
   }
   A <- torch_add(base_matrices[['A']], torch_sum(torch_mul(torch_maps[['A']], .par_list[['A']]), dim=3))
   Fm <- torch_add(base_matrices[['Fm']], torch_sum(torch_mul(torch_maps[['Fm']], .par_list[['Fm']]), dim=3))
   S <- torch_add(base_matrices[['S']], torch_sum(torch_mul(torch_maps[['S']], .par_list[['S']]), dim=3))
-  if (use_skewness) {
-    Sk <- torch_add(base_matrices[['Sk']], torch_sum(torch_mul(torch_maps[['Sk']], .par_list[['Sk']]), dim=3))
-  }
-  if (use_kurtosis) {
-    K <- torch_add(torch_add(torch_mul(torch_matmul(torch_matmul(torch_sqrt(S), base_matrices[['K']]), .torch_kron(torch_sqrt(S), .torch_kron(torch_sqrt(S), torch_sqrt(S)))), torch_masks[['K']]), torch_sum(torch_mul(torch_maps[['K']], .par_list[['K']]), dim=3)), base_matrices[['K2']])
-  }
+
+  #if (use_skewness) {Sk <- torch_add(base_matrices[['Sk']],torch_transpose(torch_mul(torch_hstack(list(torch_maps[['Sk_part1']], .par_list[['Sk']])), torch_maps[['Sk_part2']]), 1, 2))}
+  #if (use_kurtosis) {K <- torch_add(torch_add(torch_mul(torch_matmul(torch_matmul(torch_sqrt(S), base_matrices[['K']]), .torch_kron(torch_sqrt(S), .torch_kron(torch_sqrt(S), torch_sqrt(S)))), torch_masks[['K']]), torch_transpose(torch_mul(torch_hstack(list(torch_maps[['K_part1']], .par_list[['K']])), torch_maps[['K_part2']]), 1, 2)), base_matrices[['K2']])}
+  if (use_skewness) {Sk <- torch_add(base_matrices[['Sk']], torch_sum(torch_mul(torch_maps[['Sk']], .par_list[['Sk']]), dim=3))}
+  if (use_kurtosis) {K <- torch_add(torch_add(torch_mul(torch_matmul(torch_matmul(torch_sqrt(S), base_matrices[['K']]), .torch_kron(torch_sqrt(S), .torch_kron(torch_sqrt(S), torch_sqrt(S)))), torch_masks[['K']]), torch_sum(torch_mul(torch_maps[['K']], .par_list[['K']]), dim=3)), base_matrices[['K2']])}
+
 
   diag_n_p <- base_matrices[['diag_n_p']]
   ###### Compute the observed cov, cosk, and cokurt matrices #################
@@ -120,6 +120,13 @@
   }
 }
 
+# Jacobian wrapper to force garbage collect after .jac.fn_torch_ call
+.jac.fn_torch <- function(par_vec, .par_list, par_to_list_coords, torch_masks, torch_maps, base_matrices, use_skewness, use_kurtosis, Rm2vmasks, device) {
+  val <- .jac.fn_torch_(par_vec, .par_list, par_to_list_coords, torch_masks, torch_maps, base_matrices, use_skewness, use_kurtosis, Rm2vmasks, device)
+  gc(verbose=FALSE, full=TRUE)
+  return(val)
+}
+
 .dimlocations <- function(p, dims=2) {
   if (dims == 2) vect <- rep(0, p * (p + 1)  / 3)
   if (dims == 3) vect <- rep(0, p * (p + 1) * (p + 2) / 6)
@@ -141,12 +148,11 @@
 }
 
 ### pull it together to make std errors:
-.std.err <- function(data, .par_list, use_skewness, use_kurtosis, torch_masks, torch_maps, base_matrices, m2v_masks, device) {
+.std.err <- function(data, .par_list, use_skewness, use_kurtosis, torch_masks, torch_maps, base_matrices, m2v_masks, device, low_memory) {
   # .std.err <- function(data, .par_list, torch_masks, torch_maps, base_matrices, M2.obs, M3.obs, M4.obs, m2v_masks, use_skewness, use_kurtosis){
   n <- nrow(data)
   # if there is too much data for spoeedly opperation, sample 100000 observations to base this on
   if(n > 100000){
-
     samp <- sample(1:n,100000,F)
     data <- data[samp, ]
   }
@@ -174,22 +180,33 @@
   )
   S.m <- apply(scale(data, center = T, scale = F),1, .t4crossprod, idx=idx, use_skewness=use_skewness, use_kurtosis=use_kurtosis) # 00:24
 
-  S.m <- cov(t(S.m))/(n-1) # 1:01
+  # S.m <- cov(t(S.m))/(n-1)
+  # Replace this with torch_cov(S.m) / (n - 1)  once that is implemented in torch for R
+  S.m <- torch_transpose(torch_tensor(S.m, device=torch_device("cpu")), 1, 2)
+  S.m <- torch_subtract(S.m, torch_reshape(torch_mean(S.m, dim=1), c(1, S.m$shape[2])))
+  S.m <- torch_matmul(torch_transpose(S.m, 1, 2), S.m)  / (S.m$shape[1] - 1) / (n - 1)
 
   # weights matrix is based on diagonal, may be better behaved?
+  S.m <- as.matrix(S.m)
   W <- solve(diag(nrow(S.m)) * S.m) # 00:00.1
   par_vec <- c()
   par_to_list_coords <- list()
   coord_start <- 1
+  .par_list_grad_only <- list()
   for (i in names(.par_list)) {
     if (.par_list[[i]]$requires_grad) {
       current_vec <- as.numeric(torch_tensor(.par_list[[i]], device=torch_device("cpu")))
       par_vec <- c(par_vec, current_vec)
       par_to_list_coords[[i]] <- coord_start:(coord_start+(length(current_vec)-1))
       coord_start <- coord_start + length(current_vec)
+      .par_list_grad_only[[i]] <- .par_list[[i]]
+    } else {
+      .par_list_grad_only[[i]] <- c()
     }
   }
-  G <- jacobian(func = .jac.fn_torch,x = par_vec, .par_list=.par_list, par_to_list_coords=par_to_list_coords, torch_masks=torch_masks,
+
+  if (low_memory) {func <- .jac.fn_torch} else {func <- .jac.fn_torch_}
+  G <- jacobian(func = func,x = par_vec, .par_list=.par_list, par_to_list_coords=par_to_list_coords, torch_masks=torch_masks,
                 torch_maps=torch_maps, base_matrices=base_matrices, use_skewness=use_skewness, use_kurtosis=use_kurtosis,
                 Rm2vmasks=Rm2vmasks, device=device)
 
@@ -267,8 +284,7 @@
 }
 
 .get_torch_matrices <- function(model, device, M2.obs, M3.obs, M4.obs, torch_dtype) {
-    torch_coords <- .get_torch_coords(model, device)
-
+  torch_coords <- .get_torch_coords(model, device)
   torch_matrices <- list(
     A=torch_tensor(model$num_matrices[["A"]], device=device, dtype=torch_dtype),
     Fm= torch_tensor(model$num_matrices[["Fm"]], device=device, dtype=torch_dtype),
@@ -278,7 +294,13 @@
     diag_n_p=torch_tensor(torch_diagflat(rep(1, model$meta_data$n_phenotypes + model$meta_data$n_confounding)), device=device, dtype=torch_dtype)
   )
   param_list <- list(A=c(), Fm= c(), S=c(), Sk=c(), K=c())
+
   torch_maps <- list(A=list(), Fm= list(), S=list(), Sk=list(), K=list())
+  #torch_maps <- list(A=list(), Fm= list(), S=list(),
+  #                    Sk_part1=torch_tensor(rep(0, model$meta_data$n_confounding), device=device, dtype=torch_dtype),
+  #                    Sk_part2=torch_zeros_like(torch_matrices[['Sk']], device=device),
+  #                   K_part1=torch_tensor(rep(0, model$meta_data$n_confounding), device=device, dtype=torch_dtype),
+  #                    K_part2=torch_zeros_like(torch_matrices[['K']], device=device))
   torch_masks <- list(
     A=torch_ones_like(torch_matrices[["A"]], dtype=torch_dtype, device=device),
     Fm= torch_ones_like(torch_matrices[["Fm"]], dtype=torch_dtype, device=device),
@@ -291,28 +313,28 @@
     new_mat[i$row, i$col] <- 1 * i$mult
     torch_masks[[i$mat_name]][i$row, i$col] <- 0.0
     param_name <- model$named_matrices[[i$mat_name]][i$row, i$col]
-    if (param_name %in% names(torch_maps[[i$mat_name]])) {
-      torch_maps[[i$mat_name]][[param_name]] <- torch_maps[[i$mat_name]][[param_name]]  + new_mat
-    } else {
-      torch_maps[[i$mat_name]][[param_name]] <- new_mat
-      param_list[[i$mat_name]] <- c(param_list[[i$mat_name]], model$start_values[param_name])
-    }
+    #if (!(i$mat_name %in% c("Sk","K"))) {
+      if (param_name %in% names(torch_maps[[i$mat_name]])) {
+        torch_maps[[i$mat_name]][[param_name]] <- torch_maps[[i$mat_name]][[param_name]]  + new_mat
+      } else {
+        torch_maps[[i$mat_name]][[param_name]] <- new_mat
+        param_list[[i$mat_name]] <- c(param_list[[i$mat_name]], model$start_values[param_name])
+      }
+    #} else {
+    #  torch_maps[[paste0(i$mat_name, '_part2')]][i$row, i$col] <- 1.0
+    #  param_list[[i$mat_name]] <- c(param_list[[i$mat_name]], model$start_values[param_name])
+    #}
   }
-
   n_p <- model$meta_data$n_phenotypes + model$meta_data$n_confounding
   for (i in 1:model$meta_data$n_confounding) {
     torch_masks[['K']][i, i + (i-1)*(n_p) + (i-1)*((n_p)^2)]  <- 0
   }
   # 3D tensors defining locations of paramters that require grad
-  torch_maps <- list(
-    A=if (length(torch_maps[['A']]) > 0) {torch_dstack(torch_maps[['A']])} else {torch_zeros_like(torch_matrices[["A"]], device=device, dtype=torch_dtype)},
-    Fm=if (length(torch_maps[['Fm']]) > 0) {torch_dstack(torch_maps[['Fm']])} else {torch_zeros_like(torch_matrices[["Fm"]], device=device, dtype=torch_dtype)},
-    S=if (length(torch_maps[['S']]) > 0) {torch_dstack(torch_maps[['S']])} else {torch_zeros_like(torch_matrices[["S"]], device=device, dtype=torch_dtype)},
-    Sk=if (length(torch_maps[['Sk']]) > 0) {torch_dstack(torch_maps[['Sk']])} else {torch_zeros_like(torch_matrices[["Sk"]], device=device, dtype=torch_dtype)},
-    K=if (length(torch_maps[['K']]) > 0) {torch_dstack(torch_maps[['K']])} else {torch_zeros_like(torch_matrices[["K"]], device=device, dtype=torch_dtype)}
-  )
+  for (i in c("A", "Fm", "S", 'Sk', 'K')) {
+    torch_maps[[i]] <- if (length(torch_maps[[i]]) > 0) {torch_dstack(torch_maps[[i]])} else {torch_zeros_like(torch_matrices[[i]], device=device, dtype=torch_dtype)}
+  }
   # Reshape to 3D is necessary as we sum over 3rd axis later on
-  for (i in names(torch_maps)) {
+  for (i in c("A", "Fm", "S", 'Sk', 'K')) {
     if (length(torch_maps[[i]]$shape) == 2) {
       shape <- as.numeric(torch_maps[[i]]$shape)
       torch_maps[[i]] <- torch_reshape(torch_maps[[i]], c(shape[1], shape[2], 1))
@@ -352,6 +374,8 @@
       torch_bounds[["U"]][[i]] <- (torch_tensor(.par_list[[i]], device=device, dtype=torch_dtype) + 100)
     }
   }
+  #torch_maps[['K_part2']] <- torch_transpose(torch_maps[['K_part2']], 1, 2)
+  #torch_maps[['Sk_part2']] <- torch_transpose(torch_maps[['Sk_part2']], 1, 2)
   torch_bounds[['L']] <- torch_cat(torch_bounds[['L']])
   torch_bounds[['U']] <- torch_cat(torch_bounds[['U']])
   m2v_masks <- list(

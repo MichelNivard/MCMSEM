@@ -5,7 +5,11 @@ R-package which allows users to run multi co-moment structural equation models.
 Note this is the `dev-torch` branch, and **not** intended for end-users. If you would like to use MCMSEM yourself, please go to the main branch. If you would like to contribute to the code, feel free to check this branch out.  
 As of version 0.4.0 it is possible to run MCMSEM on a GPU, see [MCMSEM on GPU](#mcmsem-on-gpu).
 
-## Patch notes thus far (v0.4.3-dev-torch)
+## Patch notes thus far (v0.5.0-dev-torch)
+### Torch-specific (v0.5.0)
+ - Changed call to R `cov()` in asymptotic SE calculation to custom torch solution (to be replaced with `torch_cov` once this is implemented), significantly improving performance.
+ - Added `low_memory` option to `MCMfit`, which when enabled forces aggressive garbage collection during optimization. This can help run larger models on GPUs. Enabling `low_memory` does significantly impact performance, especially when using a CPU device, therefore it is off by default.
+ - Added `info` field to `MCMresult` object which stores MCMSEM version, as well as arguments used to obtain the result.
 ### Torch-specific (v0.4.3)
  - Small memory tweaks in `MCMfit`
  - Moved to `torch nn_mse_loss` function significantly improving performance and reducing memory usage further
@@ -247,4 +251,5 @@ res <- MCMfit(my_model, data, device=cuda_device)
 ```
 
 Running `MCMfit` on a GPU can result in very significant runtime improvements, for instance from our testing a model with 15 input variables and 5 confounders, using both skewness and kurtosis took an hour on CPU compared to 20 minutes on GPU.  
-This, however, is contingent upon enough available VRAM. If you get a `CUDA out of memory` error your VRAM is insufficient given your model. We do our best to ensure the code uses as little VRAM as possible, but due to the nature of GPU computing VRAM requirements will likely remain substantially larger than RAM requirements.
+This, however, is contingent upon enough available VRAM. If you get a `CUDA out of memory` error your VRAM is insufficient given your model, try using `MCMfit(..., low_memory=TRUE)`.  
+We do our best to ensure the code uses as little VRAM as possible, but due to the nature of GPU computing VRAM requirements will likely remain much stricter than RAM requirements.

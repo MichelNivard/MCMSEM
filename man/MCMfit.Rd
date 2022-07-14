@@ -6,7 +6,7 @@
 }
 \usage{
 MCMfit(mcmmodel, data, compute_se=TRUE, se_type='asymptotic', optim_iters=c(50, 12), bootstrap_iter=200,bootstrap_chunks=1000,
-                   learning_rate=0.02, silent=TRUE, use_bounds=TRUE, use_skewness=TRUE, use_kurtosis=TRUE)
+                   learning_rate=0.02, silent=TRUE, use_bounds=TRUE, use_skewness=TRUE, use_kurtosis=TRUE, device=NULL, low_memory=FALSE)
 }
 \arguments{
   \item{model}{MCMmodelclass object}
@@ -21,6 +21,8 @@ MCMfit(mcmmodel, data, compute_se=TRUE, se_type='asymptotic', optim_iters=c(50, 
   \item{use_bounds}{Use parameter bounds defined in the model, set this to FALSE in larger models to improve compute times}
   \item{use_skewness}{Use skewness and co-skewness to estimate parameters}
   \item{use_kurtosis}{Use kurtosis and co-kurtosis to estimate parameters}
+  \item{device}{torch device object, can be used to run optimization on GPU; device=torch_device('cuda'), see "MCMSEM on GPU" in the README, defaults to using CPU.}
+  \item{low_memory}{Forces aggressive garbage collection when enabled. Only set this option to TRUE when running into CUDA out of Memory errors.}
 }
 \value{
   MCMresult object. This can be converted to a dataframe with as.data.frame(result)
