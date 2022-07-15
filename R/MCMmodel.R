@@ -38,7 +38,6 @@ MCMmodel <- function(data, n_confounding=1, constrained_a=TRUE, scale_data=TRUE,
   }
   data <- as.matrix(data)
 
-
   n_f <- n_confounding
   n_p <- ncol(data)
   if (constrained_a) {
