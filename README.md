@@ -96,9 +96,10 @@ As of version 0.4.0 it is possible to run MCMSEM on a GPU, see [MCMSEM on GPU](#
    - Added `optim_iters` argument to `MCMfit()` to enable changing number of iterations of each optimizer
 
 ### Things still TODO:
-1. Improve performance of SE:
-   1. Main culprit is likely to be .t4crossprod 
-   2. If possible find a way to change .std.err and/or .jac.fn to use torch_tensors, if that's faster than R-matrices?
+1. Find a way to get the full jacobian using torch? (and have it be faster than the default jacobian with the current .jac.fn)
+2. Change `summary(result)` such that it can handle co-skew and co-kurt parameters
+   1. This also involves splitting the resulting table as co-skew will have 3 source variables instead of lhs, rhs, and co-kurt will have 4
+3. Expand checks in `MCMmodel` 
 
 ## Patch notes
 - v0.1.1 
