@@ -1,4 +1,4 @@
-plot.mcmmodelclass <- function(model, use_values=FALSE) {
+plot.mcmmodelclass <- function(model,layout = NULL, use_values=FALSE) {
   latents <- 1:model$meta_data$n_confounding
   qgraph(t(model$num_matrices$A[-latents,-latents] + model$num_matrices$S[-latents,-latents]))
   # Full model
@@ -12,8 +12,10 @@ plot.mcmmodelclass <- function(model, use_values=FALSE) {
       pheno_pos <- c(pheno_pos, ((i %% 2) / 2) + ((i-1) %% 2))  # simplest way I knew how to get 1.0, 0.5, 1.0, 0.5, ....
     }
   }
+  if(is.null(layout)){
   layout <- cbind(c(place.latents,1:model$meta_data$n_phenotypes),
                   c(rep(2,model$meta_data$n_confounding),pheno_pos))
+    }
   plot_mat <- model$num_matrices$A[,] + model$num_matrices$S[,]
   if (!(use_values)) {
     which_0 <- (model$named_matrices$A == "0") & (model$named_matrices$S == "0")
