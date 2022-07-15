@@ -337,6 +337,7 @@ MCMfit <- function(mcmmodel, data, compute_se=TRUE, se_type='asymptotic', optim_
     # If we want to change that so that the returned estimate is also flipped, use this
     # model$num_matrices[[idat[[1]]]][idat[[2]]] <- as.numeric(results[1, i]) * idat[[3]]
   }
+
   model$param_values <- as.numeric(results[1, ])
   colnames(results) <- model$param_names
   rownames(results) <- if(compute_se) c("est", "se") else "est"

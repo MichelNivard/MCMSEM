@@ -24,6 +24,7 @@ MCMmodel <- function(data, n_confounding=1, constrained_a=TRUE, scale_data=TRUE,
     }
   }
   if (is.data.frame(data)) {org_names <- colnames(data)} else {org_names <- paste0("x", 1:ncol(data))}
+
   if (is.matrix(data) & !(is.null(colnames(data)))) {org_names <- colnames(data)}
 
 
