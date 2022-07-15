@@ -1,5 +1,5 @@
 # Wrapper function to create mcmmodel instance
-MCMmodel <- function(data, n_confounding=1, constrained_a=TRUE, scale_data=TRUE) {
+MCMmodel <- function(data, n_confounding=1, constrained_a=TRUE, scale_data=TRUE, confounding_names=NULL) {
   # TODO: Expand checks on how many confoundings can/should be used with or without constrained a depending on input data
   ## Make matrices with names
   if (nrow(data) < 1000)
@@ -16,14 +16,27 @@ MCMmodel <- function(data, n_confounding=1, constrained_a=TRUE, scale_data=TRUE)
   if (n_confounding > ncol(data)) {
     stop("Cannot use more confounding factors than phenotypes present in the data")
   }
+  if (is.null(confounding_names)) {
+    confounding_names <- paste0("f", 1:n_confounding)
+  } else {
+    if (length(confounding_names) != n_confounding) {
+      stop("Length of confounding_names should be equal to n_confounding")
+    }
+  }
+  if (is.data.frame(data)) {org_names <- colnames(data)} else {org_names <- paste0("x", 1:ncol(data))}
+
+
   # Scale data
-  data_scaled <- apply(data, 2, scale)
-  data_was_scaled <- all(round(data, 2) == round(data_scaled, 2))
-  if ((scale_data) & !(data_was_scaled)) {
-    data <- data_scaled
+  if (scale_data) {
+    data_was_scaled <- all(round(apply(data, 2, mean), 1) == 0) & all(round(apply(data, 2, sd), 1) == 1)
+    if (!(data_was_scaled)) {
+      data <- apply(data, 2, scale)
+    }
+    data <- as.matrix(data)
+  } else {
+    data_was_scaled <- TRUE
   }
 
-  data <- as.matrix(data)
 
   n_f <- n_confounding
   n_p <- ncol(data)
@@ -95,7 +108,8 @@ MCMmodel <- function(data, n_confounding=1, constrained_a=TRUE, scale_data=TRUE)
                        start_values=start_values,
                        bounds=bounds,
                        meta_data=list(n_phenotypes=n_p, n_confounding=n_f, bound_defaults=bound_defaults,
-                                      data_was_scaled=data_was_scaled, scale_data=scale_data))
+                                      data_was_scaled=data_was_scaled, scale_data=scale_data,
+                                      original_colnames=org_names, latent_names=confounding_names))
 
   return(model)
 }

@@ -1,7 +1,7 @@
 Package: MCMSEM
 Type: Package
 Title: Multi co-moment structural equation models
-Version: 0.5.0
+Version: 0.6.0
 Author: Zenab Tamimy, Elsje van Bergen, Matthijs van der Zee, Conor Dolan, Michel Nivard
 Maintainer: Zenab Tamimy <z.tamimy@vu.nl>
 Description: This package provides a new approach to causal modeling based on cross-sectional data of non-normally distributed variables.
@@ -9,7 +9,7 @@ Description: This package provides a new approach to causal modeling based on cr
 License: GNU-GPL v3
 Encoding: UTF-8
 LazyData: true
-Imports: utils,MASS,PerformanceAnalytics,numDeriv,torch
+Imports: utils,MASS,PerformanceAnalytics,numDeriv,torch,qgraph
 Suggests: 
     testthat (>= 3.0.0)
 Config/testthat/edition: 3
