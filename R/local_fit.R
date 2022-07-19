@@ -63,7 +63,7 @@
 # Fit wrapper function
 .torch_fit <- function(M2.obs, M3.obs, M4.obs, m2v_masks, torch_bounds, torch_masks, torch_maps, base_matrices, .par_list, learning_rate, optim_iters, silent, use_bounds, use_skewness, use_kurtosis, torch_dtype, return_history=FALSE, low_memory) {
   loss_hist <- c()
-  lossfunc <- nn_smooth_l1_loss(reduction='sum')
+  lossfunc <- nn_mse_loss(reduction='sum')
   optim <- optim_rprop(.par_list,lr = learning_rate)
   if (low_memory) {gc(verbose=FALSE, full=TRUE)}
   for (i in 1:optim_iters[1]) {
