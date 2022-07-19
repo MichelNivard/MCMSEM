@@ -21,7 +21,7 @@ As of version 0.4.0 it is possible to run MCMSEM on a GPU, see [MCMSEM on GPU](#
  - Added `n_obs` to `mcmmodel$meta_data`
  - Added several parameters to MCM result summary, most notably `chisq`, `aic` and `bic`
  - Changed `n_par` calculation in `summary(result)` to subtract parameters in skewness/kurtosis matrix if either of those was disabled during `MCMfit`
- - switched to Huber loss for stability ('nn_smooth_l1_loss()'), TODO: Make an optional switch between MSE and Huber loss
+ - switched to Huber loss for stability (`nn_smooth_l1_loss()`), TODO: Make an optional switch between MSE and Huber loss
 ### Torch-specific (v0.6.0)
  - Added `confounding_names` argument to `MCMmodel` to allow users to name latent factors
  - Original column names and latent factor names (user-provided or f1, f2, ..., fn) are now stored in `mcmmodel$meta_data`
