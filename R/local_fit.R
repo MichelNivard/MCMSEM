@@ -73,7 +73,7 @@
     loss$backward()
     loss_hist <- c(loss_hist, loss$detach())
     optim$step()
-    if (!(silent)) cat(paste0("loss", as.numeric(loss), "\n"))
+    if (!(silent)) cat(paste0("\rloss ", as.numeric(loss), "           "))
   }
   calc_loss_torchfit <- function() {
     optim$zero_grad()
@@ -81,7 +81,7 @@
     if (low_memory) {gc(verbose=FALSE, full=TRUE)}
     loss$backward()
     loss_hist <<- c(loss_hist, loss$detach())
-    if (!(silent)) {cat(paste0("loss", as.numeric(loss), "\n"))}
+    if (!(silent)) {cat(paste0("\rloss ", as.numeric(loss), "          "))}
     return(loss)
   }
   # Use lbfgs to get really close....
@@ -90,6 +90,7 @@
   for (i in 1:optim_iters[2]) {
     optim$step(calc_loss_torchfit)
   }
+  if (!(silent)) {cat("\n")}
   if (return_history) {
     return(list(par=.par_list, loss_hist=loss_hist))
   } else {
