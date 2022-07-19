@@ -7,6 +7,7 @@ As of version 0.4.0 it is possible to run MCMSEM on a GPU, see [MCMSEM on GPU](#
 
 ## Patch notes thus far (v0.6.1-dev-torch)
 ### Torch-specific (v0.6.1)
+ - Split `local.R` into `local_gen_matrices.R`, `local_stderr.R`, and `local_torch_matrices.R`, also moved fit and objective functions from `MCMfit.R` to `local_fit.R`. Each script now contains local functions that are (mainly) used for their respective function names
  - Removed `knot` column from `summary(mcmresult)` as it is currently unused
  - Removed `par` column from `summary(mcmresult)` as it did not provide additional information
  - Changed `edge` column for skewness and kurtosis parameters to `~~~` and `~~~~` respectively
