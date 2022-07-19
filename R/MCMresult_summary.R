@@ -108,6 +108,8 @@ summary.mcmresultclass <- function(res) {
   rownames(Pars) <- 1:nrow(Pars)
   loss <- res$loss
   n_par <- length(res$model$param_values)
+  if (!(res$info$use_kurtosis)) {n_par <- n_par - sum(res$model$param_names %in% res$model$named_matrices[['K']])}
+  if (!(res$info$use_skewness)) {n_par <- n_par - sum(res$model$param_names %in% res$model$named_matrices[['Sk']])}
   n_obs <- res$model$meta_data$n_obs
   chisq <- n_obs * loss
   # loosely according to Broudt et al:
