@@ -349,7 +349,7 @@ MCMfit <- function(mcmmodel, data, compute_se=TRUE, se_type='asymptotic', optim_
                           loss=loss_hist
                         ),
                         runtimes=list(Preparation=TIME_prep, Optimizer=TIME_optim, SE=TIME_se, Total=TIME_total),
-                        info=list(version="0.6.0", compute_se=compute_se, se_type=se_type, optim_iters=optim_iters,
+                        info=list(version="0.6.1", compute_se=compute_se, se_type=se_type, optim_iters=optim_iters,
                                   bootstrap_iter=bootstrap_iter,bootstrap_chunks=bootstrap_chunks, learning_rate=learning_rate,
                                   silent=silent, use_bounds=use_bounds, use_skewness=use_skewness, use_kurtosis=use_kurtosis,
                                   device=device$type, low_memory=low_memory

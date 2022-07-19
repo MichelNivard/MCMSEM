@@ -108,7 +108,7 @@ MCMmodel <- function(data, n_confounding=1, constrained_a=TRUE, scale_data=TRUE,
                        num_matrices=num_matrices,
                        start_values=start_values,
                        bounds=bounds,
-                       meta_data=list(n_phenotypes=n_p, n_confounding=n_f, bound_defaults=bound_defaults,
+                       meta_data=list(n_obs=nrow(data), n_phenotypes=n_p, n_confounding=n_f, bound_defaults=bound_defaults,
                                       data_was_scaled=data_was_scaled, scale_data=scale_data,
                                       original_colnames=org_names, latent_names=confounding_names))
 

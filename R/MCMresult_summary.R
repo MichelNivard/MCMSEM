@@ -1,9 +1,9 @@
 summary.mcmresultclass <- function(res) {
-  Pars_reg <- data.frame(matrix(NA, ncol=11, nrow=1))
-  Pars_fact <- data.frame(matrix(NA, ncol=11, nrow=1))
+  Pars_reg <- data.frame(matrix(NA, ncol=9, nrow=1))
+  Pars_fact <- data.frame(matrix(NA, ncol=9, nrow=1))
   iter <- 1
-  for (row in 1:nrow(res$model$named_matrices[['A']])) {
-    for (col in 1:ncol(res$model$named_matrices[['A']])) {
+  for (col in 1:ncol(res$model$named_matrices[['A']])) {
+    for (row in 1:nrow(res$model$named_matrices[['A']])) {
       if (res$model$named_matrices[['A']][row, col] != "0") {
         parname <- res$model$named_matrices[['A']][row, col]
         parvalue <- res$model$num_matrices[['A']][row, col]
@@ -20,8 +20,8 @@ summary.mcmresultclass <- function(res) {
           est <- parvalue
           std <- if ('se' %in% rownames(res$df)) {res$df['se', parname]} else {NA}
           p <- if ('se' %in% rownames(res$df)) {2*pnorm(abs(res$df['est', parname])/res$df['se', parname], lower.tail=FALSE)} else {NA}
-          group <- 1; fixed <- FALSE; par <- iter; knot <- 0
-          Pars_fact <- rbind(Pars_fact, c(label, lhs, edge, rhs, est, std, p, group, fixed, par, knot))
+          group <- 1; fixed <- FALSE
+          Pars_fact <- rbind(Pars_fact, c(label, lhs, edge, rhs, est, std, p, group, fixed))
         } else {
           label <- parname
           lhs <- res$model$meta_data$original_colnames[col - res$model$meta_data$n_confounding]
@@ -30,8 +30,8 @@ summary.mcmresultclass <- function(res) {
           est <- parvalue
           std <- if ('se' %in% rownames(res$df)) {res$df['se', parname]} else {NA}
           p <- if ('se' %in% rownames(res$df)) {2*pnorm(abs(res$df['est', parname])/res$df['se', parname], lower.tail=FALSE)} else {NA}
-          group <- 1; fixed <- FALSE; par <- iter; knot <- 0
-          Pars_reg <- rbind(Pars_reg, c(label, lhs, edge, rhs, est, std, p, group, fixed, par, knot))
+          group <- 1; fixed <- FALSE
+          Pars_reg <- rbind(Pars_reg, c(label, lhs, edge, rhs, est, std, p, group, fixed))
         }
         iter <- iter + 1
       }
@@ -60,8 +60,8 @@ summary.mcmresultclass <- function(res) {
         est <- parvalue
         std <- if ('se' %in% rownames(res$df)) {res$df['se', parname]} else {NA}
         p <- if ('se' %in% rownames(res$df)) {2*pnorm(abs(res$df['est', parname])/res$df['se', parname], lower.tail=FALSE)} else {NA}
-        group <- 1; fixed <- FALSE; par <- iter; knot <- 0
-        Pars <- rbind(Pars, c(label, lhs, edge, rhs, est, std, p, group, fixed, par, knot))
+        group <- 1; fixed <- FALSE
+        Pars <- rbind(Pars, c(label, lhs, edge, rhs, est, std, p, group, fixed))
         iter <- iter + 1
       }
     }
@@ -75,12 +75,12 @@ summary.mcmresultclass <- function(res) {
       lhs <- res$model$meta_data$original_colnames[i]
       rhs <- res$model$meta_data$original_colnames[i]
       label <- parname
-      edge <- "~~"
+      edge <- "~~~"
       est <- parvalue
       std <- if ('se' %in% rownames(res$df)) {res$df['se', parname]} else {NA}
       p <- if ('se' %in% rownames(res$df)) {2*pnorm(abs(res$df['est', parname])/res$df['se', parname], lower.tail=FALSE)} else {NA}
-      group <- 1; fixed <- FALSE; par <- iter; knot <- 0
-      Pars <- rbind(Pars, c(label, lhs, edge, rhs, est, std, p, group, fixed, par, knot))
+      group <- 1; fixed <- FALSE
+      Pars <- rbind(Pars, c(label, lhs, edge, rhs, est, std, p, group, fixed))
       iter <- iter + 1
     }
   }
@@ -91,21 +91,27 @@ summary.mcmresultclass <- function(res) {
       lhs <- res$model$meta_data$original_colnames[i]
       rhs <- res$model$meta_data$original_colnames[i]
       label <- parname
-      edge <- "~~"
+      edge <- "~~~~"
       est <- parvalue
       std <- if ('se' %in% rownames(res$df)) {res$df['se', parname]} else {NA}
       p <- if ('se' %in% rownames(res$df)) {2*pnorm(abs(res$df['est', parname])/res$df['se', parname], lower.tail=FALSE)} else {NA}
-      group <- 1; fixed <- FALSE; par <- iter; knot <- 0
-      Pars <- rbind(Pars, c(label, lhs, edge, rhs, est, std, p, group, fixed, par, knot))
+      group <- 1; fixed <- FALSE
+      Pars <- rbind(Pars, c(label, lhs, edge, rhs, est, std, p, group, fixed))
       iter <- iter + 1
     }
   }
 
-  colnames(Pars) <- c("label", "lhs", "edge", "rhs", "est", "se", "p", "group", "fixed", "par", "knot")
-  Pars$knot <- as.numeric(Pars$knot)
+  colnames(Pars) <- c("label", "lhs", "edge", "rhs", "est", "se", "p", "group", "fixed")
   Pars$est <- as.numeric(Pars$est)
   Pars$se <- as.numeric(Pars$se)
   Pars$p <- as.numeric(Pars$p)
   rownames(Pars) <- 1:nrow(Pars)
-  return(Pars)
+  loss <- res$loss
+  n_par <- length(res$model$param_values)
+  n_obs <- res$model$meta_data$n_obs
+  chisq <- n_obs * loss
+  # loosely according to Broudt et al:
+  aic <- n_obs * loss + 2 * n_par
+  bic <- n_obs * loss + n_par * log(n_obs)
+  return(mcmresultsummaryclass(df=Pars, loss=loss, n_par=n_par, n_obs=n_obs, chisq=chisq, aic=aic, bic=bic, result=res))
 }

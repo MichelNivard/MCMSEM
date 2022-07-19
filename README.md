@@ -5,7 +5,19 @@ R-package which allows users to run multi co-moment structural equation models.
 Note this is the `dev-torch` branch, and **not** intended for end-users. If you would like to use MCMSEM yourself, please go to the main branch. If you would like to contribute to the code, feel free to check this branch out.  
 As of version 0.4.0 it is possible to run MCMSEM on a GPU, see [MCMSEM on GPU](#mcmsem-on-gpu).
 
-## Patch notes thus far (v0.6.0-dev-torch)
+## Patch notes thus far (v0.6.1-dev-torch)
+### Torch-specific (v0.6.1)
+ - Removed `knot` column from `summary(mcmresult)` as it is currently unused
+ - Removed `par` column from `summary(mcmresult)` as it did not provide additional information
+ - Changed `edge` column for skewness and kurtosis parameters to `~~~` and `~~~~` respectively
+ - Renamed `MCMresultclass.R` to  `MCMresultclasses.R` as it now also holds `mcmresultsummaryclass` (putting it in a separate script didn't work)
+ - Added `mcmresultsummaryclass`, a custom class now returend from `summary(mcmresult)` in order to store additional information. The `mcmresultsummaryclass` contains the following:
+   - `df`: dataframe with parameter table (this used to be the only thing returned from `summary(mcmresult)`)
+   - `result`: A reference to the result object that the summary is generated from
+ - `as.data.frame(summary(mcmresult))` simply extracts the parameter table
+ - `plot(summary(mcmresult))` is the same as `plot(mcmresult)`, but it is implemented as I suspect people will expect it to work
+ - Added `n_obs` to `mcmmodel$meta_data`
+ - Added several parameters to MCM result summary, most notably `chisq`, `aic` and `bic`
 ### Torch-specific (v0.6.0)
  - Added `confounding_names` argument to `MCMmodel` to allow users to name latent factors
  - Original column names and latent factor names (user-provided or f1, f2, ..., fn) are now stored in `mcmmodel$meta_data`
