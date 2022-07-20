@@ -2,8 +2,8 @@ summary.mcmresultclass <- function(res) {
   Pars_reg <- data.frame(matrix(NA, ncol=9, nrow=1))
   Pars_fact <- data.frame(matrix(NA, ncol=9, nrow=1))
   iter <- 1
-  for (col in 1:ncol(res$model$named_matrices[['A']])) {
-    for (row in 1:nrow(res$model$named_matrices[['A']])) {
+  for (col in seq_len(ncol(res$model$named_matrices[['A']]))) {
+    for (row in seq_len(nrow(res$model$named_matrices[['A']]))) {
       if (res$model$named_matrices[['A']][row, col] != "0") {
         parname <- res$model$named_matrices[['A']][row, col]
         parvalue <- res$model$num_matrices[['A']][row, col]
@@ -40,8 +40,8 @@ summary.mcmresultclass <- function(res) {
   Pars_fact <- Pars_fact[2:nrow(Pars_fact), ]
   Pars_reg <- Pars_reg[2:nrow(Pars_reg), ]
   Pars <- rbind(Pars_fact, Pars_reg)
-  for (row in 1:nrow(res$model$named_matrices[['S']])) {
-    for (col in 1:ncol(res$model$named_matrices[['S']])) {
+  for (row in seq_len(nrow(res$model$named_matrices[['S']]))) {
+    for (col in seq_len(ncol(res$model$named_matrices[['S']]))) {
       if (!(res$model$named_matrices[['S']][row, col] %in% c("0", "1"))) {
         parname <- res$model$named_matrices[['S']][row, col]
         parvalue <- res$model$num_matrices[['S']][row, col]
@@ -105,7 +105,7 @@ summary.mcmresultclass <- function(res) {
   Pars$est <- as.numeric(Pars$est)
   Pars$se <- as.numeric(Pars$se)
   Pars$p <- as.numeric(Pars$p)
-  rownames(Pars) <- 1:nrow(Pars)
+  rownames(Pars) <- seq_len(nrow(Pars))
   loss <- res$loss
   n_par <- length(res$model$param_values)
   n_obs <- res$model$meta_data$n_obs

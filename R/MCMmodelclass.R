@@ -96,7 +96,7 @@ mcmmodelclass$methods(
     .self$bounds <- .self$bounds[.self$param_names]
   },
   inverse_parse=function() {
-    for (n_par in 1:length(.self$param_names)) {
+    for (n_par in seq_along(.self$param_names)) {
       par_name <- .self$param_names[n_par]
       for (mat in names(.self$named_matrices)) {
         .self$num_matrices[[mat]][.self$named_matrices[[mat]] == par_name] <- .self$param_values[n_par]

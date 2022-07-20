@@ -115,7 +115,7 @@ MCMfit <- function(mcmmodel, data, compute_se=TRUE, se_type='asymptotic', optim_
   # Obtain estimates with optimizer
   START_optim <- Sys.time()
   TIME_prep <-  START_optim - START_MCMfit
-  out <- .torch_fit(M2.obs, M3.obs, M4.obs, m2v_masks, torch_bounds, torch_masks, torch_maps, base_matrices, .par_list, learning_rate, optim_iters, silent, use_bounds, use_skewness, use_kurtosis, torch_dtype, lossfunc, return_history = TRUE, low_memory=low_memory)
+  out <- .torch_fit(M2.obs, M3.obs, M4.obs, m2v_masks, torch_bounds, torch_masks, torch_maps, base_matrices, .par_list, learning_rate, optim_iters, silent, use_bounds, use_skewness, use_kurtosis, lossfunc, return_history = TRUE, low_memory=low_memory)
   .par_tensor <- out[['par']]
   loss_hist <- as.numeric(torch_tensor(torch_vstack(out[["loss_hist"]]), device=cpu_device))
   # Store estimates including minimization objective, using this to evaluate/compare fit
@@ -152,7 +152,7 @@ MCMfit <- function(mcmmodel, data, compute_se=TRUE, se_type='asymptotic', optim_
         setTxtProgressBar(pb, i)
         model2 <- model_copy$copy()  # Create new empty model
         #1. Sample from data with replacement
-        boot <-   sample(1:nrow(data),nrow(data),T)
+        boot <-   sample(seq_len(nrow(data)), nrow(data), T)
         sample <- data[boot,]
 
         #2. Get covariance, coskewness and cokurtosis matrices
@@ -173,7 +173,7 @@ MCMfit <- function(mcmmodel, data, compute_se=TRUE, se_type='asymptotic', optim_
 
         #3. Fit model
         # Estimate parameters with model function specified above
-        .par_tensor <- .torch_fit(M2.obs, M3.obs, M4.obs, m2v_masks, torch_bounds, torch_masks, torch_maps, base_matrices, .par_list, learning_rate, optim_iters, silent, use_bounds, use_skewness, use_kurtosis, torch_dtype, lossfunc, low_memory=low_memory)
+        .par_tensor <- .torch_fit(M2.obs, M3.obs, M4.obs, m2v_masks, torch_bounds, torch_masks, torch_maps, base_matrices, .par_list, learning_rate, optim_iters, silent, use_bounds, use_skewness, use_kurtosis, lossfunc, low_memory=low_memory)
         .par <- list()
         for (j in names(.par_tensor)) {
           if (length(param_list[[j]]) > 0) {
@@ -197,9 +197,9 @@ MCMfit <- function(mcmmodel, data, compute_se=TRUE, se_type='asymptotic', optim_
       step1 <- as.data.frame(step1)
 
       # 2. Get covariance, coskenwess and cokurtosis matrices per group
-      sample.cov  <- aggregate(1:nrow(step1), by=list(step1$group), function(s) cov(step1[s, colnames(data)]))
-      sample.cosk <- aggregate(1:nrow(step1), by=list(step1$group), function(s) M3.MM(as.matrix(step1[s, colnames(data)])))
-      sample.cokr <- aggregate(1:nrow(step1), by=list(step1$group), function(s) M4.MM(as.matrix(step1[s, colnames(data)])))
+      sample.cov  <- aggregate(seq_len(nrow(step1)), by=list(step1$group), function(s) cov(step1[s, colnames(data)]))
+      sample.cosk <- aggregate(seq_len(nrow(step1)), by=list(step1$group), function(s) M3.MM(as.matrix(step1[s, colnames(data)])))
+      sample.cokr <- aggregate(seq_len(nrow(step1)), by=list(step1$group), function(s) M4.MM(as.matrix(step1[s, colnames(data)])))
       pars.boot2 <- matrix(NA,nrow=bootstrap_iter,ncol=length(model$param_values))
 
       ### STEP 2
@@ -226,7 +226,7 @@ MCMfit <- function(mcmmodel, data, compute_se=TRUE, se_type='asymptotic', optim_
 
         #3. Fit model
         # Estimate parameters with model function specified above
-        .par_tensor <- .torch_fit(M2.obs, M3.obs, M4.obs, m2v_masks, torch_bounds, torch_masks, torch_maps, base_matrices, .par_list, learning_rate, optim_iters, silent, use_bounds, use_skewness, use_kurtosis, torch_dtype, lossfunc, low_memory=low_memory)
+        .par_tensor <- .torch_fit(M2.obs, M3.obs, M4.obs, m2v_masks, torch_bounds, torch_masks, torch_maps, base_matrices, .par_list, learning_rate, optim_iters, silent, use_bounds, use_skewness, use_kurtosis, lossfunc, low_memory=low_memory)
         .par <- list()
         for (j in names(.par_tensor)) {
           if (length(param_list[[j]]) > 0) {
@@ -235,7 +235,6 @@ MCMfit <- function(mcmmodel, data, compute_se=TRUE, se_type='asymptotic', optim_
         }
         # Store point estimates of bootstraps
         pars.boot2[i,] <- as.numeric(torch_tensor(torch_cat(.par), device=cpu_device))
-
       }
       close(pb)
       SEs <- apply(pars.boot2, 2, sd)
@@ -244,7 +243,7 @@ MCMfit <- function(mcmmodel, data, compute_se=TRUE, se_type='asymptotic', optim_
     results <- rbind(results, SEs)
   }
   # Place resulting parameter estimates back into model matrices
-  for (i in 1:length(model$param_coords)) {
+  for (i in seq_along(model$param_coords)) {
     idat <- model$param_coords[[i]]
     model$num_matrices[[idat[[1]]]][idat[[2]]] <- as.numeric(results[1, i])
     # Currently, if there is a parameter like "-a1", this will still return the base a1 value.
@@ -259,15 +258,12 @@ MCMfit <- function(mcmmodel, data, compute_se=TRUE, se_type='asymptotic', optim_
   TIME_se <- STOP - START_se
   TIME_total <- STOP - START_MCMfit
   return(mcmresultclass(df=results, loss=loss_hist[length(loss_hist)], model=model$copy(),
-                        history=list(
-                          loss=loss_hist
-                        ),
+                        history=list(loss=loss_hist),
                         runtimes=list(Preparation=TIME_prep, Optimizer=TIME_optim, SE=TIME_se, Total=TIME_total),
                         info=list(version=MCMSEMversion, compute_se=compute_se, se_type=se_type, optim_iters=optim_iters,
                                   bootstrap_iter=bootstrap_iter,bootstrap_chunks=bootstrap_chunks, learning_rate=learning_rate,
                                   silent=silent, use_bounds=use_bounds, use_skewness=use_skewness, use_kurtosis=use_kurtosis,
-                                  device=device$type, low_memory=low_memory
-                        )
+                                  device=device$type, low_memory=low_memory)
                       ))
 }
 

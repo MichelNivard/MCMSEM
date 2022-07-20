@@ -2,7 +2,7 @@
   matrices <- list()
   ############## A
   A <- matrix(rep(base_value, (n_p+n_f)^2), n_p+n_f)
-  for (i in 1:length(par[['a']])) {
+  for (i in seq_along(par[['a']])) {
     a_val <- par[['a']][i]
     A[((i-1) %% n_p)+n_f+1, floor((i-1)/n_p)+1] <- a_val
   }
@@ -10,10 +10,7 @@
   iter <- 1
   for (i in 1:n_p) {
     for (j in 1:n_p) {
-      if (i > j) {
-        B[i, j] <- par[['b']][iter]
-        iter <- iter + 1
-      } else if (i < j) {
+      if (i != j) {
         B[i, j] <- par[['b']][iter]
         iter <- iter + 1
       }

@@ -13,18 +13,13 @@
 }
 
 # Objective function
-.torch_objective <- function(.par_list, lossfunc, torch_bounds, torch_masks, torch_maps, base_matrices, M2.obs, M3.obs, M4.obs, m2v_masks, use_bounds, use_skewness, use_kurtosis, low_memory) {
+.torch_objective <- function(.par_list, lossfunc, torch_bounds, torch_masks, torch_maps, base_matrices, M2.obs, M3.obs, M4.obs, m2v_masks, use_bounds, use_skewness, use_kurtosis) {
   A <- torch_add(base_matrices[['A']], torch_sum(torch_mul(torch_maps[['A']], .par_list[['A']]), dim=3))
-  # A <- torch_add(base_matrices[['A']], torch_sparse_coo_tensor(torch_maps[['A']]$indices()[1:2,] + torch_tensor(1, dtype=torch_long(), device=torch_device('cuda')), .par_list[['A']][torch_maps[['A']]$indices()[3,] + torch_tensor(1, dtype=torch_long(), device=torch_device('cuda'))], torch_maps[['A']]$shape[1:2]))
   Fm <- torch_add(base_matrices[['Fm']], torch_sum(torch_mul(torch_maps[['Fm']], .par_list[['Fm']]), dim=3))
-  # Fm <- torch_add(base_matrices[['Fm']], torch_sparse_coo_tensor(torch_maps[['Fm']]$indices()[1:2,] + torch_tensor(1, dtype=torch_long(), device=torch_device('cuda')), .par_list[['Fm']][torch_maps[['Fm']]$indices()[3,] + torch_tensor(1, dtype=torch_long(), device=torch_device('cuda'))], torch_maps[['Fm']]$shape[1:2]))
   S <- torch_add(base_matrices[['S']], torch_sum(torch_mul(torch_maps[['S']], .par_list[['S']]), dim=3))
-  # S <- torch_add(base_matrices[['S']], torch_sparse_coo_tensor(torch_maps[['S']]$indices()[1:2,] + torch_tensor(1, dtype=torch_long(), device=torch_device('cuda')), .par_list[['S']][torch_maps[['S']]$indices()[3,] + torch_tensor(1, dtype=torch_long(), device=torch_device('cuda'))], torch_maps[['S']]$shape[1:2]))
 
   if (use_skewness) {Sk <- torch_add(base_matrices[['Sk']], torch_sum(torch_mul(torch_maps[['Sk']], .par_list[['Sk']]), dim=3))}
   if (use_kurtosis) {K <- torch_add(torch_add(torch_mul(torch_matmul(torch_matmul(torch_sqrt(S), base_matrices[['K']]), .torch_kron(torch_sqrt(S), .torch_kron(torch_sqrt(S), torch_sqrt(S)))), torch_masks[['K']]), torch_sum(torch_mul(torch_maps[['K']], .par_list[['K']]), dim=3)), base_matrices[['K2']])}
-  #if (use_skewness) {Sk <- torch_add(base_matrices[['Sk']],torch_transpose(torch_mul(torch_hstack(list(torch_maps[['Sk_part1']], .par_list[['Sk']])), torch_maps[['Sk_part2']]), 1, 2))}
-  #if (use_kurtosis) {K <- torch_add(torch_add(torch_mul(torch_matmul(torch_matmul(torch_sqrt(S), base_matrices[['K']]), .torch_kron(torch_sqrt(S), .torch_kron(torch_sqrt(S), torch_sqrt(S)))), torch_masks[['K']]), torch_transpose(torch_mul(torch_hstack(list(torch_maps[['K_part1']], .par_list[['K']])), torch_maps[['K_part2']]), 1, 2)), base_matrices[['K2']])}
 
   # Rstyle: M2 <- Fm %*% solve(diag(n_p) - A) %*% S %*%  t(solve(diag(n_p)-A))  %*% t(Fm)
   M2 <- torch_matmul(torch_matmul(torch_matmul(torch_matmul(Fm, torch_inverse(base_matrices[['diag_n_p']] - A)), S), torch_transpose(torch_inverse(base_matrices[['diag_n_p']] - A), 1, 2)), torch_transpose(Fm, 1, 2))
@@ -39,17 +34,11 @@
   ### Loss function
   # Rstyle: value <- sum((.m2m2v(M2.obs) - .m2m2v(M2))^2) + sum((.m3m2v(M3.obs) - .m3m2v(M3))^2) + sum((.m4m2v(M4.obs)- .m4m2v(M4))^2)
   if (use_skewness & use_kurtosis) {
-    value <- lossfunc(torch_mul(M2, m2v_masks[['m2']]), torch_mul(M2.obs, m2v_masks[['m2']])) +
-      lossfunc(torch_mul(M3, m2v_masks[['m3']]), torch_mul(M3.obs, m2v_masks[['m3']])) +
-      lossfunc(torch_mul(M4, m2v_masks[['m4']]), torch_mul(M4.obs, m2v_masks[['m4']]))
+    value <- lossfunc(torch_mul(M2, m2v_masks[['m2']]), torch_mul(M2.obs, m2v_masks[['m2']])) + lossfunc(torch_mul(M3, m2v_masks[['m3']]), torch_mul(M3.obs, m2v_masks[['m3']])) + lossfunc(torch_mul(M4, m2v_masks[['m4']]), torch_mul(M4.obs, m2v_masks[['m4']]))
   } else if (use_skewness) {
-    value <- lossfunc(torch_mul(M2, m2v_masks[['m2']]), torch_mul(M2.obs, m2v_masks[['m2']])) +
-      lossfunc(torch_mul(M3, m2v_masks[['m3']]), torch_mul(M3.obs, m2v_masks[['m3']]))
+    value <- lossfunc(torch_mul(M2, m2v_masks[['m2']]), torch_mul(M2.obs, m2v_masks[['m2']])) + lossfunc(torch_mul(M3, m2v_masks[['m3']]), torch_mul(M3.obs, m2v_masks[['m3']]))
   } else if (use_kurtosis) {
-    value <- lossfunc(torch_mul(M2, m2v_masks[['m2']]), torch_mul(M2.obs, m2v_masks[['m2']])) +
-      lossfunc(torch_mul(M4, m2v_masks[['m4']]), torch_mul(M4.obs, m2v_masks[['m4']]))
-  } else {
-    stop("Oops, something went wrong.")
+    value <- lossfunc(torch_mul(M2, m2v_masks[['m2']]), torch_mul(M2.obs, m2v_masks[['m2']])) + lossfunc(torch_mul(M4, m2v_masks[['m4']]), torch_mul(M4.obs, m2v_masks[['m4']]))
   }
   if (use_bounds) {
     pow <- .loss_power_bounds(.par_list, torch_bounds)
@@ -61,8 +50,8 @@
 }
 
 # Fit wrapper function
-.torch_fit <- function(M2.obs, M3.obs, M4.obs, m2v_masks, torch_bounds, torch_masks, torch_maps, base_matrices, .par_list, learning_rate, optim_iters, silent, use_bounds, use_skewness, use_kurtosis, torch_dtype, lossfunc, return_history=FALSE, low_memory) {
-  loss_hist <- c()
+.torch_fit <- function(M2.obs, M3.obs, M4.obs, m2v_masks, torch_bounds, torch_masks, torch_maps, base_matrices, .par_list, learning_rate, optim_iters, silent, use_bounds, use_skewness, use_kurtosis, lossfunc, return_history=FALSE, low_memory) {
+  loss_hist <- NULL
   optim <- optim_rprop(.par_list,lr = learning_rate)
   if (low_memory) {gc(verbose=FALSE, full=TRUE)}
   for (i in 1:optim_iters[1]) {

@@ -7,7 +7,7 @@ plot.mcmmodelclass <- function(model,layout = NULL, use_values=FALSE) {
   if (model$meta_data$n_phenotypes < 10) {
     pheno_pos <-rep(1,model$meta_data$n_phenotypes)
   } else {
-    pheno_pos <- c()
+    pheno_pos <- NULL
     for (i in 1:model$meta_data$n_phenotypes) {
       pheno_pos <- c(pheno_pos, ((i %% 2) / 2) + ((i-1) %% 2))  # simplest way I knew how to get 1.0, 0.5, 1.0, 0.5, ....
     }

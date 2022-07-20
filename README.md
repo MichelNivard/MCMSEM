@@ -10,6 +10,9 @@ As of version 0.4.0 it is possible to run MCMSEM on a GPU, see [MCMSEM on GPU](#
  - Added argument `loss_type` to `MCMfit()` which allows users to change loss from MSE to smooth_L1. (regular L1 is also implemented but unlisted as it is untested)
  - Created `MCMSEMversion` variable in `local.R`, for easy access within the package (e.g. to store in result objects), and for easy access for users: `MCMSEM::MCMSEMversion`
  - Changed `License` field in `DESCRIPTION` to match CRAN standards
+ - Replaced `for (i in 1:length(x))` with the safer `for (i in seq_along(x))` throughout
+ - Replaced `for (i in 1:nrow(x))` with the safer `for (i in seq_len(nrow(x)))` throughout
+ - Some basic cleanup without functional difference
 ### Torch-specific (v0.6.1)
  - Changed `cat` calls in non-silent operation of `MCMfit` to use CR (`\r`) instead of newline (`\n`) to prevent flooding the console 
  - Split `local.R` into `local_gen_matrices.R`, `local_stderr.R`, and `local_torch_matrices.R`, also moved fit and objective functions from `MCMfit.R` to `local_fit.R`. Each script now contains local functions that are (mainly) used for their respective function names

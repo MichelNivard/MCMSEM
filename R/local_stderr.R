@@ -31,10 +31,7 @@
     return(c(as.vector(t(x2)), as.vector(t(x3)))[idx])
   } else if (use_kurtosis) {
     return(c(as.vector(t(x2)), as.vector(t(x4)))[idx])
-  } else {
-    stop("Oops, something went wrong. 3")
   }
-
 }
 
 ######## Compute Jacobian:
@@ -46,11 +43,8 @@
   Fm <- torch_add(base_matrices[['Fm']], torch_sum(torch_mul(torch_maps[['Fm']], .par_list[['Fm']]), dim=3))
   S <- torch_add(base_matrices[['S']], torch_sum(torch_mul(torch_maps[['S']], .par_list[['S']]), dim=3))
 
-  #if (use_skewness) {Sk <- torch_add(base_matrices[['Sk']],torch_transpose(torch_mul(torch_hstack(list(torch_maps[['Sk_part1']], .par_list[['Sk']])), torch_maps[['Sk_part2']]), 1, 2))}
-  #if (use_kurtosis) {K <- torch_add(torch_add(torch_mul(torch_matmul(torch_matmul(torch_sqrt(S), base_matrices[['K']]), .torch_kron(torch_sqrt(S), .torch_kron(torch_sqrt(S), torch_sqrt(S)))), torch_masks[['K']]), torch_transpose(torch_mul(torch_hstack(list(torch_maps[['K_part1']], .par_list[['K']])), torch_maps[['K_part2']]), 1, 2)), base_matrices[['K2']])}
   if (use_skewness) {Sk <- torch_add(base_matrices[['Sk']], torch_sum(torch_mul(torch_maps[['Sk']], .par_list[['Sk']]), dim=3))}
   if (use_kurtosis) {K <- torch_add(torch_add(torch_mul(torch_matmul(torch_matmul(torch_sqrt(S), base_matrices[['K']]), .torch_kron(torch_sqrt(S), .torch_kron(torch_sqrt(S), torch_sqrt(S)))), torch_masks[['K']]), torch_sum(torch_mul(torch_maps[['K']], .par_list[['K']]), dim=3)), base_matrices[['K2']])}
-
 
   diag_n_p <- base_matrices[['diag_n_p']]
   ###### Compute the observed cov, cosk, and cokurt matrices #################
@@ -73,8 +67,6 @@
     return(c(M2[Rm2vmasks[['m2']]],M3[Rm2vmasks[['m3']]]))
   } else if (use_kurtosis) {
     return(c(M2[Rm2vmasks[['m2']]],M4[Rm2vmasks[['m4']]]))
-  } else {
-    stop("Oops, something went wrong. 4")
   }
 }
 
@@ -108,8 +100,6 @@
     idx <- c(dim2locs, length(as.vector(dim2)) + dim3locs)
   } else if (use_kurtosis) {
     idx <- c(dim2locs, length(as.vector(dim2)) + dim4locs)
-  } else {
-    stop("Oops, something went wrong. 2")
   }
   Rm2vmasks <- list(
     m2=which(as.logical(as.numeric(torch_tensor(m2v_masks[['m2']], device=torch_device("cpu"))))),
@@ -127,7 +117,7 @@
   # weights matrix is based on diagonal, may be better behaved?
   S.m <- as.matrix(S.m)
   W <- solve(diag(nrow(S.m)) * S.m) # 00:00.1
-  par_vec <- c()
+  par_vec <- NULL
   par_to_list_coords <- list()
   coord_start <- 1
   .par_list_grad_only <- list()
@@ -139,7 +129,7 @@
       coord_start <- coord_start + length(current_vec)
       .par_list_grad_only[[i]] <- .par_list[[i]]
     } else {
-      .par_list_grad_only[[i]] <- c()
+      .par_list_grad_only[[i]] <- NULL
     }
   }
 

@@ -37,13 +37,13 @@
 .get_torch_matrices <- function(model, device, M2.obs, M3.obs, M4.obs, torch_dtype) {
   # parameter coordinates need to be translated as torch does not accept single intiger index for 2d matrix
   torch_coords <- list()
-  for (i in 1:length(model$param_coords)) {
+  for (i in seq_along(model$param_coords)) {
     i_par <- model$param_coords[[i]]
     i_mat_name <- i_par[[1]]
     i_coords <- i_par[[2]]
     i_mult <- i_par[[3]]
     i_mat <- model$num_matrices[[i_mat_name]]
-    for (j in 1:length(i_coords)) {
+    for (j in seq_along(i_coords)) {
       i_row_coords <- .r_1to2d_idx(i_coords[j], nrow(i_mat))[1]
       i_col_coords <- .r_1to2d_idx(i_coords[j], nrow(i_mat))[2]
       torch_coords <- append(torch_coords, list(list(
@@ -60,14 +60,9 @@
     K=torch_tensor(model$num_matrices[["K1_ref"]]+1-1, device=device, dtype=torch_dtype),
     diag_n_p=torch_tensor(torch_diagflat(rep(1, model$meta_data$n_phenotypes + model$meta_data$n_confounding)), device=device, dtype=torch_dtype)
   )
-  param_list <- list(A=c(), Fm= c(), S=c(), Sk=c(), K=c())
+  param_list <- list(A=NULL, Fm=NULL, S=NULL, Sk=NULL, K=NULL)
 
   torch_maps <- list(A=list(), Fm= list(), S=list(), Sk=list(), K=list())
-  #torch_maps <- list(A=list(), Fm= list(), S=list(),
-  #                    Sk_part1=torch_tensor(rep(0, model$meta_data$n_confounding), device=device, dtype=torch_dtype),
-  #                    Sk_part2=torch_zeros_like(torch_matrices[['Sk']], device=device),
-  #                   K_part1=torch_tensor(rep(0, model$meta_data$n_confounding), device=device, dtype=torch_dtype),
-  #                    K_part2=torch_zeros_like(torch_matrices[['K']], device=device))
   torch_masks <- list(
     A=torch_ones_like(torch_matrices[["A"]], dtype=torch_dtype, device=device),
     Fm= torch_ones_like(torch_matrices[["Fm"]], dtype=torch_dtype, device=device),
@@ -80,17 +75,12 @@
     new_mat[i$row, i$col] <- 1 * i$mult
     torch_masks[[i$mat_name]][i$row, i$col] <- 0.0
     param_name <- model$named_matrices[[i$mat_name]][i$row, i$col]
-    #if (!(i$mat_name %in% c("Sk","K"))) {
-      if (param_name %in% names(torch_maps[[i$mat_name]])) {
-        torch_maps[[i$mat_name]][[param_name]] <- torch_maps[[i$mat_name]][[param_name]]  + new_mat
-      } else {
-        torch_maps[[i$mat_name]][[param_name]] <- new_mat
-        param_list[[i$mat_name]] <- c(param_list[[i$mat_name]], model$start_values[param_name])
-      }
-    #} else {
-    #  torch_maps[[paste0(i$mat_name, '_part2')]][i$row, i$col] <- 1.0
-    #  param_list[[i$mat_name]] <- c(param_list[[i$mat_name]], model$start_values[param_name])
-    #}
+    if (param_name %in% names(torch_maps[[i$mat_name]])) {
+      torch_maps[[i$mat_name]][[param_name]] <- torch_maps[[i$mat_name]][[param_name]]  + new_mat
+    } else {
+      torch_maps[[i$mat_name]][[param_name]] <- new_mat
+      param_list[[i$mat_name]] <- c(param_list[[i$mat_name]], model$start_values[param_name])
+    }
   }
   n_p <- model$meta_data$n_phenotypes + model$meta_data$n_confounding
   for (i in 1:model$meta_data$n_confounding) {
@@ -141,8 +131,6 @@
       torch_bounds[["U"]][[i]] <- (torch_tensor(.par_list[[i]], device=device, dtype=torch_dtype) + 100)
     }
   }
-  #torch_maps[['K_part2']] <- torch_transpose(torch_maps[['K_part2']], 1, 2)
-  #torch_maps[['Sk_part2']] <- torch_transpose(torch_maps[['Sk_part2']], 1, 2)
   torch_bounds[['L']] <- torch_cat(torch_bounds[['L']])
   torch_bounds[['U']] <- torch_cat(torch_bounds[['U']])
   m2v_masks <- list(

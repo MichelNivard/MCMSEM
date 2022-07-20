@@ -13,9 +13,8 @@ MCMmodel <- function(data, n_confounding=1, constrained_a=TRUE, scale_data=TRUE,
       stop("Constrained a has to be used with two variables.")
     }
   }
-  if (n_confounding > ncol(data)) {
+  if (n_confounding > ncol(data))
     stop("Cannot use more confounding factors than phenotypes present in the data")
-  }
   if (is.null(confounding_names)) {
     confounding_names <- paste0("f", 1:n_confounding)
   } else {
@@ -23,10 +22,8 @@ MCMmodel <- function(data, n_confounding=1, constrained_a=TRUE, scale_data=TRUE,
       stop("Length of confounding_names should be equal to n_confounding")
     }
   }
-  if (is.data.frame(data)) {org_names <- colnames(data)} else {org_names <- paste0("x", 1:ncol(data))}
-
+  org_names <- if (is.data.frame(data)) {colnames(data)} else {paste0("x", seq_len(ncol(data)))}
   if (is.matrix(data) & !(is.null(colnames(data)))) {org_names <- colnames(data)}
-
 
   # Scale data
   if (scale_data) {
@@ -42,40 +39,34 @@ MCMmodel <- function(data, n_confounding=1, constrained_a=TRUE, scale_data=TRUE,
   n_f <- n_confounding
   n_p <- ncol(data)
   if (constrained_a) {
-    a_names <- c()
+    a_names <- NULL
     for (i in 1:n_f) {
       a_names <- c(a_names, rep(paste0("a", i), n_p))
     }
   } else {
-    a_names <- c()
+    a_names <- NULL
     for (i in 1:n_f) {
       for (j in 1:n_p) {
         a_names <- c(a_names, paste0("a", i, "_", j))
       }
     }
   }
-  b_names <- c()
+  b_names <- NULL
   for (i in 1:n_p) {
     js <- 1:n_p
     for (j in js[js != i]) {
       b_names <- c(b_names, paste0("b",j,"_", i))
     }
   }
-  par_names <- list(
-    a=a_names,
-    b=b_names,
-    s=paste0("s", 1:n_p),
-    sk=paste0("sk", 1:n_p),
-    k=paste0("k", 1:n_p)
-  )
+  par_names <- list(a=a_names, b=b_names, s=paste0("s", 1:n_p), sk=paste0("sk", 1:n_p), k=paste0("k", 1:n_p))
 
   named_matrices <- .gen_matrices(par_names, n_p, n_f, base_value="0")
 
   ## Make matrices with starting values
   M3.obs <- M3.MM(data)
   M4.obs <- M4.MM(data)
-  sk_starts <- c()
-  k_starts <- c()
+  sk_starts <- NULL
+  k_starts <- NULL
   for (i in 1:n_p) {
     sk_starts <- c(sk_starts, M3.obs[i, i + (i-1)*n_p])
     k_starts <- c(k_starts, M4.obs[i, i + (i-1)*n_p + (i-1)*n_p^2])
