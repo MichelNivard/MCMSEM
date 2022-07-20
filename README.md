@@ -5,7 +5,11 @@ R-package which allows users to run multi co-moment structural equation models.
 Note this is the `dev-torch` branch, and **not** intended for end-users. If you would like to use MCMSEM yourself, please go to the main branch. If you would like to contribute to the code, feel free to check this branch out.  
 As of version 0.4.0 it is possible to run MCMSEM on a GPU, see [MCMSEM on GPU](#mcmsem-on-gpu).
 
-## Patch notes thus far (v0.6.1-dev-torch)
+## Patch notes thus far (v0.6.2-dev-torch)
+### Torch-specific (v0.6.2)
+ - Added argument `loss_type` to `MCMfit()` which allows users to change loss from MSE to smooth_L1. (regular L1 is also implemented but unlisted as it is untested)
+ - Created `MCMSEMversion` variable in `local.R`, for easy access within the package (e.g. to store in result objects), and for easy access for users: `MCMSEM::MCMSEMversion`
+ - Changed `License` field in `DESCRIPTION` to match CRAN standards
 ### Torch-specific (v0.6.1)
  - Changed `cat` calls in non-silent operation of `MCMfit` to use CR (`\r`) instead of newline (`\n`) to prevent flooding the console 
  - Split `local.R` into `local_gen_matrices.R`, `local_stderr.R`, and `local_torch_matrices.R`, also moved fit and objective functions from `MCMfit.R` to `local_fit.R`. Each script now contains local functions that are (mainly) used for their respective function names
@@ -13,7 +17,7 @@ As of version 0.4.0 it is possible to run MCMSEM on a GPU, see [MCMSEM on GPU](#
  - Removed `par` column from `summary(mcmresult)` as it did not provide additional information
  - Changed `edge` column for skewness and kurtosis parameters to `~~~` and `~~~~` respectively
  - Renamed `MCMresultclass.R` to  `MCMresultclasses.R` as it now also holds `mcmresultsummaryclass` (putting it in a separate script didn't work)
- - Added `mcmresultsummaryclass`, a custom class now returend from `summary(mcmresult)` in order to store additional information. The `mcmresultsummaryclass` contains the following:
+ - Added `mcmresultsummaryclass`, a custom class now returned from `summary(mcmresult)` in order to store additional information. The `mcmresultsummaryclass` contains the following:
    - `df`: dataframe with parameter table (this used to be the only thing returned from `summary(mcmresult)`)
    - `result`: A reference to the result object that the summary is generated from
  - `as.data.frame(summary(mcmresult))` simply extracts the parameter table

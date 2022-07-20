@@ -2,7 +2,7 @@
 # Local functions used in MCMfit moved to local_fit.R
 
 # Exported MCMfit function
-MCMfit <- function(mcmmodel, data, compute_se=TRUE, se_type='asymptotic', optim_iters=c(50, 12), bootstrap_iter=200,bootstrap_chunks=1000,
+MCMfit <- function(mcmmodel, data, compute_se=TRUE, se_type='asymptotic', optim_iters=c(50, 12), loss_type='mse', bootstrap_iter=200,bootstrap_chunks=1000,
                    learning_rate=0.02, silent=TRUE, use_bounds=TRUE, use_skewness=TRUE, use_kurtosis=TRUE, device=NULL, low_memory=FALSE) {
   START_MCMfit <- Sys.time()
   model <- mcmmodel$copy()  # Model is changed if either use_skewness or use_kurtosis is set to FALSE, so I make a local copy here to ensure the original object stays intact
@@ -16,6 +16,9 @@ MCMfit <- function(mcmmodel, data, compute_se=TRUE, se_type='asymptotic', optim_
     }
   }
   cpu_device <- torch_device("cpu")
+  if (!(loss_type %in% c("mse", "smooth_l1" ,'l1'))) {
+    stop("loss_type should be one of c('mse', 'smooth_l1')")
+  }
   if (!(se_type %in% c('two-step', 'one-step','asymptotic')))
     stop("se_type should be one of c('two-step', 'one-step','asymptotic')")
   if (ncol(data) != 2)
@@ -52,7 +55,14 @@ MCMfit <- function(mcmmodel, data, compute_se=TRUE, se_type='asymptotic', optim_
       data <- apply(data, 2, scale)
   }
 
-  if (compute_se) ###????
+  lossfuncs <- list(
+    mse=nn_mse_loss(reduction='sum'),
+    smooth_l1=nn_smooth_l1_loss(reduction='sum'),
+    l1=nn_l1_loss(reduction='sum')
+  )
+  lossfunc <- lossfuncs[[loss_type]]
+
+  if (compute_se)
     model_copy <- model$copy()
   if (!(use_kurtosis)) {
     kurt_par_idx <- which(startsWith(model$param_names, "k"))
@@ -105,7 +115,7 @@ MCMfit <- function(mcmmodel, data, compute_se=TRUE, se_type='asymptotic', optim_
   # Obtain estimates with optimizer
   START_optim <- Sys.time()
   TIME_prep <-  START_optim - START_MCMfit
-  out <- .torch_fit(M2.obs, M3.obs, M4.obs, m2v_masks, torch_bounds, torch_masks, torch_maps, base_matrices, .par_list, learning_rate, optim_iters, silent, use_bounds, use_skewness, use_kurtosis, torch_dtype, return_history = TRUE, low_memory=low_memory)
+  out <- .torch_fit(M2.obs, M3.obs, M4.obs, m2v_masks, torch_bounds, torch_masks, torch_maps, base_matrices, .par_list, learning_rate, optim_iters, silent, use_bounds, use_skewness, use_kurtosis, torch_dtype, lossfunc, return_history = TRUE, low_memory=low_memory)
   .par_tensor <- out[['par']]
   loss_hist <- as.numeric(torch_tensor(torch_vstack(out[["loss_hist"]]), device=cpu_device))
   # Store estimates including minimization objective, using this to evaluate/compare fit
@@ -163,7 +173,7 @@ MCMfit <- function(mcmmodel, data, compute_se=TRUE, se_type='asymptotic', optim_
 
         #3. Fit model
         # Estimate parameters with model function specified above
-        .par_tensor <- .torch_fit(M2.obs, M3.obs, M4.obs, m2v_masks, torch_bounds, torch_masks, torch_maps, base_matrices, .par_list, learning_rate, optim_iters, silent, use_bounds, use_skewness, use_kurtosis, torch_dtype, low_memory=low_memory)
+        .par_tensor <- .torch_fit(M2.obs, M3.obs, M4.obs, m2v_masks, torch_bounds, torch_masks, torch_maps, base_matrices, .par_list, learning_rate, optim_iters, silent, use_bounds, use_skewness, use_kurtosis, torch_dtype, lossfunc, low_memory=low_memory)
         .par <- list()
         for (j in names(.par_tensor)) {
           if (length(param_list[[j]]) > 0) {
@@ -216,7 +226,7 @@ MCMfit <- function(mcmmodel, data, compute_se=TRUE, se_type='asymptotic', optim_
 
         #3. Fit model
         # Estimate parameters with model function specified above
-        .par_tensor <- .torch_fit(M2.obs, M3.obs, M4.obs, m2v_masks, torch_bounds, torch_masks, torch_maps, base_matrices, .par_list, learning_rate, optim_iters, silent, use_bounds, use_skewness, use_kurtosis, torch_dtype, low_memory=low_memory)
+        .par_tensor <- .torch_fit(M2.obs, M3.obs, M4.obs, m2v_masks, torch_bounds, torch_masks, torch_maps, base_matrices, .par_list, learning_rate, optim_iters, silent, use_bounds, use_skewness, use_kurtosis, torch_dtype, lossfunc, low_memory=low_memory)
         .par <- list()
         for (j in names(.par_tensor)) {
           if (length(param_list[[j]]) > 0) {
@@ -253,7 +263,7 @@ MCMfit <- function(mcmmodel, data, compute_se=TRUE, se_type='asymptotic', optim_
                           loss=loss_hist
                         ),
                         runtimes=list(Preparation=TIME_prep, Optimizer=TIME_optim, SE=TIME_se, Total=TIME_total),
-                        info=list(version="0.6.1", compute_se=compute_se, se_type=se_type, optim_iters=optim_iters,
+                        info=list(version=MCMSEMversion, compute_se=compute_se, se_type=se_type, optim_iters=optim_iters,
                                   bootstrap_iter=bootstrap_iter,bootstrap_chunks=bootstrap_chunks, learning_rate=learning_rate,
                                   silent=silent, use_bounds=use_bounds, use_skewness=use_skewness, use_kurtosis=use_kurtosis,
                                   device=device$type, low_memory=low_memory

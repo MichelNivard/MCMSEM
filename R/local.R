@@ -1,3 +1,5 @@
+MCMSEMversion <- "0.6.2"
+
 # wrapper function to make the code more R-like
 .torch_kron <- function(a, b) {
   return(a$kron(b))

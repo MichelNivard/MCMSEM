@@ -25,3 +25,5 @@ simulate_data <- function(n=500000, a1=0.35, b1=0.3, b2=-.1, shape=4, df=10) {
   data <- cbind(x1,x2)
   return(data)
 }
+
+
