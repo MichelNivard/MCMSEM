@@ -7,6 +7,7 @@ As of version 0.4.0 it is possible to run MCMSEM on a GPU, see [MCMSEM on GPU](#
 
 ## Patch notes thus far (v0.6.2-dev-torch)
 ### Torch-specific (v0.6.2)
+ - Added `wiki` folder with markdown documents to be used for the Wiki upon release.
  - Added argument `loss_type` to `MCMfit()` which allows users to change loss from MSE to smooth_L1. (regular L1 is also implemented but unlisted as it is untested)
  - Created `MCMSEMversion` variable in `local.R`, for easy access within the package (e.g. to store in result objects), and for easy access for users: `MCMSEM::MCMSEMversion`
  - Changed `License` field in `DESCRIPTION` to match CRAN standards
