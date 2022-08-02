@@ -1,9 +1,9 @@
 plot.mcmmodelclass <- function(model,layout = NULL, use_values=FALSE) {
-  latents <- 1:model$meta_data$n_confounding
+  latents <- 1:model$meta_data$n_latent
   qgraph(t(model$num_matrices$A[-latents,-latents] + model$num_matrices$S[-latents,-latents]))
   # Full model
-  place.latents <- floor(quantile(1:model$meta_data$n_phenotypes,1:model$meta_data$n_confounding/(model$meta_data$n_confoundin+1)))
-  if (model$meta_data$n_confounding == 1) place.latents <- place.latents + 0.5
+  place.latents <- floor(quantile(1:model$meta_data$n_phenotypes,1:model$meta_data$n_latent/(model$meta_data$n_latent+1)))
+  if (model$meta_data$n_latent == 1) place.latents <- place.latents + 0.5
   if (model$meta_data$n_phenotypes < 10) {
     pheno_pos <-rep(1,model$meta_data$n_phenotypes)
   } else {
@@ -14,7 +14,7 @@ plot.mcmmodelclass <- function(model,layout = NULL, use_values=FALSE) {
   }
   if(is.null(layout)){
   layout <- cbind(c(place.latents,1:model$meta_data$n_phenotypes),
-                  c(rep(2,model$meta_data$n_confounding),pheno_pos))
+                  c(rep(2,model$meta_data$n_latent),pheno_pos))
     }
   plot_mat <- model$num_matrices$A[,] + model$num_matrices$S[,]
   if (!(use_values)) {

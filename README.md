@@ -6,6 +6,19 @@ Note this is the `dev-torch` branch, and **not** intended for end-users. If you 
 As of version 0.4.0 it is possible to run MCMSEM on a GPU, see [MCMSEM on GPU](#mcmsem-on-gpu).
 
 ## Patch notes thus far (v0.6.2-dev-torch)
+### Torch-specific (v0.7.0)
+> :warning: __WARNING__: Ther argument names `n_confounding` and `confounding_names` in `MCMmodel()` have been changed to `n_latent` and `latent_names` in this version. Please update your code accordingly.
+ - Changed references to latent factors from `confounding` to `latent` script-wide, for consistent labelling. 
+ - Added 8 new arguments to `MCMmodel()` to change broad model specifications directly. Note for now these do not alter the initial model generation, but use `MCMedit()` after the default model is generated, slightly slowing down `MCMmodel`, so if we get to the point where giant models (i.e. >50 variables) are possible, this should be changed.
+   - causal_observed: adds free parameters for causal paths between observed variables (default TRUE)
+   - var_observed: adds free parameters for variance of observed variables (default TRUE)
+   - skew_observed: adds free parameters for skewness of observed variables (default TRUE)
+   - kurt_observed: adds free parameters for kurtosis of observed variables (default TRUE)
+   - causal_latent: adds free parameters for causal paths between latent factors (default FALSE)
+   - var_latent: adds free parameters for variance of latent factors (default FALSE)
+   - skew_latent: adds free parameters for skewness of latent factors (default FALSE)
+   - kurt_latent: adds free parameters for kurtosis of latent factors (default FALSE)
+ - Changed `MCMedit()` to accept multiple parameter names, e.g.: `MCMedit(model, "A", c("b1_2", "b2_1"), 0)`. Note that all these parameters should still originate from the same matrix
 ### Torch-specific (v0.6.2)
  - Added `wiki` folder with markdown documents to be used for the Wiki upon release.
  - Added argument `loss_type` to `MCMfit()` which allows users to change loss from MSE to smooth_L1. (regular L1 is also implemented but unlisted as it is untested)
@@ -121,9 +134,7 @@ As of version 0.4.0 it is possible to run MCMSEM on a GPU, see [MCMSEM on GPU](#
 
 ### Things still TODO:
 1. Find a way to get the full jacobian using torch? (and have it be faster than the default jacobian with the current .jac.fn)
-2. Change `summary(result)` such that it can handle co-skew and co-kurt parameters
-   1. This also involves splitting the resulting table as co-skew will have 3 source variables instead of lhs, rhs, and co-kurt will have 4
-3. Expand checks in `MCMmodel` 
+2. Expand checks in `MCMmodel` 
 
 ## Patch notes
 - v0.1.1 

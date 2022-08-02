@@ -7,33 +7,61 @@ MCMedit <- function(model, pointer, name, value) {
       if (length(value) > 1) {
         for (i in value) {
           i_pos <- gsub("-", "", i)
-          if (!(sub("^([[:alpha:]]*).*", "\\1", i_pos) %in% c("a", "s", "b", "sk", "k", "fm")))
+          if (!(sub("^([[:alpha:]]*).*", "\\1", gsub("l", "", i_pos)) %in% c("a", "s", "b", "sk", "k", "fm")))
             stop("Named parameters must only contain one of [a, s, b, sk, k, fm] and numbers or other symbols")
         }
       } else {
         value_pos <- gsub("-", "", value)
-        if (!(sub("^([[:alpha:]]*).*", "\\1", value_pos) %in% c("a", "s", "b", "sk", "k", "fm")))
+        if (!(sub("^([[:alpha:]]*).*", "\\1", gsub("l", "", value_pos)) %in% c("a", "s", "b", "sk", "k", "fm")))
           stop("Named parameters must only contain one of [a, b, s, sk, k, fm] and numbers or other symbols")
       }
     }
     if (length(name) > 1) {
       if (is.list(name)) {
+        if (length(name[[1]]) == 1) {
+          name[[1]] <- rep(name[[1]], length(name[[2]]))
+        } else if (length(name[[2]]) == 1) {
+          name[[2]] <- rep(name[[2]], length(name[[1]]))
+        }
+        if (length(value) == 1) {
+          value <- rep(value, length(name[[1]]))
+        } else if (length(value) != length(name[[1]])) {
+          stop("Length of provided names/coordinates is not equal to length of replacements.")
+        }
+
         if (is.character(value)) {
-          x$named_matrices[[pointer]][name[[1]], name[[2]]] <- value
+          for (i in seq_along(name[[1]])) {
+            x$named_matrices[[pointer]][name[[1]][i], name[[2]][i]] <- value[i]
+          }
         } else {
-          x$num_matrices[[pointer]][name[[1]], name[[2]]] <- value
-          old_name <- x$named_matrices[[pointer]][name[[1]], name[[2]]]
-          x$named_matrices[[pointer]][name[[1]], name[[2]]] <- as.character(value)
-          x$bounds[, old_name] <- NULL # Since paramter is set to a constant: Remove bounds
+          for (i in seq_along(name[[1]])) {
+            x$num_matrices[[pointer]][name[[1]][i], name[[2]][i]] <- value
+            old_name <- x$named_matrices[[pointer]][name[[1]][i], name[[2]][i]]
+            x$named_matrices[[pointer]][name[[1]][i], name[[2]][i]] <- as.character(value)
+            x$bounds[, old_name] <- NULL # Since paramter is set to a constant: Remove bounds
+          }
         }
       } else {
         if (is.character(value)) {
           x$named_matrices[[pointer]][name[1], name[2]] <- value
         } else {
-          x$num_matrices[[pointer]][name[1], name[2]] <- value
-          old_name <- x$named_matrices[[pointer]][name[1], name[2]]
-          x$named_matrices[[pointer]][name[1], name[2]] <- as.character(value)
-          x$bounds[, old_name] <- NULL # Since paramter is set to a constant: Remove bounds
+          if (is.character(name)) {
+            # MCMedit(model, "A", c("b1_2", "b1_3", "b1_4"), 0)
+            for (i in name) {
+              if (is.character(value)) {
+                x$named_matrices[[pointer]][gsub("-", "", x$named_matrices[[pointer]]) == i] <- value
+              } else if (is.numeric(value)) {
+                x$num_matrices[[pointer]][gsub("-", "", x$named_matrices[[pointer]])== i] <- value
+                x$named_matrices[[pointer]][gsub("-", "", x$named_matrices[[pointer]]) == i] <- as.character(value)
+              }
+            }
+          } else {
+            # MCMedit(model, "A", c(1, 2), 0)
+            x$num_matrices[[pointer]][name[1], name[2]] <- value
+            old_name <- x$named_matrices[[pointer]][name[1], name[2]]
+            x$named_matrices[[pointer]][name[1], name[2]] <- as.character(value)
+            x$bounds[, old_name] <- NULL # Since paramter is set to a constant: Remove bounds
+          }
         }
       }
     } else {

@@ -72,8 +72,8 @@ mcmmodelclass$methods(
     # Update bounds
     for (param in .self$param_names) {
       if (!(param %in% colnames(.self$bounds))) {
-        default_u <- .self$meta_data$bound_default[["U"]][[sub("^([[:alpha:]]*).*", "\\1", param)]]
-        default_l <- .self$meta_data$bound_default[["L"]][[sub("^([[:alpha:]]*).*", "\\1", param)]]
+        default_u <- .self$meta_data$bound_default[["U"]][[sub("^([[:alpha:]]*).*", "\\1", gsub("l", "",param))]]
+        default_l <- .self$meta_data$bound_default[["L"]][[sub("^([[:alpha:]]*).*", "\\1", gsub("l", "",param))]]
         new_col <- data.frame(rbind(default_l, default_u))
         colnames(new_col) <- param
         .self$bounds <- cbind(.self$bounds, new_col)
@@ -85,7 +85,7 @@ mcmmodelclass$methods(
       } else {
         if (any(is.na(.self$bounds[, col]))) {
           for (row in rownames(.self$bounds)[which(is.na(.self$bounds[, col]))]) {
-            .self$bounds[row, col] <- .self$meta_data$bound_default[[row]][[sub("^([[:alpha:]]*).*", "\\1", col)]]
+            .self$bounds[row, col] <- .self$meta_data$bound_default[[row]][[sub("^([[:alpha:]]*).*", "\\1", gsub("l", "",param))]]
           }
         }
       }
