@@ -74,12 +74,12 @@
     new_mat <- torch_zeros_like(torch_matrices[[i$mat_name]], device=device, dtype=torch_dtype)
     new_mat[i$row, i$col] <- 1 * i$mult
     torch_masks[[i$mat_name]][i$row, i$col] <- 0.0
-    param_name <- model$named_matrices[[i$mat_name]][i$row, i$col]
+    param_name <- gsub("-", "", model$named_matrices[[i$mat_name]][i$row, i$col])
     if (param_name %in% names(torch_maps[[i$mat_name]])) {
       torch_maps[[i$mat_name]][[param_name]] <- torch_maps[[i$mat_name]][[param_name]]  + new_mat
     } else {
       torch_maps[[i$mat_name]][[param_name]] <- new_mat
-      param_list[[i$mat_name]] <- c(param_list[[i$mat_name]], model$start_values[gsub("-", "",param_name)])
+      param_list[[i$mat_name]] <- c(param_list[[i$mat_name]], model$start_values[param_name])
     }
   }
   n_p <- model$meta_data$n_phenotypes + model$meta_data$n_latent
