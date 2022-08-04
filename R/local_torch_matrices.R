@@ -79,7 +79,7 @@
       torch_maps[[i$mat_name]][[param_name]] <- torch_maps[[i$mat_name]][[param_name]]  + new_mat
     } else {
       torch_maps[[i$mat_name]][[param_name]] <- new_mat
-      param_list[[i$mat_name]] <- c(param_list[[i$mat_name]], model$start_values[param_name])
+      param_list[[i$mat_name]] <- c(param_list[[i$mat_name]], model$start_values[gsub("-", "",param_name)])
     }
   }
   n_p <- model$meta_data$n_phenotypes + model$meta_data$n_latent

@@ -5,7 +5,9 @@ R-package which allows users to run multi co-moment structural equation models.
 Note this is the `dev-torch` branch, and **not** intended for end-users. If you would like to use MCMSEM yourself, please go to the main branch. If you would like to contribute to the code, feel free to check this branch out.  
 As of version 0.4.0 it is possible to run MCMSEM on a GPU, see [MCMSEM on GPU](#mcmsem-on-gpu).
 
-## Patch notes thus far (v0.6.2-dev-torch)
+## Patch notes thus far (v0.7.1-dev-torch)
+### Torch-specific (v0.7.1)
+ - Fixed an issue that caused negative parameters to fail due to missing starting values.
 ### Torch-specific (v0.7.0)
 > :warning: __WARNING__: Ther argument names `n_confounding` and `confounding_names` in `MCMmodel()` have been changed to `n_latent` and `latent_names` in this version. Please update your code accordingly.
  - Changed references to latent factors from `confounding` to `latent` script-wide, for consistent labelling. 
