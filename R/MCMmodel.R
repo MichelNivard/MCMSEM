@@ -17,9 +17,6 @@ MCMmodel <- function(data, n_latent=1, constrained_a=TRUE, scale_data=TRUE, late
   }
   if (n_latent > ncol(data))
     warning("It's unlikely you want to use use more latent factors than phenotypes present in the data, unless you know what you are doing consider revising....")
-  if (n_latent > ncol(data)) {
-    warning("It's unlikely you want to use use more latent factors than phenotypes present in the data, unless you know what you are doing consider revising....")
-  }
   if (any(apply(data, 2, is.character)))
     stop("Numeric column(s) found:",paste0(names(which(apply(data, 2, is.character))), collapse=", "), "\n   Data must only contain numeric columns")
   if (any(round(rowSums(abs(cor(data))), 1) == 1.0)) {
@@ -106,7 +103,7 @@ MCMmodel <- function(data, n_latent=1, constrained_a=TRUE, scale_data=TRUE, late
   start_values <- as.data.frame(t(unlist(par)))
   colnames(start_values) <- unlist(par_names)
   rownames(start_values) <- "start"
-  if (n_latent > 1) {
+  if ((n_latent > 1) & !(constrained_a)) {
     for (n_fi in 1:(n_latent-1)) {
       num_matrices[["A"]][(n_latent+1):(n_latent+n_fi), n_fi+1] <- 0.0
       named_matrices[["A"]][(n_latent+1):(n_latent+n_fi), n_fi+1] <- "0"

@@ -3,7 +3,7 @@ summary.mcmresultclass <- function(res) {
   Pars_fact <- data.frame(matrix(NA, ncol=9, nrow=1))
   for (col in seq_len(ncol(res$model$named_matrices[['A']]))) {
     for (row in seq_len(nrow(res$model$named_matrices[['A']]))) {
-      if (res$model$named_matrices[['A']][row, col] != "0") {
+      if (is.na(suppressWarnings(as.numeric(res$model$named_matrices[['A']][row, col])))) {
         parname <- res$model$named_matrices[['A']][row, col]
         parvalue <- res$model$num_matrices[['A']][row, col]
         if (startsWith(parname, "a")) {
@@ -42,7 +42,7 @@ summary.mcmresultclass <- function(res) {
   Vars <- data.frame(matrix(NA, ncol=9, nrow=1))
   for (row in seq_len(nrow(res$model$named_matrices[['S']]))) {
     for (col in seq_len(ncol(res$model$named_matrices[['S']]))) {
-      if (!(res$model$named_matrices[['S']][row, col] %in% c("0", "1"))) {
+      if (is.na(suppressWarnings(as.numeric(res$model$named_matrices[['S']][row, col])))) {
         parname <- res$model$named_matrices[['S']][row, col]
         parvalue <- res$model$num_matrices[['S']][row, col]
         if (col <= res$model$meta_data$n_latent) {
@@ -70,7 +70,7 @@ summary.mcmresultclass <- function(res) {
   Skews <- data.frame(matrix(NA, ncol=10, nrow=1))
   for (row in seq_len(nrow(res$model$named_matrices[['Sk']]))) {
     for (col in seq_len(ncol(res$model$named_matrices[['Sk']]))) {
-      if (!(res$model$named_matrices[['Sk']][row, col] %in% c("0", "1"))) {
+      if (is.na(suppressWarnings(as.numeric(res$model$named_matrices[['Sk']][row, col])))) {
         parname <- res$model$named_matrices[['Sk']][row, col]
         parvalue <- res$model$num_matrices[['Sk']][row, col]
         vars <- .twod_to_nd_idx(nrow(res$model$named_matrices[['Sk']]), row, col, ndims=3)
@@ -92,7 +92,7 @@ summary.mcmresultclass <- function(res) {
   Kurts <- data.frame(matrix(NA, ncol=11, nrow=1))
   for (row in seq_len(nrow(res$model$named_matrices[['K']]))) {
     for (col in seq_len(ncol(res$model$named_matrices[['K']]))) {
-      if (!(res$model$named_matrices[['K']][row, col] %in% c("0", "1"))) {
+      if (is.na(suppressWarnings(as.numeric(res$model$named_matrices[['K']][row, col])))) {
         parname <- res$model$named_matrices[['K']][row, col]
         parvalue <- res$model$num_matrices[['K']][row, col]
         vars <- .twod_to_nd_idx(nrow(res$model$named_matrices[['K']]), row, col, ndims=4)
