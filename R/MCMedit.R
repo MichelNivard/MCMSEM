@@ -35,9 +35,9 @@ MCMedit <- function(model, pointer, name, value) {
           }
         } else {
           for (i in seq_along(name[[1]])) {
-            x$num_matrices[[pointer]][name[[1]][i], name[[2]][i]] <- value
+            x$num_matrices[[pointer]][name[[1]][i], name[[2]][i]] <- value[i]
             old_name <- x$named_matrices[[pointer]][name[[1]][i], name[[2]][i]]
-            x$named_matrices[[pointer]][name[[1]][i], name[[2]][i]] <- as.character(value)
+            x$named_matrices[[pointer]][name[[1]][i], name[[2]][i]] <- as.character(value[i])
             x$bounds[, old_name] <- NULL # Since paramter is set to a constant: Remove bounds
           }
         }
