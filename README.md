@@ -12,8 +12,9 @@ As of version 0.4.0 it is possible to run MCMSEM on a GPU, see [MCMSEM on GPU](#
  - Value of 3 for x,x,x,x-kurtosis of latent factors is no longer hardcoded in `MCMfit` but rather obtained from `model$num_matrices$K`.
  - Added check for non-numeric columns and ID-column in `MCMmodel`
  - Changed stopping errors of multiple latent variables to warnings to allow for testing.
+ - Added observed and predicted comoment matrices to `result$history`.
 ### Torch-specific (v0.7.0)
-> :warning: __WARNING__: Ther argument names `n_confounding` and `confounding_names` in `MCMmodel()` have been changed to `n_latent` and `latent_names` in this version. Please update your code accordingly.
+> :warning: __WARNING__: The argument names `n_confounding` and `confounding_names` in `MCMmodel()` have been changed to `n_latent` and `latent_names` in this version. Please update your code accordingly.
  - Changed references to latent factors from `confounding` to `latent` script-wide, for consistent labelling. 
  - Added 8 new arguments to `MCMmodel()` to change broad model specifications directly. Note for now these do not alter the initial model generation, but use `MCMedit()` after the default model is generated, slightly slowing down `MCMmodel`, so if we get to the point where giant models (i.e. >50 variables) are possible, this should be changed.
    - causal_observed: adds free parameters for causal paths between observed variables (default TRUE)

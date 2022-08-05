@@ -118,6 +118,7 @@ MCMfit <- function(mcmmodel, data, compute_se=TRUE, se_type='asymptotic', optim_
   out <- .torch_fit(M2.obs, M3.obs, M4.obs, m2v_masks, torch_bounds, torch_masks, torch_maps, base_matrices, .par_list, learning_rate, optim_iters, silent, use_bounds, use_skewness, use_kurtosis, lossfunc, return_history = TRUE, low_memory=low_memory)
   .par_tensor <- out[['par']]
   loss_hist <- as.numeric(torch_tensor(torch_vstack(out[["loss_hist"]]), device=cpu_device))
+  pred_matrices <- out[['pred_matrices']]
   # Store estimates including minimization objective, using this to evaluate/compare fit
   .par <- list()
   for (i in names(.par_tensor)) {
@@ -257,8 +258,11 @@ MCMfit <- function(mcmmodel, data, compute_se=TRUE, se_type='asymptotic', optim_
   STOP <- Sys.time()
   TIME_se <- STOP - START_se
   TIME_total <- STOP - START_MCMfit
+  history <- list(loss=loss_hist, M2pred=as.matrix(torch_tensor(pred_matrices$M2, device=cpu_device)), M2obs=as.matrix(torch_tensor(M2.obs, device=cpu_device)))
+  if (use_skewness) {history[['M3pred']] <- as.matrix(torch_tensor(pred_matrices$M3, device=cpu_device)); history[['M3obs']] <- as.matrix(torch_tensor(M3.obs, device=cpu_device))}
+  if (use_skewness) {history[['M4pred']] <- as.matrix(torch_tensor(pred_matrices$M4, device=cpu_device)); history[['M4obs']] <- as.matrix(torch_tensor(M4.obs, device=cpu_device))}
   return(mcmresultclass(df=results, loss=loss_hist[length(loss_hist)], model=model$copy(),
-                        history=list(loss=loss_hist),
+                        history=history,
                         runtimes=list(Preparation=TIME_prep, Optimizer=TIME_optim, SE=TIME_se, Total=TIME_total),
                         info=list(version=MCMSEMversion, compute_se=compute_se, se_type=se_type, optim_iters=optim_iters,
                                   bootstrap_iter=bootstrap_iter,bootstrap_chunks=bootstrap_chunks, learning_rate=learning_rate,

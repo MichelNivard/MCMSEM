@@ -17,7 +17,6 @@ MCMmodel <- function(data, n_latent=1, constrained_a=TRUE, scale_data=TRUE, late
   }
   if (n_latent > ncol(data))
     warning("It's unlikely you want to use use more latent factors than phenotypes present in the data, unless you know what you are doing consider revising....")
-  }
   if (n_latent > ncol(data)) {
     if (!(.MCMwarnignored)) {
       .MCMwarnignored <<- TRUE
