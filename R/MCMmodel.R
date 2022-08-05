@@ -10,9 +10,9 @@ MCMmodel <- function(data, n_latent=1, constrained_a=TRUE, scale_data=TRUE, late
     stop("At least two columns in data are required.")
   } else if (ncol(data) == 2) {
     if (n_latent > 1) {
-      stop("Only one latent can be used with two variables.")
+      warn("Only one latent can be used with two variables, unless you really know what you are doing...")
     } else if (!(constrained_a)) {
-      stop("Constrained a has to be used with two variables.")
+      warn("Constrained a has to be used with two variables, iunless you really know what you are doing...")
     }
   }
   if (n_latent > ncol(data))
