@@ -83,6 +83,7 @@
   }
   if (!(silent)) {cat("\n")}
   if (return_history) {
+    # Compute predicted M2, M3, M4 matrices with current parameters to return
     A <- torch_add(base_matrices[['A']], torch_sum(torch_mul(torch_maps[['A']], .par_list[['A']]), dim=3))
     Fm <- torch_add(base_matrices[['Fm']], torch_sum(torch_mul(torch_maps[['Fm']], .par_list[['Fm']]), dim=3))
     S <- torch_add(base_matrices[['S']], torch_sum(torch_mul(torch_maps[['S']], .par_list[['S']]), dim=3))
