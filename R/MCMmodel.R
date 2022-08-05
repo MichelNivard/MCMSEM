@@ -16,7 +16,7 @@ MCMmodel <- function(data, n_latent=1, constrained_a=TRUE, scale_data=TRUE, late
     }
   }
   if (n_latent > ncol(data))
-    stop("Cannot use more latent factors than phenotypes present in the data")
+    warning("Its unlikely you want to use use more latent factors than phenotypes present in the data, unless you know what you are doing consider revising....")
   if (is.null(latent_names)) {
     latent_names <- paste0("f", 1:n_latent)
     while (any(latent_names %in% colnames(data))) {
