@@ -49,9 +49,15 @@
     K <- sqrt(S) %*% K %*% (sqrt(S) %x% sqrt(S) %x% sqrt(S))
     matrices[['K1_ref']] <- round(M4.MM(K1_ref)) != 0
   }
-  for (i in 1:n_p) {
-    K[i+n_f, i+n_f + (i-1+n_f)*(n_p+n_f) + (i-1+n_f)*((n_p+n_f)^2)]  <- par[['k']][i]
+  for (i in 1:n_f) {
+    coords <- .nd_to_2d_idx(n_p+n_f, i, i, i, i)
+    K[coords$x, coords$y] <- if (is.character(base_value)) "3" else 3
   }
+  for (i in (1+n_f):(n_p+n_f)) {
+    coords <- .nd_to_2d_idx(n_p+n_f, i, i, i, i)
+    K[coords$x, coords$y]  <- par[['k']][i-n_f]
+  }
+
   matrices[['K']] <- K
   return(matrices)
 }

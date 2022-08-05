@@ -8,6 +8,10 @@ As of version 0.4.0 it is possible to run MCMSEM on a GPU, see [MCMSEM on GPU](#
 ## Patch notes thus far (v0.7.1-dev-torch)
 ### Torch-specific (v0.7.1)
  - Fixed an issue that caused negative parameters to fail due to missing starting values.
+ - K matrix in `model$num_matrices$K` and `model$named_matrices$K` now properly display the value 3 as x,x,x,x-kurtosis for latent factors
+ - Value of 3 for x,x,x,x-kurtosis of latent factors is no longer hardcoded in `MCMfit` but rather obtained from `model$num_matrices$K`.
+ - Added check for non-numeric columns and ID-column in `MCMmodel`
+ - Changed stopping errors of multiple latent variables to warnings to allow for testing.
 ### Torch-specific (v0.7.0)
 > :warning: __WARNING__: Ther argument names `n_confounding` and `confounding_names` in `MCMmodel()` have been changed to `n_latent` and `latent_names` in this version. Please update your code accordingly.
  - Changed references to latent factors from `confounding` to `latent` script-wide, for consistent labelling. 

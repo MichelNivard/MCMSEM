@@ -84,7 +84,8 @@
   }
   n_p <- model$meta_data$n_phenotypes + model$meta_data$n_latent
   for (i in 1:model$meta_data$n_latent) {
-    torch_masks[['K']][i, i + (i-1)*(n_p) + (i-1)*((n_p)^2)]  <- 0
+    coords <- .nd_to_2d_idx(n_p, i, i, i, i)
+    torch_masks[['K']][coords$x, coords$y]  <- 0
   }
   # 3D tensors defining locations of paramters that require grad
   for (i in c("A", "Fm", "S", 'Sk', 'K')) {
@@ -99,7 +100,9 @@
   }
   K2 <- torch_zeros_like(torch_matrices[['K']], device=device, dtype=torch_dtype)
   for (i in 1:model$meta_data$n_latent) {
-    K2[i, i + (i-1)*(n_p) + (i-1)*((n_p)^2)]  <- 3
+    # Copy kurtosis of latent factors to K2 matrix
+    coords <- .nd_to_2d_idx(n_p, i, i, i, i)
+    K2[coords$x, coords$y]  <- model$num_matrices$K[coords$x, coords$y]
   }
   base_matrices <- list(
     A=torch_mul(torch_tensor(model$num_matrices[["A"]], device=device, dtype=torch_dtype), torch_masks[['A']]),

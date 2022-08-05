@@ -3,7 +3,7 @@ MCMmodel <- function(data, n_latent=1, constrained_a=TRUE, scale_data=TRUE, late
                      causal_observed=TRUE, var_observed=TRUE, skew_observed=TRUE, kurt_observed=TRUE,
                      causal_latent=FALSE, var_latent=FALSE, skew_latent=FALSE, kurt_latent=FALSE) {
   # TODO: Expand checks on how many latent can/should be used with or without constrained a depending on input data
-  ## Make matrices with names
+  # Input data verification
   if (nrow(data) < 1000)
     stop("Currently only a dataframe with at least 1000 rows is supported.")
   if (ncol(data) < 2) {
@@ -16,7 +16,22 @@ MCMmodel <- function(data, n_latent=1, constrained_a=TRUE, scale_data=TRUE, late
     }
   }
   if (n_latent > ncol(data))
-    warning("Its unlikely you want to use use more latent factors than phenotypes present in the data, unless you know what you are doing consider revising....")
+    warning("It's unlikely you want to use use more latent factors than phenotypes present in the data, unless you know what you are doing consider revising....")
+  }
+  if (n_latent > ncol(data)) {
+    if (!(.MCMwarnignored)) {
+      .MCMwarnignored <<- TRUE
+      stop("It's unlikely you want to use use more latent factors than phenotypes present in the data, unless you know what you are doing consider revising....")
+    } else {
+      cat("I assume you know what you are doing...\n")
+    }
+  }
+  if (any(apply(data, 2, is.character)))
+    stop("Numeric column(s) found:",paste0(names(which(apply(data, 2, is.character))), collapse=", "), "\n   Data must only contain numeric columns")
+  if (any(round(rowSums(abs(cor(data))), 1) == 1.0)) {
+    idcol <- which(round(rowSums(abs(cor(data))), 1) == 1.0)
+    stop(paste0("It seems like ",names(idcol), " is an ID column. \n  Consider using ", deparse(substitute(data)), '[,-', unname(idcol),']'))
+  }
   if (is.null(latent_names)) {
     latent_names <- paste0("f", 1:n_latent)
     while (any(latent_names %in% colnames(data))) {
