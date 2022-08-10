@@ -11,6 +11,8 @@ As of version 0.4.0 it is possible to run MCMSEM on a GPU, see [MCMSEM on GPU](#
  - Added `estimates` argument to `as.data.frame(MCMresultsummary)` to choose the estimates table to return (parameters, variances, skewness or kurtosis)
  - Added `wiki/2.0 Generate test data.md`
  - Updated `wiki/2.1 Creating an MCM model.md`
+ - Updated `wiki/2.2 Editing an MCM model.md`
+ - Added S3 method `print.mcmmodelclass` to allow for printing specific matrices, e.g. `print(mcmmodel, matrix="A")`
 ### Torch-specific (v0.7.1)
  - Fixed an issue that caused negative parameters to fail due to missing starting values
  - K matrix in `model$num_matrices$K` and `model$named_matrices$K` now properly display the value 3 as x,x,x,x-kurtosis for latent factors
@@ -166,7 +168,7 @@ Tamimy, Z., van Bergen, E., van der Zee, M. D., Dolan, C. V., & Nivard, M. G. (2
 Currently this packge is not listed on CRAN and should therefore be installed from GitHub idrectly.
 ```
 library(devtools)
-install_github("https://github.com/matthijsz/MCMSEM")
+install_github("https://github.com/zenabtamimy/MCMSEM")
 ```
 
 ## Usage

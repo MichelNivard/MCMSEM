@@ -7,12 +7,12 @@ MCMedit <- function(model, pointer, name, value) {
       if (length(value) > 1) {
         for (i in value) {
           i_pos <- gsub("-", "", i)
-          if (!(sub("^([[:alpha:]]*).*", "\\1", gsub("l", "", i_pos)) %in% c("a", "s", "b", "sk", "k", "fm")))
+          if (all(!(sub("^([[:alpha:]]*).*", "\\1", gsub("l", "", i_pos)) %in% c("a", "s", "b", "sk", "k", "fm"))))
             stop("Named parameters must only contain one of [a, s, b, sk, k, fm] and numbers or other symbols")
         }
       } else {
         value_pos <- gsub("-", "", value)
-        if (!(sub("^([[:alpha:]]*).*", "\\1", gsub("l", "", value_pos)) %in% c("a", "s", "b", "sk", "k", "fm")))
+        if (all(!(sub("^([[:alpha:]]*).*", "\\1", gsub("l", "", value_pos)) %in% c("a", "s", "b", "sk", "k", "fm"))))
           stop("Named parameters must only contain one of [a, b, s, sk, k, fm] and numbers or other symbols")
       }
     }
@@ -83,17 +83,17 @@ MCMedit <- function(model, pointer, name, value) {
     }
   } else if (pointer %in% c("bound", "ubound", "lbound")){
     # For modifying bounds
-    if (name %in% c("a", "b", "s", "sk", "k", "fm")) {
+    if (all(name %in% c("a", "b", "s", "sk", "k", "fm"))) {
       col_to_change <- which(sub("^([[:alpha:]]*).*", "\\1", colnames(x$bounds)) == name)
-    } else if (name %in% colnames(x$bounds)) {
+    } else if (all(name %in% colnames(x$bounds))) {
       col_to_change <- which(colnames(x$bounds) == name)
     }
     row_to_change <- list(bound=c(1, 2), lbound=1, ubound=2)[[pointer]]
     x$bounds[row_to_change, col_to_change] <- value
   } else if (pointer == "start") {
-    if ((!(name %in% x$param_names)) & !(name %in% c("a", "b", "s", "sk", "k", "fm")) ) {
+    if (all((!(name %in% x$param_names)) & !(name %in% c("a", "b", "s", "sk", "k", "fm")) )) {
       stop(paste0("Parameter ", name, " not found"))
-    } else if (name %in% c("a", "b", "s", "sk", "k", "fm")) {
+    } else if (all(name %in% c("a", "b", "s", "sk", "k", "fm"))) {
       cols_to_change <- which(sub("^([[:alpha:]]*).*", "\\1", colnames(x$start_values)) == name)
       x$start_values["start", cols_to_change] <- value
       x$param_values[cols_to_change] <- value

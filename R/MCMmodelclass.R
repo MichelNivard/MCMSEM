@@ -104,3 +104,15 @@ mcmmodelclass$methods(
     }
   }
 )
+
+print.mcmmodelclass <- function(x, matrix=NULL) {
+  if (is.null(matrix)) {
+    x$show()
+  } else {
+    if (matrix %in% c("A", "Fm", "S", "Sk", "K")) {
+      print(x$named_matrices[[matrix]])
+    } else {
+      stop('matrix argument should be one of ("A", "Fm", "S", "Sk", "K")')
+    }
+  }
+}
