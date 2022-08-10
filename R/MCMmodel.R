@@ -15,6 +15,9 @@ MCMmodel <- function(data, n_latent=1, constrained_a=TRUE, scale_data=TRUE, late
       warning("Constrained a has to be used with two variables, iunless you really know what you are doing...")
     }
   }
+  if (n_latent == 1) {
+    if (causal_latent) {stop("latent causal paths are only allowed with >1 latent factor")}
+  }
   if (n_latent > ncol(data))
     warning("It's unlikely you want to use use more latent factors than phenotypes present in the data, unless you know what you are doing consider revising....")
   if (any(apply(data, 2, is.character)))
