@@ -77,13 +77,15 @@ mcmresultsummaryclass$methods(
     cat(paste0("chisq : ", .self$chisq, "\n"))
     cat(paste0("bic   : ", .self$bic, "\n"))
     for (summ in c("parameters", "variances", "skewness", "kurtosis")) {
-      cat("\n")
-      cat(paste0(toupper(substr(summ, 1, 1)), substr(summ, 2, nchar(summ))), "summary\n")
-      if (nrow(.self[[summ]]) > 16) {
-        print(.self[[summ]][1:15, ])
-        cat("...\n")
-      } else {
-        print(.self[[summ]])
+      if (nrow(.self[[summ]]) > 0) {
+        cat("\n")
+        cat(paste0(toupper(substr(summ, 1, 1)), substr(summ, 2, nchar(summ))), "summary\n")
+        if (nrow(.self[[summ]]) > 16) {
+          print(.self[[summ]][1:15, ])
+          cat("...\n")
+        } else {
+          print(.self[[summ]])
+        }
       }
     }
   },
@@ -92,6 +94,10 @@ mcmresultsummaryclass$methods(
   }
 )
 
-as.data.frame.mcmresultsummaryclass <- function(x) {
-  return(x$parameters)
+as.data.frame.mcmresultsummaryclass <- function(x, estimates="parameters") {
+  if (estimates %in% c("parameters", "variances", "skewness", "kurtosis")) {
+    return(x[[estimates]])
+  } else {
+    stop('estimates argument should be one of ("parameters", "variances", "skewness", "kurtosis")')
+  }
 }

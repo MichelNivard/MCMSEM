@@ -67,56 +67,60 @@ summary.mcmresultclass <- function(res) {
   }
   Vars <- Vars[2:nrow(Vars), ]
   colnames(Vars) <- c("label", "lhs", "edge", "rhs", "est", "se", "p", "group", "fixed"); rownames(Vars) <- seq_len(nrow(Vars))
-  Skews <- data.frame(matrix(NA, ncol=10, nrow=1))
-  for (row in seq_len(nrow(res$model$named_matrices[['Sk']]))) {
-    for (col in seq_len(ncol(res$model$named_matrices[['Sk']]))) {
-      if (is.na(suppressWarnings(as.numeric(res$model$named_matrices[['Sk']][row, col])))) {
-        parname <- res$model$named_matrices[['Sk']][row, col]
-        parvalue <- res$model$num_matrices[['Sk']][row, col]
-        vars <- .twod_to_nd_idx(nrow(res$model$named_matrices[['Sk']]), row, col, ndims=3)
-        v1 <- if (vars[[1]] <= res$model$meta_data$n_latent) {res$model$meta_data$latent_names[vars[[1]]]} else {res$model$meta_data$original_colnames[vars[[1]] - res$model$meta_data$n_latent]}
-        v2 <- if (vars[[2]] <= res$model$meta_data$n_latent) {res$model$meta_data$latent_names[vars[[2]]]} else {res$model$meta_data$original_colnames[vars[[2]] - res$model$meta_data$n_latent]}
-        v3 <- if (vars[[3]] <= res$model$meta_data$n_latent) {res$model$meta_data$latent_names[vars[[3]]]} else {res$model$meta_data$original_colnames[vars[[3]] - res$model$meta_data$n_latent]}
-        label <- parname
-        edge <- "~~~"
-        est <- parvalue
-        std <- if ('se' %in% rownames(res$df)) {res$df['se', parname]} else {NA}
-        p <- if ('se' %in% rownames(res$df)) {2*pnorm(abs(res$df['est', parname])/res$df['se', parname], lower.tail=FALSE)} else {NA}
-        group <- 1; fixed <- FALSE
-        Skews <- rbind(Skews, c(label, edge, v1, v2, v3, est, std, p, group, fixed))
+  if (res$info$use_skewness) {
+    Skews <- data.frame(matrix(NA, ncol=10, nrow=1))
+    for (row in seq_len(nrow(res$model$named_matrices[['Sk']]))) {
+      for (col in seq_len(ncol(res$model$named_matrices[['Sk']]))) {
+        if (is.na(suppressWarnings(as.numeric(res$model$named_matrices[['Sk']][row, col])))) {
+          parname <- res$model$named_matrices[['Sk']][row, col]
+          parvalue <- res$model$num_matrices[['Sk']][row, col]
+          vars <- .twod_to_nd_idx(nrow(res$model$named_matrices[['Sk']]), row, col, ndims=3)
+          v1 <- if (vars[[1]] <= res$model$meta_data$n_latent) {res$model$meta_data$latent_names[vars[[1]]]} else {res$model$meta_data$original_colnames[vars[[1]] - res$model$meta_data$n_latent]}
+          v2 <- if (vars[[2]] <= res$model$meta_data$n_latent) {res$model$meta_data$latent_names[vars[[2]]]} else {res$model$meta_data$original_colnames[vars[[2]] - res$model$meta_data$n_latent]}
+          v3 <- if (vars[[3]] <= res$model$meta_data$n_latent) {res$model$meta_data$latent_names[vars[[3]]]} else {res$model$meta_data$original_colnames[vars[[3]] - res$model$meta_data$n_latent]}
+          label <- parname
+          edge <- "~~~"
+          est <- parvalue
+          std <- if ('se' %in% rownames(res$df)) {res$df['se', parname]} else {NA}
+          p <- if ('se' %in% rownames(res$df)) {2*pnorm(abs(res$df['est', parname])/res$df['se', parname], lower.tail=FALSE)} else {NA}
+          group <- 1; fixed <- FALSE
+          Skews <- rbind(Skews, c(label, edge, v1, v2, v3, est, std, p, group, fixed))
+        }
       }
     }
+    Skews <- Skews[2:nrow(Skews), ]
+    colnames(Skews) <- c("label", "edge", "v1", "v2", "v3", "est", "se", "p", "group", "fixed"); rownames(Skews) <- seq_len(nrow(Skews))
   }
-  Skews <- Skews[2:nrow(Skews), ]
-  colnames(Skews) <- c("label", "edge", "v1", "v2", "v3", "est", "se", "p", "group", "fixed"); rownames(Skews) <- seq_len(nrow(Skews))
-  Kurts <- data.frame(matrix(NA, ncol=11, nrow=1))
-  for (row in seq_len(nrow(res$model$named_matrices[['K']]))) {
-    for (col in seq_len(ncol(res$model$named_matrices[['K']]))) {
-      if (is.na(suppressWarnings(as.numeric(res$model$named_matrices[['K']][row, col])))) {
-        parname <- res$model$named_matrices[['K']][row, col]
-        parvalue <- res$model$num_matrices[['K']][row, col]
-        vars <- .twod_to_nd_idx(nrow(res$model$named_matrices[['K']]), row, col, ndims=4)
-        v1 <- if (vars[[1]] <= res$model$meta_data$n_latent) {res$model$meta_data$latent_names[vars[[1]]]} else {res$model$meta_data$original_colnames[vars[[1]] - res$model$meta_data$n_latent]}
-        v2 <- if (vars[[2]] <= res$model$meta_data$n_latent) {res$model$meta_data$latent_names[vars[[2]]]} else {res$model$meta_data$original_colnames[vars[[2]] - res$model$meta_data$n_latent]}
-        v3 <- if (vars[[3]] <= res$model$meta_data$n_latent) {res$model$meta_data$latent_names[vars[[3]]]} else {res$model$meta_data$original_colnames[vars[[3]] - res$model$meta_data$n_latent]}
-        v4 <- if (vars[[4]] <= res$model$meta_data$n_latent) {res$model$meta_data$latent_names[vars[[4]]]} else {res$model$meta_data$original_colnames[vars[[4]] - res$model$meta_data$n_latent]}
-        label <- parname
-        edge <- "~~~~"
-        est <- parvalue
-        std <- if ('se' %in% rownames(res$df)) {res$df['se', parname]} else {NA}
-        p <- if ('se' %in% rownames(res$df)) {2*pnorm(abs(res$df['est', parname])/res$df['se', parname], lower.tail=FALSE)} else {NA}
-        group <- 1; fixed <- FALSE
-        Kurts <- rbind(Kurts, c(label, edge, v1, v2, v3, v4, est, std, p, group, fixed))
+  if (res$info$use_kurtosis) {
+    Kurts <- data.frame(matrix(NA, ncol=11, nrow=1))
+    for (row in seq_len(nrow(res$model$named_matrices[['K']]))) {
+      for (col in seq_len(ncol(res$model$named_matrices[['K']]))) {
+        if (is.na(suppressWarnings(as.numeric(res$model$named_matrices[['K']][row, col])))) {
+          parname <- res$model$named_matrices[['K']][row, col]
+          parvalue <- res$model$num_matrices[['K']][row, col]
+          vars <- .twod_to_nd_idx(nrow(res$model$named_matrices[['K']]), row, col, ndims=4)
+          v1 <- if (vars[[1]] <= res$model$meta_data$n_latent) {res$model$meta_data$latent_names[vars[[1]]]} else {res$model$meta_data$original_colnames[vars[[1]] - res$model$meta_data$n_latent]}
+          v2 <- if (vars[[2]] <= res$model$meta_data$n_latent) {res$model$meta_data$latent_names[vars[[2]]]} else {res$model$meta_data$original_colnames[vars[[2]] - res$model$meta_data$n_latent]}
+          v3 <- if (vars[[3]] <= res$model$meta_data$n_latent) {res$model$meta_data$latent_names[vars[[3]]]} else {res$model$meta_data$original_colnames[vars[[3]] - res$model$meta_data$n_latent]}
+          v4 <- if (vars[[4]] <= res$model$meta_data$n_latent) {res$model$meta_data$latent_names[vars[[4]]]} else {res$model$meta_data$original_colnames[vars[[4]] - res$model$meta_data$n_latent]}
+          label <- parname
+          edge <- "~~~~"
+          est <- parvalue
+          std <- if ('se' %in% rownames(res$df)) {res$df['se', parname]} else {NA}
+          p <- if ('se' %in% rownames(res$df)) {2*pnorm(abs(res$df['est', parname])/res$df['se', parname], lower.tail=FALSE)} else {NA}
+          group <- 1; fixed <- FALSE
+          Kurts <- rbind(Kurts, c(label, edge, v1, v2, v3, v4, est, std, p, group, fixed))
+        }
       }
     }
+    Kurts <- Kurts[2:nrow(Kurts), ]
+    colnames(Kurts) <- c("label", "edge", "v1", "v2", "v3", "v4", "est", "se", "p", "group", "fixed"); rownames(Kurts) <- seq_len(nrow(Kurts))
   }
-  Kurts <- Kurts[2:nrow(Kurts), ]
-  colnames(Kurts) <- c("label", "edge", "v1", "v2", "v3", "v4", "est", "se", "p", "group", "fixed"); rownames(Kurts) <- seq_len(nrow(Kurts))
   for (i in c("est", "se", "p")) {
     Pars[, i] <- as.numeric(Pars[, i])
     Vars[, i] <- as.numeric(Vars[, i])
-    Skews[, i] <- as.numeric(Skews[, i])
-    Kurts[, i] <- as.numeric(Kurts[, i])
+    if (res$info$use_skewness) {Skews[, i] <- as.numeric(Skews[, i])}
+    if (res$info$use_kurtosis) {Kurts[, i] <- as.numeric(Kurts[, i])}
   }
 
   loss <- res$loss
@@ -126,6 +130,8 @@ summary.mcmresultclass <- function(res) {
   # loosely according to Broudt et al:
   # AIC disabled for now aic <- n_obs * loss + 2 * n_par
   bic <- n_obs * loss + n_par * log(n_obs)
-  return(mcmresultsummaryclass(parameters=Pars, variances=Vars, skewness=Skews, kurtosis=Kurts,
+  return(mcmresultsummaryclass(parameters=Pars, variances=Vars,
+                               skewness=if (res$info$use_skewness) {Skews} else {as.data.frame(NULL)},
+                               kurtosis=if (res$info$use_kurtosis) {Kurts} else {as.data.frame(NULL)},
                                loss=loss, n_par=n_par, n_obs=n_obs, chisq=chisq, bic=bic, result=res))
 }

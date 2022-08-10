@@ -5,7 +5,10 @@ R-package which allows users to run multi co-moment structural equation models.
 Note this is the `dev-torch` branch, and **not** intended for end-users. If you would like to use MCMSEM yourself, please go to the main branch. If you would like to contribute to the code, feel free to check this branch out.  
 As of version 0.4.0 it is possible to run MCMSEM on a GPU, see [MCMSEM on GPU](#mcmsem-on-gpu).
 
-## Patch notes thus far (v0.7.1-dev-torch)
+## Patch notes thus far (v0.7.2-dev-torch)
+### Torch-specific (v0.7.2)
+ - Fixed summary(MCMresult) to also work when `use_skewness` or `use_kurtosis` is set to `FALSE`
+ - Added `estimates` argument to `as.data.frame(MCMresultsummary)` to choose the estimates table to return (parameters, variances, skewness or kurtosis)
 ### Torch-specific (v0.7.1)
  - Fixed an issue that caused negative parameters to fail due to missing starting values
  - K matrix in `model$num_matrices$K` and `model$named_matrices$K` now properly display the value 3 as x,x,x,x-kurtosis for latent factors
