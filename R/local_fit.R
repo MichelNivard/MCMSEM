@@ -14,6 +14,11 @@
 
 # Objective function
 .torch_objective <- function(.par_list, lossfunc, torch_bounds, torch_masks, torch_maps, base_matrices, M2.obs, M3.obs, M4.obs, m2v_masks, use_bounds, use_skewness, use_kurtosis) {
+  # dev note: All the lines for computing these matrices (especially K, M2, M3 and M4) are unreadable due to their excessive length, I know.
+  #           This is because it saves VRAM, any intermediate objects that are created here are also stored on the GPU and waste highly valuable space.
+  #           I know this makes it a pain to modify antyhing, and I'm sorry for that, but it is something we have to deal with for now :(
+  #           Then why not make the whole thing one line you ask? Well I tried that, and oddly enough that actually takes up even more memory...
+  #           Don't ask me why but the current balance between storing intermediates and one-lining seems ideal.
   A <- torch_add(base_matrices[['A']], torch_sum(torch_mul(torch_maps[['A']], .par_list[['A']]), dim=3))
   Fm <- torch_add(base_matrices[['Fm']], torch_sum(torch_mul(torch_maps[['Fm']], .par_list[['Fm']]), dim=3))
   S <- torch_add(base_matrices[['S']], torch_sum(torch_mul(torch_maps[['S']], .par_list[['S']]), dim=3))
@@ -55,7 +60,7 @@
 # Fit wrapper function
 .torch_fit <- function(M2.obs, M3.obs, M4.obs, m2v_masks, torch_bounds, torch_masks, torch_maps, base_matrices, .par_list, learning_rate, optim_iters, silent, use_bounds, use_skewness, use_kurtosis, lossfunc, return_history=FALSE, low_memory) {
   loss_hist <- NULL
-  optim <- optim_rprop(.par_list,lr = learning_rate)
+  optim <- optim_rprop(.par_list,lr = learning_rate[1])
   if (low_memory) {gc(verbose=FALSE, full=TRUE)}
   for (i in 1:optim_iters[1]) {
     optim$zero_grad()
@@ -76,8 +81,7 @@
     return(loss)
   }
   # Use lbfgs to get really close....
-  learning_rate <- 1
-  optim <- optim_lbfgs(.par_list,lr= learning_rate)
+  optim <- optim_lbfgs(.par_list,lr= learning_rate[2])
   for (i in 1:optim_iters[2]) {
     optim$step(calc_loss_torchfit)
   }

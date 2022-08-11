@@ -3,7 +3,7 @@
 
 # Exported MCMfit function
 MCMfit <- function(mcmmodel, data, compute_se=TRUE, se_type='asymptotic', optim_iters=c(50, 12), loss_type='mse', bootstrap_iter=200,bootstrap_chunks=1000,
-                   learning_rate=0.02, silent=TRUE, use_bounds=TRUE, use_skewness=TRUE, use_kurtosis=TRUE, device=NULL, low_memory=FALSE) {
+                   learning_rate=c(0.02, 1), silent=TRUE, use_bounds=TRUE, use_skewness=TRUE, use_kurtosis=TRUE, device=NULL, low_memory=FALSE) {
   START_MCMfit <- Sys.time()
   model <- mcmmodel$copy()  # Model is changed if either use_skewness or use_kurtosis is set to FALSE, so I make a local copy here to ensure the original object stays intact
   if (is.null(device)) {
@@ -26,8 +26,15 @@ MCMfit <- function(mcmmodel, data, compute_se=TRUE, se_type='asymptotic', optim_
   if (!(use_skewness) & !(use_kurtosis))
     stop("At least either skewness or kurtosis has to be used")
   if (length(optim_iters) != 2) {
-    if (length(optim_iters) == 2) {
+    if (length(optim_iters) == 1) {
       optim_iters <- c(optim_iters, 12) # If one value is passed to optim_iters I'm assuming that would be for RPROP
+    } else {
+      stop("optim_iters should be of length 2")
+    }
+  }
+  if (length(learning_rate) != 2) {
+    if (length(learning_rate) == 2) {
+      learning_rate <- c(learning_rate, 1.0) # If one value is passed to optim_iters I'm assuming that would be for RPROP
     } else {
       stop("optim_iters should be of length 2")
     }

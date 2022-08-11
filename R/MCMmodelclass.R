@@ -85,7 +85,7 @@ mcmmodelclass$methods(
       } else {
         if (any(is.na(.self$bounds[, col]))) {
           for (row in rownames(.self$bounds)[which(is.na(.self$bounds[, col]))]) {
-            .self$bounds[row, col] <- .self$meta_data$bound_default[[row]][[sub("^([[:alpha:]]*).*", "\\1", gsub("l", "",param))]]
+            .self$bounds[row, col] <- .self$meta_data$bound_default[[row]][[sub("^([[:alpha:]]*).*", "\\1", gsub("l", "", col))]]
           }
         }
       }

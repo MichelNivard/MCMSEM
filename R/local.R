@@ -1,4 +1,4 @@
-MCMSEMversion <- "0.7.2"
+MCMSEMversion <- "0.7.3"
 
 # wrapper function to make the code more R-like
 .torch_kron <- function(a, b) {
