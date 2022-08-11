@@ -1,8 +1,12 @@
 plot.mcmmodelclass <- function(model,layout = NULL, use_values=FALSE) {
-  latents <- 1:model$meta_data$n_latent
-  qgraph(t(model$num_matrices$A[-latents,-latents] + model$num_matrices$S[-latents,-latents]))
+  latents <- seq_len(model$meta_data$n_latent)
+  if (model$meta_data$n_latent >= 1) {
+    qgraph(t(model$num_matrices$A[-latents,-latents] + model$num_matrices$S[-latents,-latents]))
+  } else {
+    qgraph(t(model$num_matrices$A + model$num_matrices$S))
+  }
   # Full model
-  place.latents <- floor(quantile(1:model$meta_data$n_phenotypes,1:model$meta_data$n_latent/(model$meta_data$n_latent+1)))
+  place.latents <- floor(quantile(seq_len(model$meta_data$n_phenotypes),seq_len(model$meta_data$n_latent)/(model$meta_data$n_latent+1)))
   if (model$meta_data$n_latent == 1) place.latents <- place.latents + 0.5
   if (model$meta_data$n_phenotypes < 10) {
     pheno_pos <-rep(1,model$meta_data$n_phenotypes)

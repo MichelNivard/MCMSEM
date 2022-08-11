@@ -27,7 +27,7 @@ MCMmodel <- function(data, n_latent=1, constrained_a=TRUE, scale_data=TRUE, late
     stop(paste0("It seems like ",names(idcol), " is an ID column. \n  Consider using ", deparse(substitute(data)), '[,-', unname(idcol),']'))
   }
   if (is.null(latent_names)) {
-    latent_names <- paste0("f", 1:n_latent)
+    if (n_latent > 0) {latent_names <- paste0("f", seq_len(n_latent))} else {latent_names <- as.character(NULL)}
     while (any(latent_names %in% colnames(data))) {
       # Prevent duplicate names between latent and observed
       latent_names[latent_names %in% colnames(data)] <- paste0(latent_names %in% colnames(data), "_0")
@@ -57,7 +57,7 @@ MCMmodel <- function(data, n_latent=1, constrained_a=TRUE, scale_data=TRUE, late
   n_p <- ncol(data)
   if (constrained_a) {
     a_names <- NULL
-    for (i in 1:n_latent) {
+    for (i in seq_len(n_latent)) {
       a_names <- c(a_names, rep(paste0("a", i), n_p))
     }
   } else {
