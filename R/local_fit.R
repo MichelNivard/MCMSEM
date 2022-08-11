@@ -12,6 +12,7 @@
   return(pow)
 }
 
+# Calculate predicted M2, M3, M4 (depending on use_skewness, use_kurtosis) matrices
 .get_predicted_matrices <- function(.par_list, torch_masks, torch_maps, base_matrices, use_skewness, use_kurtosis) {
   # dev note: All the lines for computing these matrices (especially K, M2, M3 and M4) are unreadable due to their excessive length, I know.
   #           This is because it saves VRAM, any intermediate objects that are created here are also stored on the GPU and waste highly valuable space.
