@@ -33,10 +33,10 @@ MCMfit <- function(mcmmodel, data, compute_se=TRUE, se_type='asymptotic', optim_
     }
   }
   if (length(learning_rate) != 2) {
-    if (length(learning_rate) == 2) {
+    if (length(learning_rate) == 1) {
       learning_rate <- c(learning_rate, 1.0) # If one value is passed to optim_iters I'm assuming that would be for RPROP
     } else {
-      stop("optim_iters should be of length 2")
+      stop("learning_rate should be of length 2")
     }
   }
   # This code remains so this can be easily changed in future versions. As of torch 0.8.0 inverse does not work
