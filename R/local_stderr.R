@@ -39,34 +39,20 @@
   for (i in names(par_to_list_coords)) {
     .par_list[[i]] <- torch_tensor(par_vec[par_to_list_coords[[i]]], device=device)
   }
-  A <- torch_add(base_matrices[['A']], torch_sum(torch_mul(torch_maps[['A']], .par_list[['A']]), dim=3))
-  Fm <- torch_add(base_matrices[['Fm']], torch_sum(torch_mul(torch_maps[['Fm']], .par_list[['Fm']]), dim=3))
-  S <- torch_add(base_matrices[['S']], torch_sum(torch_mul(torch_maps[['S']], .par_list[['S']]), dim=3))
-
-  if (use_skewness) {Sk <- torch_add(base_matrices[['Sk']], torch_sum(torch_mul(torch_maps[['Sk']], .par_list[['Sk']]), dim=3))}
-  if (use_kurtosis) {K <- torch_add(torch_mul(torch_mul(torch_matmul(torch_matmul(torch_sqrt(S), base_matrices[['K']]), .torch_kron(torch_sqrt(S), .torch_kron(torch_sqrt(S), torch_sqrt(S)))), base_matrices[['K2']]), torch_masks[['K']]), torch_sum(torch_mul(torch_maps[['K']], .par_list[['K']]), dim=3))}
-
-  diag_n_p <- base_matrices[['diag_n_p']]
-  ###### Compute the observed cov, cosk, and cokurt matrices #################
-  diag_np_a_inv <- torch_inverse(diag_n_p - A)
-  diag_np_a_inv_t <- torch_transpose(torch_inverse(diag_n_p - A), 1, 2)
-
-  M2 <- torch_matmul(torch_matmul(torch_matmul(torch_matmul(Fm, diag_np_a_inv), S), diag_np_a_inv_t), torch_transpose(Fm, 1, 2))
-  M2 <- as.matrix(torch_tensor(M2, device=torch_device("cpu")))
+  pred_matrices <- .get_predicted_matrices(.par_list, torch_masks, torch_maps, base_matrices, use_skewness, use_kurtosis)
+  pred_matrices[['M2']] <- as.matrix(torch_tensor(pred_matrices[['M2']], device=torch_device("cpu")))
   if (use_skewness) {
-    M3 <- torch_matmul(torch_matmul(torch_matmul(torch_matmul(Fm, diag_np_a_inv), Sk), .torch_kron(diag_np_a_inv_t, diag_np_a_inv_t)), .torch_kron(torch_transpose(Fm, 1, 2), torch_transpose(Fm, 1, 2)))
-    M3 <- as.matrix(torch_tensor(M3, device=torch_device("cpu")))
+    pred_matrices[['M3']] <- as.matrix(torch_tensor(pred_matrices[['M3']], device=torch_device("cpu")))
   }
   if (use_kurtosis) {
-    M4 <- torch_matmul(torch_matmul(torch_matmul(Fm, diag_np_a_inv), K), torch_matmul(.torch_kron(.torch_kron(diag_np_a_inv_t, diag_np_a_inv_t), diag_np_a_inv_t), .torch_kron(.torch_kron(torch_transpose(Fm, 1, 2), torch_transpose(Fm, 1, 2)), torch_transpose(Fm, 1, 2))))
-    M4 <- as.matrix(torch_tensor(M4, device=torch_device("cpu")))
+    pred_matrices[['M4']] <- as.matrix(torch_tensor(pred_matrices[['M4']], device=torch_device("cpu")))
   }
   if (use_skewness & use_kurtosis) {
-    return(c(M2[Rm2vmasks[['m2']]], M3[Rm2vmasks[['m3']]], M4[Rm2vmasks[['m4']]]))
+    return(c(pred_matrices[['M2']][Rm2vmasks[['m2']]], pred_matrices[['M3']][Rm2vmasks[['m3']]], pred_matrices[['M4']][Rm2vmasks[['m4']]]))
   } else if (use_skewness) {
-    return(c(M2[Rm2vmasks[['m2']]],M3[Rm2vmasks[['m3']]]))
+    return(c(pred_matrices[['M2']][Rm2vmasks[['m2']]], pred_matrices[['M3']][Rm2vmasks[['m3']]]))
   } else if (use_kurtosis) {
-    return(c(M2[Rm2vmasks[['m2']]],M4[Rm2vmasks[['m4']]]))
+    return(c(pred_matrices[['M2']][Rm2vmasks[['m2']]], pred_matrices[['M4']][Rm2vmasks[['m4']]]))
   }
 }
 

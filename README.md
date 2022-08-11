@@ -12,6 +12,7 @@ As of version 0.4.0 it is possible to run MCMSEM on a GPU, see [MCMSEM on GPU](#
  - Values in `K` matrix for non-free kurtosis is now updated based on values in `S`
  - Allowed user to specify the first optimizer type through the `optimizer` argument, the following are included but all but RPROP are untested: `'rprop', 'sgd' ,'rmsprop', 'asgd', 'adam', 'adagrad', 'adadelta'`
  - Enabled models with 0 latent factors
+ - Moved calculation of predicted M2, M3, M4 matrices to `.get_predicted_matrices` as the code was copy-pasted 3 times
 ### Torch-specific (v0.7.2)
  - Fixed summary(MCMresult) to also work when `use_skewness` or `use_kurtosis` is set to `FALSE`
  - Added `estimates` argument to `as.data.frame(MCMresultsummary)` to choose the estimates table to return (parameters, variances, skewness or kurtosis)
