@@ -51,7 +51,7 @@
   }
   for (i in 1:n_f) {
     coords <- .nd_to_2d_idx(n_p+n_f, i, i, i, i)
-    K[coords$x, coords$y] <- if (is.character(base_value)) "3" else 3
+    K[coords$x, coords$y] <- if (is.character(base_value)) as.character(3 * as.numeric(S[i, i]) ^ 2) else 3 * S[i, i] ^ 2
   }
   for (i in (1+n_f):(n_p+n_f)) {
     coords <- .nd_to_2d_idx(n_p+n_f, i, i, i, i)

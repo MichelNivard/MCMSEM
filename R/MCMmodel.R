@@ -125,13 +125,13 @@ MCMmodel <- function(data, n_latent=1, constrained_a=TRUE, scale_data=TRUE, late
     model <- MCMedit(model, "A", 'b', 0)
   }
   if (!(var_observed)) {
-    model <- MCMedit(model, "S", 's', 0)
+    model <- MCMedit(model, "S", 's', 1)
   }
   if (!(skew_observed)) {
     model <- MCMedit(model, "Sk", 'sk', 0)
   }
   if (!(kurt_observed)) {
-    model <- MCMedit(model, "K", 'k', 0)
+    model <- MCMedit(model, "K", 'k', 3)
   }
 
   if (causal_latent) {

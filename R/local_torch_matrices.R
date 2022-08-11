@@ -83,10 +83,7 @@
     }
   }
   n_p <- model$meta_data$n_phenotypes + model$meta_data$n_latent
-  for (i in 1:model$meta_data$n_latent) {
-    coords <- .nd_to_2d_idx(n_p, i, i, i, i)
-    torch_masks[['K']][coords$x, coords$y]  <- 0
-  }
+
   # 3D tensors defining locations of paramters that require grad
   for (i in c("A", "Fm", "S", 'Sk', 'K')) {
     torch_maps[[i]] <- if (length(torch_maps[[i]]) > 0) {torch_dstack(torch_maps[[i]])} else {torch_zeros_like(torch_matrices[[i]], device=device, dtype=torch_dtype)}
@@ -98,11 +95,13 @@
       torch_maps[[i]] <- torch_reshape(torch_maps[[i]], c(shape[1], shape[2], 1))
     }
   }
-  K2 <- torch_zeros_like(torch_matrices[['K']], device=device, dtype=torch_dtype)
-  for (i in 1:model$meta_data$n_latent) {
+  K2 <- torch_ones_like(torch_matrices[['K']], device=device, dtype=torch_dtype)
+  for (i in 1:n_p) {
     # Copy kurtosis of latent factors to K2 matrix
     coords <- .nd_to_2d_idx(n_p, i, i, i, i)
-    K2[coords$x, coords$y]  <- model$num_matrices$K[coords$x, coords$y]
+    if (model$named_matrices$K[coords$x, coords$y] != "0") {
+      K2[coords$x, coords$y]  <- 3.0
+    }
   }
   base_matrices <- list(
     A=torch_mul(torch_tensor(model$num_matrices[["A"]], device=device, dtype=torch_dtype), torch_masks[['A']]),
@@ -110,7 +109,7 @@
     S=torch_mul(torch_tensor(model$num_matrices[["S"]], device=device, dtype=torch_dtype), torch_masks[['S']]),
     Sk=torch_mul(torch_tensor(model$num_matrices[["Sk"]], device=device, dtype=torch_dtype), torch_masks[['Sk']]),
     K=torch_tensor(model$num_matrices[["K1_ref"]]+1-1, device=device, dtype=torch_dtype),
-    K2=K2$to_sparse(),
+    K2=K2,
     diag_n_p=torch_tensor(torch_diagflat(rep(1, model$meta_data$n_phenotypes + model$meta_data$n_latent)), device=device, dtype=torch_dtype)
   )
   # Zeros can produce NAN gradients, therefore set values in S matrices to very low values

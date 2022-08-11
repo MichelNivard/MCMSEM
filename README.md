@@ -9,6 +9,7 @@ As of version 0.4.0 it is possible to run MCMSEM on a GPU, see [MCMSEM on GPU](#
 ### Torch-specific (v0.7.3)
  - Fixed an issue causing all bounds to be 0-100 (kurtosis-bounds) by default
  - Updated `wiki/3. Fitting an MCM model.md`
+ - Values in `K` matrix for non-free kurtosis is now updated based on values in `S`
 ### Torch-specific (v0.7.2)
  - Fixed summary(MCMresult) to also work when `use_skewness` or `use_kurtosis` is set to `FALSE`
  - Added `estimates` argument to `as.data.frame(MCMresultsummary)` to choose the estimates table to return (parameters, variances, skewness or kurtosis)
