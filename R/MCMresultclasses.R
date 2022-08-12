@@ -75,7 +75,7 @@ mcmresultsummaryclass$methods(
     cat("Fit statistics\n")
     cat(paste0("loss  : ", .self$loss, "\n"))
     cat(paste0("chisq : ", .self$chisq, "\n"))
-    cat(paste0("bic   : ", .self$bic, "\n"))
+    cat(paste0("BIC   : ", .self$bic, "\n"))
     for (summ in c("parameters", "variances", "skewness", "kurtosis")) {
       if (nrow(.self[[summ]]) > 0) {
         cat("\n")

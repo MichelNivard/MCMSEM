@@ -275,7 +275,14 @@ MCMfit <- function(mcmmodel, data, compute_se=TRUE, se_type='asymptotic', optimi
   history <- list(loss=loss_hist, M2pred=as.matrix(torch_tensor(pred_matrices$M2, device=cpu_device)), M2obs=as.matrix(torch_tensor(M2.obs, device=cpu_device)))
   if (use_skewness) {history[['M3pred']] <- as.matrix(torch_tensor(pred_matrices$M3, device=cpu_device)); history[['M3obs']] <- as.matrix(torch_tensor(M3.obs, device=cpu_device))}
   if (use_skewness) {history[['M4pred']] <- as.matrix(torch_tensor(pred_matrices$M4, device=cpu_device)); history[['M4obs']] <- as.matrix(torch_tensor(M4.obs, device=cpu_device))}
-  return(mcmresultclass(df=results, loss=loss_hist[length(loss_hist)], model=model$copy(),
+  if (use_skewness & use_kurtosis) {
+    loss <- lossfunc(torch_mul(pred_matrices[['M2']], m2v_masks[['m2']]), torch_mul(M2.obs, m2v_masks[['m2']])) + lossfunc(torch_mul(pred_matrices[['M3']], m2v_masks[['m3']]), torch_mul(M3.obs, m2v_masks[['m3']])) + lossfunc(torch_mul(pred_matrices[['M4']], m2v_masks[['m4']]), torch_mul(M4.obs, m2v_masks[['m4']]))
+  } else if (use_skewness) {
+    loss <- lossfunc(torch_mul(pred_matrices[['M2']], m2v_masks[['m2']]), torch_mul(M2.obs, m2v_masks[['m2']])) + lossfunc(torch_mul(pred_matrices[['M3']], m2v_masks[['m3']]), torch_mul(M3.obs, m2v_masks[['m3']]))
+  } else if (use_kurtosis) {
+    loss <- lossfunc(torch_mul(pred_matrices[['M2']], m2v_masks[['m2']]), torch_mul(M2.obs, m2v_masks[['m2']])) + lossfunc(torch_mul(pred_matrices[['M4']], m2v_masks[['m4']]), torch_mul(M4.obs, m2v_masks[['m4']]))
+  }
+  return(mcmresultclass(df=results, loss=loss, model=model$copy(),
                         history=history,
                         runtimes=list(Preparation=TIME_prep, Optimizer=TIME_optim, SE=TIME_se, Total=TIME_total),
                         info=list(version=MCMSEMversion, compute_se=compute_se, se_type=se_type, optim_iters=optim_iters,

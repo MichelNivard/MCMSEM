@@ -55,7 +55,7 @@
   }
   for (i in seq_len(n_p)) {
     coords <- .nd_to_2d_idx(n_p+n_f, i+n_f, i+n_f, i+n_f, i+n_f)
-    K[coords$x, coords$y]  <- par[['k']][i-n_f]
+    K[coords$x, coords$y]  <- par[['k']][i]
   }
 
   matrices[['K']] <- K

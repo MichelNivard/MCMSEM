@@ -1,10 +1,11 @@
-plot.mcmmodelclass <- function(model,layout = NULL, use_values=FALSE) {
-  latents <- seq_len(model$meta_data$n_latent)
-  if (model$meta_data$n_latent >= 1) {
-    qgraph(t(model$num_matrices$A[-latents,-latents] + model$num_matrices$S[-latents,-latents]))
-  } else {
-    qgraph(t(model$num_matrices$A + model$num_matrices$S))
-  }
+plot.mcmmodelclass <- function(model,layout = NULL, use_values=FALSE, ...) {
+  #TODO: I think this is not required, remove it in the next version if nothing weird happens
+  #latents <- seq_len(model$meta_data$n_latent)
+  #if (model$meta_data$n_latent >= 1) {
+  #  qgraph(t(model$num_matrices$A[-latents,-latents] + model$num_matrices$S[-latents,-latents]), ...)
+  #} else {
+  #  qgraph(t(model$num_matrices$A + model$num_matrices$S), ...)
+  #}
   # Full model
   place.latents <- floor(quantile(seq_len(model$meta_data$n_phenotypes),seq_len(model$meta_data$n_latent)/(model$meta_data$n_latent+1)))
   if (model$meta_data$n_latent == 1) place.latents <- place.latents + 0.5
@@ -31,8 +32,8 @@ plot.mcmmodelclass <- function(model,layout = NULL, use_values=FALSE) {
   rownames(plot_mat) <- c(model$meta_data$latent_names, model$meta_data$original_colnames)
   colnames(plot_mat) <- c(model$meta_data$latent_names, model$meta_data$original_colnames)
   if (use_values) {
-    return(qgraph(t(plot_mat),layout=layout))
+    return(qgraph(t(plot_mat),layout=layout, ...))
   } else {
-    return(qgraph(t(plot_mat),layout=layout, minimum=0, maximum=1.01, mode="direct", weighted=FALSE))
+    return(qgraph(t(plot_mat),layout=layout, minimum=0, maximum=1.01, mode="direct", weighted=FALSE, ...))
   }
 }

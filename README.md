@@ -5,7 +5,12 @@ R-package which allows users to run multi co-moment structural equation models.
 Note this is the `dev-torch` branch, and **not** intended for end-users. If you would like to use MCMSEM yourself, please go to the main branch. If you would like to contribute to the code, feel free to check this branch out.  
 As of version 0.4.0 it is possible to run MCMSEM on a GPU, see [MCMSEM on GPU](#mcmsem-on-gpu).
 
-## Patch notes thus far (v0.7.3-dev-torch)
+## Patch notes thus far (v0.7.4-dev-torch)
+### Torch-specific (v0.7.4)
+ - `loss` reported in result and summary objects is now the loss without bound scaling. You can still obtain the final loss with bound scaling via `res$history$loss[length(res$history$loss)]`
+ - Added `...` to `plot(model, ..)` for additional arguments to be passed on to `qgraph`
+ - Fixed a bug with `K` matrix when n_factors > 1 resulting from changes in v0.7.3
+ - Updated `wiki/4. MCMSEM results.md`
 ### Torch-specific (v0.7.3)
  - Fixed an issue causing all bounds to be 0-100 (kurtosis-bounds) by default
  - Updated `wiki/3. Fitting an MCM model.md`
