@@ -10,9 +10,11 @@ As of version 0.4.0 it is possible to run MCMSEM on a GPU, see [MCMSEM on GPU](#
  - `loss` reported in result and summary objects is now the loss without bound scaling. You can still obtain the final loss with bound scaling via `res$history$loss[length(res$history$loss)]`
  - Added `...` to `plot(model, ..)` for additional arguments to be passed on to `qgraph`
  - Fixed a bug with `K` matrix when n_factors > 1 resulting from changes in v0.7.3
- - Updated `wiki/4. MCMSEM results.md`
- - Updated manual pages based on recent changes
  - Fixed MCM summary so it now holds a deep copy of a result object, instead of a reference
+ - Updated `wiki/4. MCMSEM results.md`
+ - Added information on CPU threading to `1. Installing MCMSEM.md`
+ - Updated manual pages based on recent changes
+ - Added details on the layout of higher co-moment matrices to the `Advanced` section in `2.1 Creating an MCM model.md`.
 ### Torch-specific (v0.7.3)
  - Fixed an issue causing all bounds to be 0-100 (kurtosis-bounds) by default
  - Updated `wiki/3. Fitting an MCM model.md`
