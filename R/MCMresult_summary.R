@@ -133,5 +133,5 @@ summary.mcmresultclass <- function(res) {
   return(mcmresultsummaryclass(parameters=Pars, variances=Vars,
                                skewness=if (res$info$use_skewness) {Skews} else {as.data.frame(NULL)},
                                kurtosis=if (res$info$use_kurtosis) {Kurts} else {as.data.frame(NULL)},
-                               loss=loss, n_par=n_par, n_obs=n_obs, chisq=chisq, bic=bic, result=res))
+                               loss=loss, n_par=n_par, n_obs=n_obs, chisq=chisq, bic=bic, result=res$copy()))
 }

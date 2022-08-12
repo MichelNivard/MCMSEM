@@ -5,14 +5,15 @@
   Fits an MCM sturctural equation model as defined in the MCMmodelclass object
 }
 \usage{
-MCMfit(mcmmodel, data, compute_se=TRUE, se_type='asymptotic', optim_iters=c(50, 12), loss_type='mse', bootstrap_iter=200,bootstrap_chunks=1000,
+MCMfit(mcmmodel, data, compute_se=TRUE, se_type='asymptotic', optimizer='rprop', optim_iters=c(50, 12), loss_type='mse', bootstrap_iter=200,bootstrap_chunks=1000,
                    learning_rate=0.02, silent=TRUE, use_bounds=TRUE, use_skewness=TRUE, use_kurtosis=TRUE, device=NULL, low_memory=FALSE)
 }
 \arguments{
   \item{model}{MCMmodelclass object}
   \item{data}{The matrix or dataframe that was used to generate the MCMmodelclass object}
   \item{compute_se}{Compute SE for the parameters}
-  \item{se_type}{How the SE should be calculated. Should be one of 'asymptotic': ..., 'two-step':... or 'one-step':...}
+  \item{se_type}{How the SE should be calculated. Should be one of 'asymptotic': asymptotic approximation, 'two-step': chunked bootstrap or 'one-step': full standard bootstrap}
+  \item{optimizer}{Optimizer to use in the first step. Should be one of c('rprop', 'sgd' ,'rmsprop', 'asgd', 'adam', 'adagrad', 'adadelta').}
   \item{optim_iters}{Number of iterations for RPROP and LBFGS optimizers. If convergence is not reached, start by increasing the number of iterations for RPROP.}
   \item{loss_type}{How to compute loss, should be one of 'mse' (mean squared errors), or 'smooth_l1' (smooth L1).}
   \item{bootstrap_iter}{Number of bootstrap iterations}

@@ -23,7 +23,7 @@ mcmresultclass$methods(
     print(.self$df)
   },
   copy=function(){
-    return(mcmresultclass(.self$df, .self$model, .self$loss, .self$history, .self$runtimes, .self$info))
+    return(mcmresultclass(.self$df, .self$model$copy(), .self$loss, .self$history, .self$runtimes, .self$info))
   }
 )
 
@@ -63,7 +63,7 @@ mcmresultsummaryclass$methods(
   },
   show=function(){
     cat("|--------------------------------------|\n")
-    cat(paste0("|  MCM Result Summary (MCMSEM v", .self$result$info$version, ")  |\n"))
+    cat(paste0("| MCM Result Summary (MCMSEM v", .self$result$info$version, ")",paste0(rep(" ",6-nchar(summ$result$info$version)), collapse=''),"|\n"))
     cat("|--------------------------------------|\n")
     cat(paste0("device         : ", .self$result$info$device, "\n"))
     cat(paste0("N phenotypes   : ", .self$result$model$meta_data$n_phenotypes, "\n"))
@@ -82,7 +82,7 @@ mcmresultsummaryclass$methods(
         cat(paste0(toupper(substr(summ, 1, 1)), substr(summ, 2, nchar(summ))), "summary\n")
         if (nrow(.self[[summ]]) > 16) {
           print(.self[[summ]][1:15, ])
-          cat("...\n")
+          cat(paste0("... Print capped at 15 rows, use: as.data.frame([summary_object], estimates='",summ,"')\n"))
         } else {
           print(.self[[summ]])
         }
