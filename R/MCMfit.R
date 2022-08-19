@@ -282,8 +282,7 @@ MCMfit <- function(mcmmodel, data, compute_se=TRUE, se_type='asymptotic', optimi
   } else if (use_kurtosis) {
     loss <- lossfunc(torch_mul(pred_matrices[['M2']], m2v_masks[['m2']]), torch_mul(M2.obs, m2v_masks[['m2']])) + lossfunc(torch_mul(pred_matrices[['M4']], m2v_masks[['m4']]), torch_mul(M4.obs, m2v_masks[['m4']]))
   }
-                               
-  loss <- as.numeric(loss)
+                             
                                
   return(mcmresultclass(df=results, loss=loss, model=model$copy(),
                         history=history,
