@@ -28,7 +28,10 @@
     # Rstyle:
     # (sqrt(S) %*% base_matrices[['K']] %*%  (sqrt(S) %o% torch_sqrt(S) %o% sqrt(S))) * base_matrices[['K2']] * torch_masks[['K']] + sum(torch_maps[['K']] * .par_list[['K']], dim=3)
     # Note this is purely for readability as this R code will not actually work with base-R matrices as it uses 3D tensors in sum(..., dim=3)
-   K <- torch_add(torch_mul(torch_mul(torch_matmul(torch_matmul(torch_sqrt(S), base_matrices[['K']]), .torch_kron(torch_sqrt(S), .torch_kron(torch_sqrt(S), torch_sqrt(S)))), base_matrices[['K2']]), torch_masks[['K']]), torch_sum(torch_mul(torch_maps[['K']], .par_list[['K']]), dim=3))
+    ## This is still in testing phase:
+    ## sqrts <- torch_sqrt(S)
+    sqrts <- torch_sign(S) * torch_sqrt(torch_abs(S))
+   K <- torch_add(torch_mul(torch_mul(torch_matmul(torch_matmul(sqrts, base_matrices[['K']]), .torch_kron(sqrts, .torch_kron(sqrts, sqrts))), base_matrices[['K2']]), torch_masks[['K']]), torch_sum(torch_mul(torch_maps[['K']], .par_list[['K']]), dim=3))
   }
 
   # Rstyle: M2 <- Fm %*% solve(diag(n_p) - A) %*% S %*%  t(solve(diag(n_p)-A))  %*% t(Fm)
