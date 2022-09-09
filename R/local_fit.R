@@ -70,7 +70,7 @@
   loss_hist <- NULL
   optim <- optimfunc(.par_list,lr = learning_rate[1])
   if (low_memory) {gc(verbose=FALSE, full=TRUE)}
-  for (i in 1:optim_iters[1]) {
+  for (i in seq_len(optim_iters[1])) {
     optim$zero_grad()
     loss <- .torch_objective(.par_list, lossfunc, torch_bounds, torch_masks, torch_maps, base_matrices, M2.obs, M3.obs, M4.obs, m2v_masks, use_bounds, use_skewness, use_kurtosis)
     if (low_memory) {gc(verbose=FALSE, full=TRUE)}
@@ -90,7 +90,7 @@
   }
   # Use lbfgs to get really close....
   optim <- optim_lbfgs(.par_list,lr= learning_rate[2])
-  for (i in 1:optim_iters[2]) {
+  for (i in seq_len(optim_iters[2])) {
     optim$step(calc_loss_torchfit)
   }
   if (!(silent)) {cat("\n")}

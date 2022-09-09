@@ -284,7 +284,7 @@ MCMfit <- function(mcmmodel, data, compute_se=TRUE, se_type='asymptotic', optimi
   }
                              
                                
-  return(mcmresultclass(df=results, loss=loss, model=model$copy(),
+  return(mcmresultclass(df=results, loss=as.numeric(torch_tensor(loss, device=cpu_device)), model=model$copy(),
                         history=history,
                         runtimes=list(Preparation=TIME_prep, Optimizer=TIME_optim, SE=TIME_se, Total=TIME_total),
                         info=list(version=MCMSEMversion, compute_se=compute_se, se_type=se_type, optim_iters=optim_iters,

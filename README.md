@@ -5,7 +5,12 @@ R-package which allows users to run multi co-moment structural equation models.
 Note this is the `dev-torch` branch, and **not** intended for end-users. If you would like to use MCMSEM yourself, please go to the main branch. If you would like to contribute to the code, feel free to check this branch out.  
 As of version 0.4.0 it is possible to run MCMSEM on a GPU, see [MCMSEM on GPU](#mcmsem-on-gpu).
 
-## Patch notes thus far (v0.7.4-dev-torch)
+## Patch notes thus far (v0.8.0-dev-torch)
+### Torch-specific (v0.8.0)
+ - Fixed an issue that (depending on device) could cause fit to fail
+ - Fixed `summ not found` issue in `summary(result)`
+ - Changed optimizer iteration loops from `1:x` to `seq_len(x)` to allow for disabling one of the optimizers by setting its `optim_iters` to 0.
+
 ### Torch-specific (v0.7.4)
  - `loss` reported in result and summary objects is now the loss without bound scaling. You can still obtain the final loss with bound scaling via `res$history$loss[length(res$history$loss)]`
  - Added `...` to `plot(model, ..)` for additional arguments to be passed on to `qgraph`
@@ -163,8 +168,12 @@ As of version 0.4.0 it is possible to run MCMSEM on a GPU, see [MCMSEM on GPU](#
    - Added `optim_iters` argument to `MCMfit()` to enable changing number of iterations of each optimizer
 
 ### Things still TODO:
-1. Find a way to get the full jacobian using torch? (and have it be faster than the default jacobian with the current .jac.fn)
-2. Expand checks in `MCMmodel` 
+1. Add gradient history (probably as option)
+2. Stop computation when loss/gradient is NaN (then return last non-NA result)
+3. In fit change sqrt(S) to (something like) sign(S) * sqrt(abs(S)) to prevent NaN in cases of negative values
+4. Add Hessian
+5. Find a way to get the full jacobian using torch? (and have it be faster than the default jacobian with the current .jac.fn)
+6. Expand checks in `MCMmodel` 
 
 ## Patch notes
 - v0.1.1 

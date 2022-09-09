@@ -63,7 +63,7 @@ mcmresultsummaryclass$methods(
   },
   show=function(){
     cat("|--------------------------------------|\n")
-    cat(paste0("| MCM Result Summary (MCMSEM v", .self$result$info$version, ")",paste0(rep(" ",6-nchar(summ$result$info$version)), collapse=''),"|\n"))
+    cat(paste0("| MCM Result Summary (MCMSEM v", .self$result$info$version, ")",paste0(rep(" ",8-nchar(.self$result$info$version)), collapse=''),"|\n"))
     cat("|--------------------------------------|\n")
     cat(paste0("device         : ", .self$result$info$device, "\n"))
     cat(paste0("N phenotypes   : ", .self$result$model$meta_data$n_phenotypes, "\n"))
