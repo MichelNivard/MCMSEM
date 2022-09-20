@@ -5,12 +5,62 @@ R-package which allows users to run multi co-moment structural equation models.
 Note this is the `dev-torch` branch, and **not** intended for end-users. If you would like to use MCMSEM yourself, please go to the main branch. If you would like to contribute to the code, feel free to check this branch out.  
 As of version 0.4.0 it is possible to run MCMSEM on a GPU, see [MCMSEM on GPU](#mcmsem-on-gpu).
 
-## Patch notes thus far (v0.8.0-dev-torch)
+## Patch notes thus far (v0.9.0-dev-torch)
+### Torch-specific (v0.9.0)
+ - Fixed an issue causing `summary(mcmresult)` to not malfunction with causal paths between latents
+ - Added `hdf5r` to NAMESPACE and Imports
+ - Added `MCMdatasummary` to create an object with all required data for MCMSEM without storing full data. This could allow cohorts to more easily share this data without privacy concerns.
+   - Note that this does make bootstrapping impossible
+   - To ensure individual records cannot be retrieved from the summary the `S.m` matrix used for asymptotic SE calculation is processed into the required covariance matrix. Storing the `S.m` matrix at earlier stages would allow for faster data summary file generation, but could potentially allow for retrieval of individual records in some edge cases.
+ - Moved calculation of `S.m` (in calculation of asymptotic SE) to `MCMdatasummary()` as it requires raw data.
+ - Added option `prep_asymptotic_se` to `MCMdatasummary()` to allow for disabling pre-calculation of `S.m` matrix as it may result in unwanted compute time and storage space
+ - Added `MCMsavesummary()` to save MCMdatasummaries to disk. File size estimates detailed below
+ - Loading MCMdatasummaries is done as follows with the main summary function: `MCMdatasummary(path='mysummary.mcmdata')`
+ - MCM data summaries stored to disk will have the suffix `.mcmdata` and are HDF5 files with the following structure:
+   - m2 : second order co-moment matrix
+   - m3 : third order co-moment matrix
+   - m4 : fourth order co-moment matrix
+   - meta/... : metadata, for now this contains `colnames`, `data_was_scaled`, `scale_data`, `n`, `ncol` and `colnames`, but this will automatically expand if we decide to add more meta_data to MCM data summary objects.
+   - SE/computed : 1 if `prep_asymptotic_se` was set to true and `S.m` is pre-computed
+   - sm : `S.m` matrix for asymptotic SE
+   - SE/idx : list of different indices to select from the full `S.m` depending on `use_kurtosis` and `use_skewness`
+ - Why HDF5 and not RData? Because HDF5...
+   - Allows for more flexibility within R (i.e. `newobjectname <- MCMdatasummary(path=path)` instead of `load(path); newobjectname <- oldobjectname` where `oldobjectname` may not be known beforehand, or worse overlap with other objects)
+   - Prevents storing class methods, so loading a file saved in an older version will still allow you to work with new methods (assuming that all required data is in the summary object)
+   - Allows for easy and direct access from other software (though for now this is just future-proofing)
+ - Moved warnings and errors related to the input dataframe from `MCMmodel` to `MCMdatasummary` as that is now used internally as well.
+ - Changed internal structure of `MCMmodel`, `MCMfit` and underlying functions where necessary to also accept an `mcmdataclass` object as input instead of a dataframe
+   - Simply put: if the input is a dataframe or matrix (i.e. raw data) `MCMmodel` and `MCMfit` will first generate an `MCMdatasummary` and continue working with that, to keep the code as simple as possible
+ - Added `weights` argument to `MCMmodel`, `MCMdatasummary`, and `MCMfit` to allow for weighted MCMSEM (through weighted co-moment matrices)
+   - Note it is recommended to make an `MCMdatasummary` first, then pass that object to `MCMmodel` and `MCMfit`, this will result in the co-moment-matrices being computed only ones, saving some time especially in larger datasets, and definitely when the data will be used in multiple different models.
+ - Enabled setting `use_skewness` and `use_kurtosis` both to FALSE (with experimental warning).
+ - Removed `Usage`, and `MCMSEM on GPU` text from `README.md`, instead referring to the wiki.
+ -`.mcmdata` approximate file generation time and file size, with `prep_asymptotic_se` set to `TRUE`. Note these estimates are based on a single test run. Actual generation time will depend heavily on your system, and file size may vary depending on how well the summary can be compressed.  
+Note that runtime is long, but that this is partly (or mostly, with many variables) due to pre-computation of the `S.m` matrix, so this upfront calculation will save time later on.
+
+| N variables | generation time | file size |
+|-------------|-----------------|-----------|
+| 2           | 7.36 s          | 48.8 KB   | 
+| 4           | 8.42 s          | 51.1 KB   |
+| 6           | 10.76 s         | 70.1 KB   |
+| 8           | 16.62 s         | 169 KB    |
+| 10          | 27.10 s         | 538 KB    |
+| 12          | 47.44 s         | 1.51 MB   |
+| 14          | 82.44 s         | 4.05 MB   |
+| 16          | 165.81 s        | 10.4 MB   |
+| 18          | 278.62 s        | 22.9 MB   |
+| 20          | 464.83 s        | 47.5 MB   |
+| 22          | 730.05 s        | 91.8 MB   |
+| 24          | 1222.58 s       | 170 MB    |
+| 26          | 2108.23 s       | 295 MB    |
+| 28          |                 |           |
+| 30          |                 |           |
+
 ### Torch-specific (v0.8.0)
  - Fixed an issue that (depending on device) could cause fit to fail
  - Fixed `summ not found` issue in `summary(result)`
  - Changed optimizer iteration loops from `1:x` to `seq_len(x)` to allow for disabling one of the optimizers by setting its `optim_iters` to 0.
- - In fit change sqrt(S) to (something like) sign(S) * sqrt(abs(S)) to prevent NaN in cases of negative values (still in testing phase)
+ - In `MCMfit` changed sqrt(S) to sign(S) * sqrt(abs(S)) to prevent NaN in cases of negative values (still in testing phase)
 ### Torch-specific (v0.7.4)
  - `loss` reported in result and summary objects is now the loss without bound scaling. You can still obtain the final loss with bound scaling via `res$history$loss[length(res$history$loss)]`
  - Added `...` to `plot(model, ..)` for additional arguments to be passed on to `qgraph`
@@ -168,11 +218,17 @@ As of version 0.4.0 it is possible to run MCMSEM on a GPU, see [MCMSEM on GPU](#
    - Added `optim_iters` argument to `MCMfit()` to enable changing number of iterations of each optimizer
 
 ### Things still TODO:
-1. Add gradient history (probably as option)
-2. Stop computation when loss/gradient is NaN (then return last non-NA result)
-3. Add Hessian
-4. Find a way to get the full jacobian using torch? (and have it be faster than the default jacobian with the current .jac.fn)
-5. Expand checks in `MCMmodel` 
+1. Create `MCMholdout` function to compare loss/fit of 1 or more models on holdout data and/org original data. Also check if settings of models were similar enough (e.g. both with weighted data etc)
+2. Check `var_observed` values
+3. Add gradient history (probably as option)
+4. Stop computation when loss/gradient is NaN (then return last non-NA result)
+5. Create manual/wiki pages for:
+   1. MCMdatasummary() - Include recommendation for generating datasummary object of data which will be used in different models
+   2. MCMsavesummary()
+   3. weighted analysis
+6. Add Hessian
+7. Find a way to get the full jacobian using torch? (and have it be faster than the default jacobian with the current .jac.fn)
+8. Expand checks in `MCMmodel` 
 
 ## Patch notes
 - v0.1.1 
@@ -189,148 +245,18 @@ Tamimy, Z., van Bergen, E., van der Zee, M. D., Dolan, C. V., & Nivard, M. G. (2
 
 ## Installation
 
-Currently this packge is not listed on CRAN and should therefore be installed from GitHub idrectly.
+Currently this packge is not listed on CRAN and should therefore be installed from GitHub directly.
 ```
 library(devtools)
 install_github("https://github.com/zenabtamimy/MCMSEM")
 ```
 
+See the wiki `Instlaling MCMSEM` for more details.
+
 ## Usage
 
-### Initial setup
-After installing the package you can load it and start using its functionality. Note that the first time you load the package might take a while as torch installs several additional resources on first load.
-``` 
-library(MCMSEM)
-```
-
-Load your data into R, and prepare it for processing in MCMSEM, only functional variables should be passed to MCMSEM functions, so make a copy of your dataframe with variables like identifiers, timestamps and any character columns removed.
-```
-raw_data <- read.csv("myfile.csv", stringsAsFactors=FALSE)
-my_data <- my_data[, -c("Identifier", "timestamp")] # This is just an example, column names will of course vary
-```
-
-### Creating a model
-Next create an MCMmodel from your data
-``` 
-my_model <- MCMmodel(data)
-```
-
-By default, this will create model with one latent confounder, and constrained loadings of this confounder on your variables (i.e. 1 parameter for confounding). You can change this using the appropriate arguments.
-``` 
-my_extensive_model <- MCMmodel(data, n_confounding=2, constrained_a=FALSE)
-```
-
-By seting `constrained_a` to `FALSE` one parameter is fitted for each latent confounder for each variable (so n_confounding*n_variables confounders).
-
-This model object contains the underlying matrices, parameter names and parameter values of the MCMSEM model, as well as some metadata. You can see the layout of the parameter matrices by running
-```
-print(my_model)
-```
-
-### Changing a model
-You can edit several things about the model, such as freeing parameters, fixing parameters or starting values. Always use MCMedit for this purpose, **do not** edit the matrices by hand, as MCMedit parses your changes and ensures everything in the MCMmodel is changed accordingly. Below are some examples of what you may want to change.
-
-In matrix A; separate a1 and a2, in the simplest case with two input variables this would be the same as setting `constrained_a` to `FALSE` in `MCMmodel`.
-```
-my_model <- MCMedit(my_model, "A", "a1", c("a1", "a2"))
-```
-In matrix Fm; freely estimate f1 variance, i.e. make it a parameter rather than a fixed value. Note the `c(1, 2)` in this function call refers to the coordinates of this parameter in the Fm matrix.
-```
-my_model <- MCMedit(my_model, "Fm", c(1, 2), "fm1")
-```
-Constrain b1_1 to zero
-```
-my_model <- MCMedit(my_model, "A", "b1_1", 0)
-```
-
-Change the starting value of b2 to 0.8
-```
-my_model <- MCMedit(my_model, "start", "b2", 0.8)
-```
-Set the starting value of all a parameters to 0.5
-```
-my_model <- MCMedit(my_model, "start", "a", 0.5)
-```
-Change the upper bound of a1 to 2
-```
-mcmmodel <- MCMedit(mcmmodel, "ubound", "a1", 2)
-```
-Set lower and upper bounds of a1 to c(-1, 1)
-```
-mcmmodel <- MCMedit(mcmmodel, "bound", "a1", c(-1, 1))
-```
-Set lower and upper bounds of all b parameters to -1, 1
-```
-mcmmodel <- MCMedit(mcmmodel, "bound", "b", c(-1, 1))
-```
-Set upper bound of all k parameters to 200
-```
-mcmmodel <- MCMedit(mcmmodel, "ubound", "k", 200)
-```
-Check the current bounds
-```
-mcmmodel$bounds
-```
-> **__NOTE__**: If you are using bounds, ensure `use_bounds` is set to TRUE in `MCMfit`
-### Fitting a model
-Now that you have applied the changes you want you can fit the model. You will have the pass your data to the `MCMfit` function again, we could store your data in the MCMmodel object, but that would result in unnecessary copies of potentially large datasets (not ideal).
-```
-my_result <- MCMfit(my_model, data)
-```
-
-The resulting `mcmresultclass` object contains your estimates and standard erros by default, as well as the final optimizer loss, loss history, and a copy of the model object that was used to generate the results.
-Even though running `print(my_result)` produces output that looks like a dataframe, the object itself is not. If you want to continue working with your parameter and SE estimates, or write them to a file, you have to convert it to a dataframe first.
-```
-my_result_df <- as.data.frame(my_result)
-```
-
-By default, SEs are computed asymptotically, you can also compute the SEs through bootstrapping if you wish. Be warend, however, as this will take considerably longer.
-``` 
-my_result <- MCMfit(my_model, data, se_type='two-step', bootstrap_iter=100, bootstrap_chunks=1000)
-```
-
-If you are unsure the optimization is good enough, and wonder if a minimum is found, you can track the loss progress either by checking `my_result$history$loss` after the model completed, or by running
-``` 
-my_result <- MCMfit(my_model, data, silent=FALSE)
-```
-
-If needed you can change the number of iterations, and/or the optimizers learning rate. Note that two different optimizers are used sequentially. First RPROP, then LBFGS. Only the learning rate of RPROP can be changed.
-``` 
-my_result <- MCMfit(my_model, data, optim_iters=c(100, 12), learning_rate=0.03)
-```
-
-In large models using both skewness and kurtosis for parameter estimation may not be required, and disabling either of these can significantly improve performance. Note that this is still relatively untested though.
-``` 
-my_result_no_skew <- MCMfit(my_model, data, use_skewness=FALSE)
-my_result_no_kurt <- MCMfit(my_model, data, use_kurtosis=FALSE)
-```
-
+See the wiki, we recommend starting at `Generate test data`.
 
 ## MCMSEM on GPU
-> **__Preface__**: Using a GPU is only advantageous under certain circumstances. Generally, if your intended model contains 5 or fewer input variables, or if you intend to run a model without kurtosis it will likely not be worth it, though this will all depend on your model, data, CPU, GPU etc.
 
-### Requirements
-1. An NVIDIA CUDA-enabled GPU, see [NVIDIA's website](https://developer.nvidia.com/cuda-gpus).
-   - On top of this you will likely need a GPU with a significant VRAM capacity. For reference, our tests are performed on a GTX1080Ti (11GB VRAM) which is limited to running skew+kurtosis models with 18-20 input variables and 5 confounders.
-2. Installed NVIDIA CUDA toolkit version 11.3 (note it has to be **exactly** version 11.3)
-    - Make sure that environmental variables CUDA_HOME and CUDA_PATH are set properly
-3. Installed cuDNN 8.4 for CUDA toolkit 11.3 see [NVIDIA's website](https://docs.nvidia.com/deeplearning/cudnn/archives/cudnn-840/install-guide/index.html) (again, it has to be **exactly** version 8.4).
-4. Installed torch after all the above conditions are met.
-   - If you already have torch for R installed, remove it: `remove.packages("torch")`, restart R, and install it again.
-
-### Usage
-Before running MCMSEM, verify that CUDA is available to your torch installation. Note that the first time you run `library(torch)` might take a few minutes as torch will then download and install required gpu-torch libraries.
-``` 
-library(torch)
-cuda_is_available()  # Should return TRUE
-```
-
-If CUDA is available, setup a CUDA device and pass this to MCMfit.
-``` 
-cuda_device <- torch_device("cuda")
-res <- MCMfit(my_model, data, device=cuda_device)
-```
-
-Running `MCMfit` on a GPU can result in very significant runtime improvements, for instance from our testing a model with 15 input variables and 5 confounders, using both skewness and kurtosis took an hour on CPU compared to 20 minutes on GPU.  
-This, however, is contingent upon enough available VRAM. If you get a `CUDA out of memory` error your VRAM is insufficient given your model, try using `MCMfit(..., low_memory=TRUE)`.  
-We do our best to ensure the code uses as little VRAM as possible, but due to the nature of GPU computing VRAM requirements will likely remain much stricter than RAM requirements.
+See the `Installing MCMSEM` wiki

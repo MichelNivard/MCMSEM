@@ -2,9 +2,20 @@
 # Local functions used in MCMfit moved to local_fit.R
 
 # Exported MCMfit function
-MCMfit <- function(mcmmodel, data, compute_se=TRUE, se_type='asymptotic', optimizer="rprop", optim_iters=c(50, 12), loss_type='mse', bootstrap_iter=200,bootstrap_chunks=1000,
+MCMfit <- function(mcmmodel, data, weights=NULL, compute_se=TRUE, se_type='asymptotic', optimizer="rprop", optim_iters=c(50, 12), loss_type='mse', bootstrap_iter=200,bootstrap_chunks=1000,
                    learning_rate=c(0.02, 1), silent=TRUE, use_bounds=TRUE, use_skewness=TRUE, use_kurtosis=TRUE, device=NULL, low_memory=FALSE) {
   START_MCMfit <- Sys.time()
+  if (class(data)[[1]] != "mcmdataclass") {
+    data_org <- data
+    data <- MCMdatasummary(data, scale_data=model$meta_data$scale_data, weights=weights, prep_asymptotic_se=((compute_se) & (se_type == "asymptotic")))
+  } else {
+    if (compute_se) {
+      if (se_type %in% c("one-step", 'two-step'))
+        stop("Bootstrap SE computation not supported with summary data")
+      if ((se_type == 'asymptotic') & !(data$SE$computed))
+        stop("This summary data was made without the required preparation for asymptotic SE")
+    }
+  }
   model <- mcmmodel$copy()  # Model is changed if either use_skewness or use_kurtosis is set to FALSE, so I make a local copy here to ensure the original object stays intact
   if (is.null(device)) {
     device <- torch_device("cpu")
@@ -24,7 +35,7 @@ MCMfit <- function(mcmmodel, data, compute_se=TRUE, se_type='asymptotic', optimi
   }
   if (!(se_type %in% c('two-step', 'one-step','asymptotic')))
     stop("se_type should be one of c('two-step', 'one-step','asymptotic')")
-  if (ncol(data) != 2)
+  if (data$meta_data$ncol != 2)
     warning("Use of a dataframe with more than 2 columns is still experimental.")
   if (!(use_skewness) & !(use_kurtosis))
     stop("At least either skewness or kurtosis has to be used")
@@ -46,17 +57,9 @@ MCMfit <- function(mcmmodel, data, compute_se=TRUE, se_type='asymptotic', optimi
   #  with half precision, so for now this is locked at 32 bit
   torch_precision <- 32
   if (torch_precision == 16) {torch_dtype <- torch_float16()} else if (torch_precision == 32) {torch_dtype <- torch_float32()} else if (torch_precision == 64) {torch_dtype <- torch_float64()} else {stop("Precision not recognized, should be one of (16, 32, 64)")}
-  if (nrow(data) < 1000)
-    stop("Currently only a dataframe with at least 1000 rows is supported.")
-  if (ncol(data) != model$meta_data$n_phenotypes) {
-    msg <- paste0("Model expected ", model$meta_data$n_phenotypes, " phenotypes but ", ncol(data), " were found in the data. Please create a new model with this dataset.")
+  if (data$meta_data$ncol != model$meta_data$n_phenotypes) {
+    msg <- paste0("Model expected ", model$meta_data$n_phenotypes, " phenotypes but ", data$meta_data$ncol, " were found in the data. Please create a new model with this dataset.")
     stop(msg)
-  }
-
-  data <- as.matrix(data)
-  # Scale data
-  if ((model$meta_data$scale_data) & !(model$meta_data$data_was_scaled)) {
-      data <- apply(data, 2, scale)
   }
 
   lossfuncs <- list(
@@ -110,9 +113,9 @@ MCMfit <- function(mcmmodel, data, compute_se=TRUE, se_type='asymptotic', optimi
     model$param_coords <- new_coords
   }
   # Obtain covariance, coskewness and cokurtosis matrices
-  M2.obs <- torch_tensor(cov(data), device=device, dtype=torch_dtype)
-  M3.obs <- torch_tensor(M3.MM(data), device=device, dtype=torch_dtype)
-  M4.obs <- torch_tensor(M4.MM(data), device=device, dtype=torch_dtype)
+  M2.obs <- torch_tensor(data$M2, device=device, dtype=torch_dtype)
+  M3.obs <- torch_tensor(data$M3, device=device, dtype=torch_dtype)
+  M4.obs <- torch_tensor(data$M4, device=device, dtype=torch_dtype)
 
   torch_matrices <- .get_torch_matrices(model, device, M2.obs, M3.obs, M4.obs, torch_dtype)
   param_list <- torch_matrices[['param_list']]
@@ -144,7 +147,6 @@ MCMfit <- function(mcmmodel, data, compute_se=TRUE, se_type='asymptotic', optimi
   START_se <- Sys.time()
   TIME_optim <- START_se - START_optim
   if (compute_se) {
-
     if(se_type == 'asymptotic'){
       # SEs <- .std.err(data=data,par=as.numeric(torch_tensor(torch_cat(.par), device=cpu_device)), model=model, use_skewness, use_kurtosis)
       SEs <- .std.err(data, .par_list, use_skewness, use_kurtosis, torch_masks, torch_maps, base_matrices, m2v_masks, device, low_memory)
@@ -167,8 +169,8 @@ MCMfit <- function(mcmmodel, data, compute_se=TRUE, se_type='asymptotic', optimi
         setTxtProgressBar(pb, i)
         model2 <- model_copy$copy()  # Create new empty model
         #1. Sample from data with replacement
-        boot <-   sample(seq_len(nrow(data)), nrow(data), T)
-        sample <- data[boot,]
+        boot <-   sample(seq_len(nrow(data_org)), nrow(data_org), T)
+        sample <- data_org[boot,]
 
         #2. Get covariance, coskewness and cokurtosis matrices
         M2.obs <- torch_tensor(cov(sample), device=device, dtype=torch_dtype)
@@ -207,14 +209,14 @@ MCMfit <- function(mcmmodel, data, compute_se=TRUE, se_type='asymptotic', optimi
       ##############################
       ### STEP 1
       # 1. Bind the data to a random sample binning people into "bootstrap_chunks" groups
-      step1 <- cbind(data,sample(1:bootstrap_chunks,nrow(data),replace=T))
+      step1 <- cbind(data,sample(1:bootstrap_chunks,nrow(data_org),replace=T))
       colnames(step1)[ncol(step1)] <- "group"
       step1 <- as.data.frame(step1)
 
       # 2. Get covariance, coskenwess and cokurtosis matrices per group
-      sample.cov  <- aggregate(seq_len(nrow(step1)), by=list(step1$group), function(s) cov(step1[s, colnames(data)]))
-      sample.cosk <- aggregate(seq_len(nrow(step1)), by=list(step1$group), function(s) M3.MM(as.matrix(step1[s, colnames(data)])))
-      sample.cokr <- aggregate(seq_len(nrow(step1)), by=list(step1$group), function(s) M4.MM(as.matrix(step1[s, colnames(data)])))
+      sample.cov  <- aggregate(seq_len(nrow(step1)), by=list(step1$group), function(s) cov(step1[s, colnames(data_org)]))
+      sample.cosk <- aggregate(seq_len(nrow(step1)), by=list(step1$group), function(s) M3.MM(as.matrix(step1[s, colnames(data_org)])))
+      sample.cokr <- aggregate(seq_len(nrow(step1)), by=list(step1$group), function(s) M4.MM(as.matrix(step1[s, colnames(data_org)])))
       pars.boot2 <- matrix(NA,nrow=bootstrap_iter,ncol=length(model$param_values))
 
       ### STEP 2
@@ -224,9 +226,9 @@ MCMfit <- function(mcmmodel, data, compute_se=TRUE, se_type='asymptotic', optimi
         model2 <- model_copy$copy()  # Create new empty model
         # 3. Sample cov/cosk/cokrt matrices and obtain mean of the sampled matrices to use as cov/cosk/cokrt matrix in the model
         boot <-   sample(1:bootstrap_chunks,bootstrap_chunks,T)
-        M2.obs <-   torch_tensor(matrix(colMeans(sample.cov [boot,-1]),ncol(data),ncol(data), byrow=T), device=device, dtype=torch_dtype)
-        M3.obs <-   torch_tensor(matrix(colMeans(sample.cosk[boot,-1]),ncol(data),ncol(data)^2, byrow=T), device=device, dtype=torch_dtype)
-        M4.obs <-   torch_tensor(matrix(colMeans(sample.cokr[boot,-1]),ncol(data),ncol(data)^3, byrow=T), device=device, dtype=torch_dtype)
+        M2.obs <-   torch_tensor(matrix(colMeans(sample.cov [boot,-1]),ncol(data_org),ncol(data_org), byrow=T), device=device, dtype=torch_dtype)
+        M3.obs <-   torch_tensor(matrix(colMeans(sample.cosk[boot,-1]),ncol(data_org),ncol(data_org)^2, byrow=T), device=device, dtype=torch_dtype)
+        M4.obs <-   torch_tensor(matrix(colMeans(sample.cokr[boot,-1]),ncol(data_org),ncol(data_org)^3, byrow=T), device=device, dtype=torch_dtype)
         # Get new torch matrices from model copy
         torch_matrices <- .get_torch_matrices(model2, device, M2.obs, M3.obs, M4.obs, torch_dtype)
         m2v_masks <- torch_matrices[['m2v_masks']]

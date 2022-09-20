@@ -1,64 +1,44 @@
 # Wrapper function to create mcmmodel instance
-MCMmodel <- function(data, n_latent=1, constrained_a=TRUE, scale_data=TRUE, latent_names=NULL,
+MCMmodel <- function(data, n_latent=1, constrained_a=TRUE, scale_data=TRUE, weights=NULL, latent_names=NULL,
                      causal_observed=TRUE, var_observed=TRUE, skew_observed=TRUE, kurt_observed=TRUE,
                      causal_latent=FALSE, var_latent=FALSE, skew_latent=FALSE, kurt_latent=FALSE) {
   # TODO: Expand checks on how many latent can/should be used with or without constrained a depending on input data
+  if (class(data)[[1]] != "mcmdataclass") {
+    data <- MCMdatasummary(data, scale_data=scale_data, weights=weights, prep_asymptotic_se=FALSE)
+  }
   # Input data verification
-  if (nrow(data) < 1000)
-    stop("Currently only a dataframe with at least 1000 rows is supported.")
-  if (ncol(data) < 2) {
-    stop("At least two columns in data are required.")
-  } else if (ncol(data) == 2) {
+  if (data$meta_data$ncol == 2) {
     if (n_latent > 1) {
       warning("Only one latent can be used with two variables, unless you really know what you are doing...")
     } else if (!(constrained_a)) {
-      warning("Constrained a has to be used with two variables, iunless you really know what you are doing...")
+      warning("Constrained a has to be used with two variables, unless you really know what you are doing...")
     }
   }
   if (n_latent == 1) {
     if (causal_latent) {stop("latent causal paths are only allowed with >1 latent factor")}
   }
-  if (n_latent > ncol(data))
+  if (n_latent > data$meta_data$ncol)
     warning("It's unlikely you want to use use more latent factors than phenotypes present in the data, unless you know what you are doing consider revising....")
-  if (any(apply(data, 2, is.character)))
-    stop("Numeric column(s) found:",paste0(names(which(apply(data, 2, is.character))), collapse=", "), "\n   Data must only contain numeric columns")
-  if (any(round(rowSums(abs(cor(data))), 1) == 1.0)) {
-    idcol <- which(round(rowSums(abs(cor(data))), 1) == 1.0)
-    stop(paste0("It seems like ",names(idcol), " is an ID column. \n  Consider using ", deparse(substitute(data)), '[,-', unname(idcol),']'))
-  }
+
   if (is.null(latent_names)) {
     if (n_latent > 0) {latent_names <- paste0("f", seq_len(n_latent))} else {latent_names <- as.character(NULL)}
-    while (any(latent_names %in% colnames(data))) {
+    while (any(latent_names %in% data$meta_data$colnames)) {
       # Prevent duplicate names between latent and observed
-      latent_names[latent_names %in% colnames(data)] <- paste0(latent_names %in% colnames(data), "_0")
+      latent_names[latent_names %in% data$meta_data$colnames] <- paste0(latent_names %in% data$meta_data$colnames, "_0")
     }
   } else {
     if (length(latent_names) != n_latent) {
       stop("Length of latent_names should be equal to n_latent")
     }
   }
-  org_names <- if (is.data.frame(data)) {colnames(data)} else {paste0("x", seq_len(ncol(data)))}
-  if (is.matrix(data) & !(is.null(colnames(data)))) {org_names <- colnames(data)}
-  if (any(org_names %in% latent_names)) {
-    stop("Duplicate names found in latent factors and the input dataframe")
+  if (any(data$meta_data$colnames %in% latent_names)) {
+    stop("Duplicate names found in latent factors and the input data")
   }
-
-  # Scale data
-  if (scale_data) {
-    data_was_scaled <- all(round(apply(data, 2, mean), 1) == 0) & all(round(apply(data, 2, sd), 1) == 1)
-    if (!(data_was_scaled)) {
-      data <- apply(data, 2, scale)
-    }
-  } else {
-    data_was_scaled <- TRUE
-  }
-  data <- as.matrix(data)
-
-  n_p <- ncol(data)
+  n_p <- data$meta_data$ncol
   if (constrained_a) {
     a_names <- NULL
     for (i in seq_len(n_latent)) {
-      a_names <- c(a_names, rep(paste0("a", i), n_p))
+      a_names <- c(a_names, rep(paste0("a", i), data$meta_data$ncol))
     }
   } else {
     a_names <- NULL
@@ -80,13 +60,12 @@ MCMmodel <- function(data, n_latent=1, constrained_a=TRUE, scale_data=TRUE, late
   named_matrices <- .gen_matrices(par_names, n_p, n_latent, base_value="0")
 
   ## Make matrices with starting values
-  M3.obs <- M3.MM(data)
-  M4.obs <- M4.MM(data)
+
   sk_starts <- NULL
   k_starts <- NULL
   for (i in 1:n_p) {
-    sk_starts <- c(sk_starts, M3.obs[i, i + (i-1)*n_p])
-    k_starts <- c(k_starts, M4.obs[i, i + (i-1)*n_p + (i-1)*n_p^2])
+    sk_starts <- c(sk_starts, data$M3[i, i + (i-1)*n_p])
+    k_starts <- c(k_starts, data$M4[i, i + (i-1)*n_p + (i-1)*n_p^2])
   }
   par <- list(
     a=rep(0.2, length(par_names[['a']])),
@@ -116,9 +95,9 @@ MCMmodel <- function(data, n_latent=1, constrained_a=TRUE, scale_data=TRUE, late
                        num_matrices=num_matrices,
                        start_values=start_values,
                        bounds=bounds,
-                       meta_data=list(n_obs=nrow(data), n_phenotypes=n_p, n_latent=n_latent, bound_defaults=bound_defaults,
-                                      data_was_scaled=data_was_scaled, scale_data=scale_data,
-                                      original_colnames=org_names, latent_names=latent_names))
+                       meta_data=list(n_obs=data$meta_data$N, n_phenotypes=n_p, n_latent=n_latent, bound_defaults=bound_defaults,
+                                      weighted=data$meta_data$weighted, data_was_scaled=data$meta_data$data_was_scaled, scale_data=data$meta_data$scale_data,
+                                      original_colnames=data$meta_data$colnames, latent_names=latent_names))
   # causal_observed=TRUE, var_observed=TRUE, skew_observed=TRUE, kurt_observed=TRUE,
   # causal_latent=FALSE, var_latent=FALSE, skew_latent=FALSE, kurt_latent=FALSE
   if (!(causal_observed)) {

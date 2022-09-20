@@ -65,44 +65,21 @@
 
 ### pull it together to make std errors:
 .std.err <- function(data, .par_list, use_skewness, use_kurtosis, torch_masks, torch_maps, base_matrices, m2v_masks, device, low_memory) {
-  # .std.err <- function(data, .par_list, torch_masks, torch_maps, base_matrices, M2.obs, M3.obs, M4.obs, m2v_masks, use_skewness, use_kurtosis){
-  n <- nrow(data)
-  # if there is too much data for spoeedly opperation, sample 100000 observations to base this on
-  if(n > 100000){
-    samp <- sample(1:n,100000,F)
-    data <- data[samp, ]
-  }
-
-  # observed cov between pseudo obsertvations ovver n-1 gets us cov betwene moments moments
-  dim2 <- data[1, ] %o% data[1, ]
-  dim2locs <- .dimlocations(nrow(t(dim2)), dims=2)
-  dim3 <- dim2 %x% data[1, ]
-  dim3locs <- .dimlocations(nrow(t(dim3)), dims=3)
-  dim4 <- dim3 %x% data[1, ]
-  dim4locs <- .dimlocations(nrow(t(dim4)), dims=4)
-  if (use_skewness & use_kurtosis) {
-    idx <- c(dim2locs, length(as.vector(dim2)) + dim3locs,  length(as.vector(dim2)) + length(as.vector(dim3)) + dim4locs)
+  # idx is pre-determined in MCMdatasummary() depending on the number of variables
+  # Note there is probably a cleaner way to do this as these numbers only depend on number of columns..
+  # If you want to be a contributor, here's your chance.
+  if (use_kurtosis & use_skewness) {
+    idx <- data$SE$idx$idx
   } else if (use_skewness) {
-    idx <- c(dim2locs, length(as.vector(dim2)) + dim3locs)
+    idx <- data$SE$idx$idx_nokurt
   } else if (use_kurtosis) {
-    idx <- c(dim2locs, length(as.vector(dim2)) + dim4locs)
+    idx <- data$SE$idx$idx_noskew
+  } else {
+    idx <- data$SE$idx$idx_nokurt_noskew
   }
-  Rm2vmasks <- list(
-    m2=which(as.logical(as.numeric(torch_tensor(m2v_masks[['m2']], device=torch_device("cpu"))))),
-    m3=which(as.logical(as.numeric(torch_tensor(m2v_masks[['m3']], device=torch_device("cpu"))))),
-    m4=which(as.logical(as.numeric(torch_tensor(m2v_masks[['m4']], device=torch_device("cpu")))))
-  )
-  S.m <- apply(scale(data, center = T, scale = F),1, .t4crossprod, idx=idx, use_skewness=use_skewness, use_kurtosis=use_kurtosis) # 00:24
-
-  # S.m <- cov(t(S.m))/(n-1)
-  # Replace this with torch_cov(S.m) / (n - 1)  once that is implemented in torch for R
-  S.m <- torch_transpose(torch_tensor(S.m, device=torch_device("cpu")), 1, 2)
-  S.m <- torch_subtract(S.m, torch_reshape(torch_mean(S.m, dim=1), c(1, S.m$shape[2])))
-  S.m <- torch_matmul(torch_transpose(S.m, 1, 2), S.m)  / (S.m$shape[1] - 1) / (n - 1)
-
+  S.m <- data$SE$S.m[idx, idx]  # S.m is pre-computed in MCMdatasummary()
   # weights matrix is based on diagonal, may be better behaved?
-  S.m <- as.matrix(S.m)
-  W <- solve(diag(nrow(S.m)) * S.m) # 00:00.1
+  W <- solve(diag(nrow(S.m)) * S.m)
   par_vec <- NULL
   par_to_list_coords <- list()
   coord_start <- 1
@@ -118,6 +95,12 @@
       .par_list_grad_only[[i]] <- NULL
     }
   }
+
+  Rm2vmasks <- list(
+    m2=which(as.logical(as.numeric(torch_tensor(m2v_masks[['m2']], device=torch_device("cpu"))))),
+    m3=which(as.logical(as.numeric(torch_tensor(m2v_masks[['m3']], device=torch_device("cpu"))))),
+    m4=which(as.logical(as.numeric(torch_tensor(m2v_masks[['m4']], device=torch_device("cpu")))))
+  )
 
   if (low_memory) {func <- .jac.fn_torch_lowmem} else {func <- .jac.fn_torch}
   G <- jacobian(func = func,x = par_vec, .par_list=.par_list, par_to_list_coords=par_to_list_coords, torch_masks=torch_masks,

@@ -6,31 +6,28 @@ summary.mcmresultclass <- function(res) {
       if (is.na(suppressWarnings(as.numeric(res$model$named_matrices[['A']][row, col])))) {
         parname <- res$model$named_matrices[['A']][row, col]
         parvalue <- res$model$num_matrices[['A']][row, col]
-        if (startsWith(parname, "a")) {
-          label <- parname
-          if (col < row) {
+        std <- if ('se' %in% rownames(res$df)) {res$df['se', parname]} else {NA}
+        p <- if ('se' %in% rownames(res$df)) {2*pnorm(abs(res$df['est', parname])/res$df['se', parname], lower.tail=FALSE)} else {NA}
+        group <- 1; fixed <- FALSE
+        if (xor(row > res$model$meta_data$n_latent, col > res$model$meta_data$n_latent)) {
+          if (col < res$model$meta_data$n_latent) {
             lhs <- res$model$meta_data$latent_names[col]
             rhs <- res$model$meta_data$original_colnames[row - res$model$meta_data$n_latent]
+            Pars_fact <- rbind(Pars_fact, c(parname, lhs, "=~", rhs, parvalue, std, p, group, fixed))
           } else {
             lhs <- res$model$meta_data$original_colnames[col - res$model$meta_data$n_latent]
             rhs <- res$model$meta_data$latent_names[row]
+            Pars_reg <- rbind(Pars_fact, c(parname, lhs, "~>", rhs, parvalue, std, p, group, fixed))
           }
-          edge <- "=~"
-          est <- parvalue
-          std <- if ('se' %in% rownames(res$df)) {res$df['se', parname]} else {NA}
-          p <- if ('se' %in% rownames(res$df)) {2*pnorm(abs(res$df['est', parname])/res$df['se', parname], lower.tail=FALSE)} else {NA}
-          group <- 1; fixed <- FALSE
-          Pars_fact <- rbind(Pars_fact, c(label, lhs, edge, rhs, est, std, p, group, fixed))
         } else {
-          label <- parname
-          lhs <- res$model$meta_data$original_colnames[col - res$model$meta_data$n_latent]
-          rhs <- res$model$meta_data$original_colnames[row - res$model$meta_data$n_latent]
-          edge <- "~>"
-          est <- parvalue
-          std <- if ('se' %in% rownames(res$df)) {res$df['se', parname]} else {NA}
-          p <- if ('se' %in% rownames(res$df)) {2*pnorm(abs(res$df['est', parname])/res$df['se', parname], lower.tail=FALSE)} else {NA}
-          group <- 1; fixed <- FALSE
-          Pars_reg <- rbind(Pars_reg, c(label, lhs, edge, rhs, est, std, p, group, fixed))
+          if (row > res$model$meta_data$n_latent) {
+            lhs <- res$model$meta_data$original_colnames[col - res$model$meta_data$n_latent]
+            rhs <- res$model$meta_data$original_colnames[row - res$model$meta_data$n_latent]
+          } else {
+            lhs <- res$model$meta_data$latent_names[col]
+            rhs <- res$model$meta_data$latent_names[row]
+          }
+          Pars_reg <- rbind(Pars_reg, c(parname, lhs, "~>", rhs, parvalue, std, p, group, fixed))
         }
       }
     }
