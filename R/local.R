@@ -53,7 +53,7 @@ get_comoments <- function(data, weights=NULL) {
       centred_tens_ <- centred_tens * torch_reshape(centred_tens[, i], c(nrow(data), 1))
       M3[, ((i-1)*ncol(data)+1):(i*ncol(data))] <- torch_matmul(centred_tens_$t(), centred_tens)
     }
-    M3 <- M3w/torch_sum(weights)
+    M3 <- M3/torch_sum(weights)
 
     M4 <- torch_zeros(c(ncol(data), ncol(data)^3))
     iter <- 0
