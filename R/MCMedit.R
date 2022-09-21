@@ -1,4 +1,5 @@
 MCMedit <- function(model, pointer, name, value) {
+  default_starts <- list(a=0.2, b=0, s=1, sk=0.8, k=4)
   x <- model$copy()
   if (pointer %in% names(x$num_matrices)) {
     # For modifying parameters:
@@ -32,6 +33,7 @@ MCMedit <- function(model, pointer, name, value) {
         if (is.character(value)) {
           for (i in seq_along(name[[1]])) {
             x$named_matrices[[pointer]][name[[1]][i], name[[2]][i]] <- value[i]
+            x$num_matrices[[pointer]][name[[1]][i], name[[2]][i]] <- default_starts[[sub("^([[:alpha:]]*).*", "\\1", gsub("l", "", gsub("-", "", value[i])))]]
           }
         } else {
           for (i in seq_along(name[[1]])) {
@@ -44,6 +46,7 @@ MCMedit <- function(model, pointer, name, value) {
       } else {
         if (is.character(value)) {
           x$named_matrices[[pointer]][name[1], name[2]] <- value
+          x$num_matrices[[pointer]][name[1], name[2]] <- default_starts[[sub("^([[:alpha:]]*).*", "\\1", gsub("l", "", gsub("-", "", value)))]]
         } else {
           if (is.character(name)) {
             # MCMedit(model, "A", c("b1_2", "b1_3", "b1_4"), 0)

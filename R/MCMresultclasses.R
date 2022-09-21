@@ -94,9 +94,9 @@ mcmresultsummaryclass$methods(
   }
 )
 
-as.data.frame.mcmresultsummaryclass <- function(x, estimates="parameters") {
+as.data.frame.mcmresultsummaryclass <- function(summ, estimates="parameters") {
   if (estimates %in% c("parameters", "variances", "skewness", "kurtosis")) {
-    return(x[[estimates]])
+    return(summ[[estimates]])
   } else {
     stop('estimates argument should be one of ("parameters", "variances", "skewness", "kurtosis")')
   }

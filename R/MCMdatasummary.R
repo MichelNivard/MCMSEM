@@ -1,4 +1,4 @@
-MCMdatasummary <- function(data=NULL, path=NULL, scale_data=TRUE, prep_asymptotic_se=TRUE, weights=NULL) {
+MCMdatasummary <- function(data=NULL, path=NULL, weights=NULL, scale_data=TRUE, prep_asymptotic_se=TRUE) {
   if (is.null(data) & is.null(path)) {
     stop("Either argument data (to generate a new summary) or argument path (to load an existing summary) should be provided")
   }

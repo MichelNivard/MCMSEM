@@ -47,9 +47,7 @@
   pred_matrices <- if (use_kurtosis & use_skewness) {return(list(M2=M2, M3=M3, M4=M4))} else if (use_skewness) {return(list(M2=M2, M3=M3))} else if (use_kurtosis) {return(list(M2=M2, M4=M4))}
 }
 
-# Objective function
-.torch_objective <- function(.par_list, lossfunc, torch_bounds, torch_masks, torch_maps, base_matrices, M2.obs, M3.obs, M4.obs, m2v_masks, use_bounds, use_skewness, use_kurtosis) {
-  pred_matrices <- .get_predicted_matrices(.par_list, torch_masks, torch_maps, base_matrices, use_skewness, use_kurtosis)
+.calc_loss <- function(lossfunc, pred_matrices, m2v_masks, M2.obs, M3.obs, M4.obs, use_skewness, use_kurtosis) {
   ### Loss function
   # Rstyle (in case of mse): value <- sum((.m2m2v(M2.obs) - .m2m2v(M2))^2) + sum((.m3m2v(M3.obs) - .m3m2v(M3))^2) + sum((.m4m2v(M4.obs)- .m4m2v(M4))^2)
   if (use_skewness & use_kurtosis) {
@@ -58,7 +56,16 @@
     value <- lossfunc(torch_mul(pred_matrices[['M2']], m2v_masks[['m2']]), torch_mul(M2.obs, m2v_masks[['m2']])) + lossfunc(torch_mul(pred_matrices[['M3']], m2v_masks[['m3']]), torch_mul(M3.obs, m2v_masks[['m3']]))
   } else if (use_kurtosis) {
     value <- lossfunc(torch_mul(pred_matrices[['M2']], m2v_masks[['m2']]), torch_mul(M2.obs, m2v_masks[['m2']])) + lossfunc(torch_mul(pred_matrices[['M4']], m2v_masks[['m4']]), torch_mul(M4.obs, m2v_masks[['m4']]))
+  } else {
+    value <- lossfunc(torch_mul(pred_matrices[['M2']], m2v_masks[['m2']]))
   }
+  return(value)
+}
+
+# Objective function
+.torch_objective <- function(.par_list, lossfunc, torch_bounds, torch_masks, torch_maps, base_matrices, M2.obs, M3.obs, M4.obs, m2v_masks, use_bounds, use_skewness, use_kurtosis) {
+  pred_matrices <- .get_predicted_matrices(.par_list, torch_masks, torch_maps, base_matrices, use_skewness, use_kurtosis)
+  value <- .calc_loss(lossfunc, pred_matrices, m2v_masks, M2.obs, M3.obs, M4.obs, use_skewness, use_kurtosis)
   if (use_bounds) {
     pow <- .loss_power_bounds(.par_list, torch_bounds)
     loss <- value * (2^pow)

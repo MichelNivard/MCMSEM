@@ -5,12 +5,33 @@ R-package which allows users to run multi co-moment structural equation models.
 Note this is the `dev-torch` branch, and **not** intended for end-users. If you would like to use MCMSEM yourself, please go to the main branch. If you would like to contribute to the code, feel free to check this branch out.  
 As of version 0.4.0 it is possible to run MCMSEM on a GPU, see [MCMSEM on GPU](#mcmsem-on-gpu).
 
-## Patch notes thus far (v0.9.1-dev-torch)
-### Torch-specific (v0.9.1)
+## Patch notes thus far (v0.10.0-dev-torch)
+### Torch-specific (v0.10.0)
+ - Moved calculation of loss from `.torch_objective()` to separate `.calc_loss()` function as it is used in three different places
+ - Added `weighted`, `loss_type`, and `optimizer` to `mcmresultclass$info`
+ - Added `MCMcompareloss()`, a function to compare the loss (and other statistics) of different models, given a specific (holdout/test) dataset
+   - > :warning: __WARNING__: Because of the addition of `weighted`, `loss_type`, and `optimizer` to `mcmresultclass$info` result objects created in earlier versions of MCMSEM (i.e. 0.9.1 or earlier) will not work in `MCMcompareloss()`
+ - Added default starting values `(a=0.2, b=0, s=1, sk=0.8, k=4)` for new parameters created through `MCMedit()`, note it is still advised to set these yourself after creation of new paramters, but this way they are at least not all 0
+ - Added manual pages for:
+   - `MCMdatasumamry()`
+   - `MCMsavesummary()`
+   - `MCMcompareloss()`
+   - `as.data.frame(mcmresultclass)`
+   - `as.data.frame(mcmresultsummaryclass)`
+   - `plot(mcmmodelclass)`
+   - `plot(mcmresultclass)`
+   - `print(mcmmodelclass)`
+   - `summary(mcmresultclass)`
+ - Updated manual pages for:
+   - `MCMmodel()`
+   - `MCMfit()`
+ - Removed `Torch-specific` from versions in patch notes as the non-torch dev branch is deprecated and the torch-version is to be considered the only in-development branch
+ - Merged `code updates` into `patch notes` for clarity
+### v0.9.1
  - Fixed issue `object 'n' not found` in `MCMmodel()`
  - Fixed issue `object 'model' not found` in `MCMfit()`
-### Torch-specific (v0.9.0)
- - Fixed an issue causing `summary(mcmresult)` to not malfunction with causal paths between latents
+### v0.9.0
+ - Fixed an issue causing `summary(mcmresult)` to malfunction with causal paths between latents
  - Added `hdf5r` to NAMESPACE and Imports
  - Added `MCMdatasummary` to create an object with all required data for MCMSEM without storing full data. This could allow cohorts to more easily share this data without privacy concerns.
    - Note that this does make bootstrapping impossible
@@ -58,12 +79,12 @@ Note that runtime is long, but that this is partly (or mostly, with many variabl
 | 26          | 2108.23 s       | 295 MB    |
 | 28          | 4072.52 s       | 505 MB    |
 
-### Torch-specific (v0.8.0)
+### v0.8.0
  - Fixed an issue that (depending on device) could cause fit to fail
  - Fixed `summ not found` issue in `summary(result)`
  - Changed optimizer iteration loops from `1:x` to `seq_len(x)` to allow for disabling one of the optimizers by setting its `optim_iters` to 0.
  - In `MCMfit` changed sqrt(S) to sign(S) * sqrt(abs(S)) to prevent NaN in cases of negative values (still in testing phase)
-### Torch-specific (v0.7.4)
+### v0.7.4
  - `loss` reported in result and summary objects is now the loss without bound scaling. You can still obtain the final loss with bound scaling via `res$history$loss[length(res$history$loss)]`
  - Added `...` to `plot(model, ..)` for additional arguments to be passed on to `qgraph`
  - Fixed a bug with `K` matrix when n_factors > 1 resulting from changes in v0.7.3
@@ -72,28 +93,28 @@ Note that runtime is long, but that this is partly (or mostly, with many variabl
  - Added information on CPU threading to `1. Installing MCMSEM.md`
  - Updated manual pages based on recent changes
  - Added details on the layout of higher co-moment matrices to the `Advanced` section in `2.1 Creating an MCM model.md`.
-### Torch-specific (v0.7.3)
+### v0.7.3
  - Fixed an issue causing all bounds to be 0-100 (kurtosis-bounds) by default
  - Updated `wiki/3. Fitting an MCM model.md`
  - Values in `K` matrix for non-free kurtosis is now updated based on values in `S`
  - Allowed user to specify the first optimizer type through the `optimizer` argument, the following are included but all but RPROP are untested: `'rprop', 'sgd' ,'rmsprop', 'asgd', 'adam', 'adagrad', 'adadelta'`
  - Enabled models with 0 latent factors
  - Moved calculation of predicted M2, M3, M4 matrices to `.get_predicted_matrices` as the code was copy-pasted 3 times
-### Torch-specific (v0.7.2)
+### v0.7.2
  - Fixed summary(MCMresult) to also work when `use_skewness` or `use_kurtosis` is set to `FALSE`
  - Added `estimates` argument to `as.data.frame(MCMresultsummary)` to choose the estimates table to return (parameters, variances, skewness or kurtosis)
  - Added `wiki/2.0 Generate test data.md`
  - Updated `wiki/2.1 Creating an MCM model.md`
  - Updated `wiki/2.2 Editing an MCM model.md`
  - Added S3 method `print.mcmmodelclass` to allow for printing specific matrices, e.g. `print(mcmmodel, matrix="A")`
-### Torch-specific (v0.7.1)
+### v0.7.1
  - Fixed an issue that caused negative parameters to fail due to missing starting values
  - K matrix in `model$num_matrices$K` and `model$named_matrices$K` now properly display the value 3 as x,x,x,x-kurtosis for latent factors
  - Value of 3 for x,x,x,x-kurtosis of latent factors is no longer hardcoded in `MCMfit` but rather obtained from `model$num_matrices$K`
  - Added check for non-numeric columns and ID-column in `MCMmodel`
  - Changed stopping errors of multiple latent variables to warnings to allow for testing
  - Added observed and predicted comoment matrices to `result$history`
-### Torch-specific (v0.7.0)
+### v0.7.0
 > :warning: __WARNING__: The argument names `n_confounding` and `confounding_names` in `MCMmodel()` have been changed to `n_latent` and `latent_names` in this version. Please update your code accordingly.
  - Changed references to latent factors from `confounding` to `latent` script-wide, for consistent labelling. 
  - Added 8 new arguments to `MCMmodel()` to change broad model specifications directly. Note for now these do not alter the initial model generation, but use `MCMedit()` after the default model is generated, slightly slowing down `MCMmodel`, so if we get to the point where giant models (i.e. >50 variables) are possible, this should be changed.
@@ -106,7 +127,7 @@ Note that runtime is long, but that this is partly (or mostly, with many variabl
    - skew_latent: adds free parameters for skewness of latent factors (default FALSE)
    - kurt_latent: adds free parameters for kurtosis of latent factors (default FALSE)
  - Changed `MCMedit()` to accept multiple parameter names, e.g.: `MCMedit(model, "A", c("b1_2", "b2_1"), 0)`. Note that all these parameters should still originate from the same matrix
-### Torch-specific (v0.6.2)
+### v0.6.2
  - Added `wiki` folder with markdown documents to be used for the Wiki upon release.
  - Added argument `loss_type` to `MCMfit()` which allows users to change loss from MSE to smooth_L1. (regular L1 is also implemented but unlisted as it is untested)
  - Created `MCMSEMversion` variable in `local.R`, for easy access within the package (e.g. to store in result objects), and for easy access for users: `MCMSEM::MCMSEMversion`
@@ -114,7 +135,7 @@ Note that runtime is long, but that this is partly (or mostly, with many variabl
  - Replaced `for (i in 1:length(x))` with the safer `for (i in seq_along(x))` throughout
  - Replaced `for (i in 1:nrow(x))` with the safer `for (i in seq_len(nrow(x)))` throughout
  - Some basic cleanup without functional difference
-### Torch-specific (v0.6.1)
+### v0.6.1
  - Changed `cat` calls in non-silent operation of `MCMfit` to use CR (`\r`) instead of newline (`\n`) to prevent flooding the console 
  - Split `local.R` into `local_gen_matrices.R`, `local_stderr.R`, and `local_torch_matrices.R`, also moved fit and objective functions from `MCMfit.R` to `local_fit.R`. Each script now contains local functions that are (mainly) used for their respective function names
  - Removed `knot` column from `summary(mcmresult)` as it is currently unused
@@ -130,42 +151,78 @@ Note that runtime is long, but that this is partly (or mostly, with many variabl
  - Added several parameters to MCM result summary, most notably `chisq`, `aic` and `bic`
  - Changed `n_par` calculation in `summary(result)` to subtract parameters in skewness/kurtosis matrix if either of those was disabled during `MCMfit`
  - switched to Huber loss for stability (`nn_smooth_l1_loss()`), TODO: Make an optional switch between MSE and Huber loss
-### Torch-specific (v0.6.0)
+### v0.6.0
  - Added `confounding_names` argument to `MCMmodel` to allow users to name latent factors
  - Original column names and latent factor names (user-provided or f1, f2, ..., fn) are now stored in `mcmmodel$meta_data`
  - Added `summary(mcmresult)` which returns a lavaan-partable-like dataframe using original column names and stored latent names
  - Added `plot(mcmresult)`which plots a qgraph visualization of the model using original column names and stored latent names
  - Added `plot(mcmmodel)` which allows visualizing the model before running `MCMfit()`, output is identical to `plot(mcmresult)` only with graph weights fixed to approximately 1.0
  - Changed check for pre-scaled data from checking `data == data_scaled` to checking if all columns mean and sd match expected values, significantly speeding up model generation with larger pre-scaled datasets
-### Torch-specific (v0.5.0)
+### v0.5.0
  - Changed call to R `cov()` in asymptotic SE calculation to custom torch solution (to be replaced with `torch_cov` once this is implemented), significantly improving performance.
  - Added `low_memory` option to `MCMfit`, which when enabled forces aggressive garbage collection during optimization. This can help run larger models on GPUs. Enabling `low_memory` does significantly impact performance, especially when using a CPU device, therefore it is off by default.
  - Added `info` field to `MCMresult` object which stores MCMSEM version, as well as arguments used to obtain the result.
-### Torch-specific (v0.4.3)
+### v0.4.3
+ - Fixed `Error: invalid assignment for reference class field ‘param_values’`.
+ - Added `int/CITATION` to allow users to run `citation("MCMSEM")`.
+ - Renamed `MCMSEMmodelclass.R` to `MCMmodelclass` in line with other filenames.
+ - Removed `.m2m2v`, `.m3m2v`, `.m4m2v`, `.torch_m2m2v`, `.torch_m3m2v` and `.torch_m4m2v` from `local.R` as they are no longer used (superseded by mask functions like `.torch_m2m2v_mask`)
  - Small memory tweaks in `MCMfit`
  - Moved to `torch nn_mse_loss` function significantly improving performance and reducing memory usage further
  - Added MCMedit option to change multiple parameters simultaneously using coordinates:
    - `mcmmodel <- MCMedit(mcmmodel, "A", list(6:10, 1), c("a11", "a12", "a13", "a14", "a15"))`
  - Added MCMedit option to remove all parameters of given type simultaneously:
    - `mcmmodel <- MCMedit(mcmmodel, "A", 'b', 0)`
-### Torch-specific (v0.4.2)
+### v0.4.2
  - Backend changes to standard error computation significantly improving performance.
  - Moved `model` object in `mcmresultclass` one level up so it can be accessed via `result$model`
  - Updated `model` object in `result` such that results are also stored in the matrices at appropriate locations
-### Torch-specific (v0.4.1)
+ - Changed `.jac.fn` to use torch tensors within the function significantly improving performance.
+ - Changed `mcmresultclass` definition so `model` is now at top level of the object
+ - Changed `mcmmodelclass` definition so an empty instance can be generated (for parsing/loading purposes)
+ - The local `model$copy()` in `MCMfit` is now updated with resulting parameter values at the end of the function, so the returned model contains all parameters in the correct matrix.
+ - Added [MCMSEM on GPU](#mcmsem-on-gpu) to README
+### v0.4.1
  - Minor tweaks to `MCMfit` to slightly reduce (V)RAM usage
-### Torch-specific (v0.4.0)
+### v0.4.0
  - Added `device` argument to `MCMfit`, and reformated `MCMfit` to be device-agnostic. This enables using cuda (GPU)
  - Overhauled backend of `MCMfit` and `.objective` for improved performance:  
    - Optimizer-only runtime down from 30 minutes to 30 seconds (30 variables, 5 confounders, c(100, 25) iters, no SE, no kurtosis, no bounds)
-### Torch-specific (v0.3.1)
+ - Significant backend changes to `MCMfit` to significantly improve performance
+   - (Nearly) everything ported to pure torch, no more indexing in `.objective`, no more `.m3m2v` loops etc.
+   - Note this requires significantly more upfront work (creating base matrices, masks, etc), but results in ~60x performance boost in optimization
+ - Enabled using with CUDA device
+ - Fixed torch-implementation of quadratic scaling when parameters are out of bounds
+ - Enabled using `use_bounds` with a CUDA device
+ - Changed bootstrap code to be in line with current versions
+### Code update 20-06-2021
+ - Added `runtimes` element to MCMresult that gives some insight intor runtimes of several steps (mostly for development purpposes). 
+ - Added `device` argument to `MCMfit` in preparation of CUDA-enabled version
+### v0.3.1
  - Moved to torch backend
  - Optimization is now performed using a combination of RPROP and LBFGS optimizers, instead of nlminb
  - Added MCMresultclass to hold MCMfit results
  - Can be converted to a dataframe using `as.data.frame(result)`, then it is in line again with that of the non-torch version
  - Note the torch implementation is slightly slower in the simplest use-case (2 variables + 1 confounder), but scales significantly better to more variables and confounders.
  - It is now possible to disable using skewness or kurtosis in larger models to improve performance by reducing reliance on all co-moments. Set either `use_skewness` and `use_kurtosis` arguments to `MCMfit()` to `FALSE` to ignore specific co-moments.
-### From v0.2.1-dev
+ - Removed several fixed TODO notes
+ - Also removed notes about not being able to run MCMSEM for both positive and negative confounding, as this is not feasible in the current code format. It is easy enough now for users do this themselves through MCMedit.
+ - Changed MCMedit argument names to more sensible ones
+ - Moved `simulate_data` to MCMsimulate_data.R for more consistency in filenames.
+ - Changed manual pages to new coding format
+ - Changed test to new coding format
+ - Added `use_skewness` and `use_kurtosis` arguments to `MCMfit()` to disable using one of them to estimate parameters in larger models.
+ - Added `use_bounds` in MCMfit, if enabled, loss will be dramatically increased as parameter estimates get further away from bounds.
+ - Added USAGE to readme
+### v0.3.0, Initial dev-torch
+ -Fixed MCMfit so it now actually works
+ - Merged changes to std.err from `dev`
+ - For now, SE calculation is still done with R-matrices (similar to `dev`) as opposed to torch tensors, as I haven't found a way to make it work without significantly impacting performance.
+ - Removed updates and todo that belong to `dev`
+ - Added `silent` argument to `MCMfit()` to prevent printing loss at every step
+ - Added MCMresult object to hold result as dataframe, loss, and history (all loss values, and model used)
+ - Added `optim_iters` argument to `MCMfit()` to enable changing number of iterations of each optimizer
+### v0.2.1-dev
  - Added mcmmodelclass, this class describes the layout of the MCMSEM model complete with parameter matrices, parameter/starting values, and bounds.
  - Addded MCMmodel wrapper function to enable easy creation of mcmmodelclass instances for users
  - Added MCMedit to make editing a model easier (e.g. adding or constraining parameters, changing bounds, etc.)
@@ -174,71 +231,25 @@ Note that runtime is long, but that this is partly (or mostly, with many variabl
    `model <- MCMedit(model, "A", c(2,1), "-a1")`, note `c(2, 1)` are parameter coordinates in the A matrix and may depend on the number of confounders added to the model.
  - Output column names have changed to be identical to parameter names  
  - Added asymptotic calculation of standard errors for much faster runtimes
- 
-### Code updates
- - Update 01-07-2021:
-   - Fixed `Error: invalid assignment for reference class field ‘param_values’`.
-   - Added `int/CITATION` to allow users to run `citation("MCMSEM")`.
-   - Renamed `MCMSEMmodelclass.R` to `MCMmodelclass` in line with other filenames.
-   - Removed `.m2m2v`, `.m3m2v`, `.m4m2v`, `.torch_m2m2v`, `.torch_m3m2v` and `.torch_m4m2v` from `local.R` as they are no longer used (superseded by mask functions like `.torch_m2m2v_mask`)
- - Update 30-06-2021 (labelled v0.4.2):
-   - Changed `.jac.fn` to use torch tensors within the function significantly improving performance.
-   - Changed `mcmresultclass` definition so `model` is now at top level of the object
-   - Changed `mcmmodelclass` definition so an empty instance can be generated (for parsing/loading purposes)
-   - The local `model$copy()` in `MCMfit` is now updated with resulting parameter values at the end of the function, so the returned model contains all parameters in the correct matrix.
-   - Added [MCMSEM on GPU](#mcmsem-on-gpu) to README
- - Update 29-06-2021 (labelled v0.4.1):
-   - Minor RAM tweaks in `MCMfit`, storing fewer R objects saves some VRAM (particularly for CUDA devices).
- - Update 24-06-2021 (labelled v0.4.0):
-   - Significant backend changes to `MCMfit` to significantly improve performance
-     - (Nearly) everything ported to pure torch, no more indexing in `.objective`, no more `.m3m2v` loops etc.
-     - Note this requires significantly more upfront work (creating base matrices, masks, etc), but results in ~60x performance boost in optimization
-   - Enabled using with CUDA device
-   - Fixed torch-implementation of quadratic scaling when parameters are out of bounds
-   - Enabled using `use_bounds` with a CUDA device
-   - Changed bootstrap code to be in line with current versions
- - Update 20-06-2021:
-   - Added `runtimes` element to MCMresult that gives some insight intor runtimes of several steps (mostly for development purpposes). 
-   - Added `device` argument to `MCMfit` in preparation of CUDA-enabled version
- - Update 17-06-2021 (labelled v0.3.1):
-   - Removed several fixed TODO notes
-     - Also removed notes about not being able to run MCMSEM for both positive and negative confounding, as this is not feasible in the current code format. It is easy enough now for users do this themselves through MCMedit.
-   - Changed MCMedit argument names to more sensible ones
-   - Moved `simulate_data` to MCMsimulate_data.R for more consistency in filenames.
-   - Changed manual pages to new coding format
-   - Changed test to new coding format
-   - Added `use_skewness` and `use_kurtosis` arguments to `MCMfit()` to disable using one of them to estimate parameters in larger models.
-   - Added `use_bounds` in MCMfit, if enabled, loss will be dramatically increased as parameter estimates get further away from bounds.
-   - Added USAGE to readme
- - Update 15-06-2022-torch:
-   - Fixed MCMfit so it now actually works
-   - Merged changes to std.err from `dev`
-   - For now, SE calculation is still done with R-matrices (similar to `dev`) as opposed to torch tensors, as I haven't found a way to make it work without significantly impacting performance.
-   - Removed updates and todo that belong to `dev`
-   - Added `silent` argument to `MCMfit()` to prevent printing loss at every step
-   - Added MCMresult object to hold result as dataframe, loss, and history (all loss values, and model used)
-   - Added `optim_iters` argument to `MCMfit()` to enable changing number of iterations of each optimizer
-
-### Things still TODO:
-1. Create `MCMholdout` function to compare loss/fit of 1 or more models on holdout data and/org original data. Also check if settings of models were similar enough (e.g. both with weighted data etc)
-2. Check `var_observed` values
-3. Add gradient history (probably as option)
-4. Stop computation when loss/gradient is NaN (then return last non-NA result)
-5. Create manual/wiki pages for:
-   1. MCMdatasummary() - Include recommendation for generating datasummary object of data which will be used in different models
-   2. MCMsavesummary()
-   3. weighted analysis
-6. Add Hessian
-7. Find a way to get the full jacobian using torch? (and have it be faster than the default jacobian with the current .jac.fn)
-8. Expand checks in `MCMmodel` 
-
-## Patch notes
-- v0.1.1 
+### v0.1.1 
   - Added some TODO labels, added `'both'` option to `confounding`  argument which will run MCMSEM twice, once with negative, once with positive confounding and return both results. 
   - Added `bootstrap_chunk` argument. 
   - Added automatic standardization in `MCMSEM`
   - Added backups for internal `.m3m2v` and `.m4m2v` functions (should they ever be necessary).
-- v0.1.0 - Initial commit
+### v0.1.0 - Initial commit
+ 
+### Things still TODO:
+1. Add gradient history (probably as option)
+2. Stop computation when loss/gradient is NaN (then return last non-NA result)
+3. Set up MCMSEM on AWS/GoogleCloud and create a manual on how this is done
+4. Create wiki pages for:
+   1. MCMdatasummary() - Include recommendation for generating datasummary object of data which will be used in different models
+   2. MCMsavesummary()
+   3. weighted analysis
+   4. MCMcompareloss()
+5. Add Hessian
+6. Find a way to get the full jacobian using torch? (and have it be faster than the default jacobian with the current .jac.fn)
+7. Expand checks in `MCMmodel` 
 
 ## Citation
 If you use this package please include the following citation:  
