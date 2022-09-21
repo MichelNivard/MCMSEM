@@ -5,7 +5,9 @@ R-package which allows users to run multi co-moment structural equation models.
 Note this is the `dev-torch` branch, and **not** intended for end-users. If you would like to use MCMSEM yourself, please go to the main branch. If you would like to contribute to the code, feel free to check this branch out.  
 As of version 0.4.0 it is possible to run MCMSEM on a GPU, see [MCMSEM on GPU](#mcmsem-on-gpu).
 
-## Patch notes thus far (v0.9.0-dev-torch)
+## Patch notes thus far (v0.9.1-dev-torch)
+### Torch-specific (v0.9.1)
+ - Fixed issue `object 'n' not found` in `MCMmodel()`
 ### Torch-specific (v0.9.0)
  - Fixed an issue causing `summary(mcmresult)` to not malfunction with causal paths between latents
  - Added `hdf5r` to NAMESPACE and Imports
@@ -53,8 +55,7 @@ Note that runtime is long, but that this is partly (or mostly, with many variabl
 | 22          | 730.05 s        | 91.8 MB   |
 | 24          | 1222.58 s       | 170 MB    |
 | 26          | 2108.23 s       | 295 MB    |
-| 28          |                 |           |
-| 30          |                 |           |
+| 28          | 4072.52 s       | 505 MB    |
 
 ### Torch-specific (v0.8.0)
  - Fixed an issue that (depending on device) could cause fit to fail

@@ -40,12 +40,10 @@ MCMdatasummary <- function(data=NULL, path=NULL, scale_data=TRUE, prep_asymptoti
     weighted <- !(is.null(weights))
     if (weighted) {weightsum <- sum(weights)} else {weightsum <- nrow(data)}
     comoments <- get_comoments(data, weight=weights)
-
-
+    n <- nrow(data)
 
     if (prep_asymptotic_se) {
       # if there is too much data for spoeedly opperation, sample 100000 observations to base this on
-      n <- nrow(data)
       if(n > 100000){
         samp <- sample(1:n,100000,F)
         data <- data[samp, ]
