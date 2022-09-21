@@ -8,6 +8,7 @@ As of version 0.4.0 it is possible to run MCMSEM on a GPU, see [MCMSEM on GPU](#
 ## Patch notes thus far (v0.9.1-dev-torch)
 ### Torch-specific (v0.9.1)
  - Fixed issue `object 'n' not found` in `MCMmodel()`
+ - Fixed issue `object 'model' not found` in `MCMfit()`
 ### Torch-specific (v0.9.0)
  - Fixed an issue causing `summary(mcmresult)` to not malfunction with causal paths between latents
  - Added `hdf5r` to NAMESPACE and Imports

@@ -7,7 +7,7 @@ MCMfit <- function(mcmmodel, data, weights=NULL, compute_se=TRUE, se_type='asymp
   START_MCMfit <- Sys.time()
   if (class(data)[[1]] != "mcmdataclass") {
     data_org <- data
-    data <- MCMdatasummary(data, scale_data=model$meta_data$scale_data, weights=weights, prep_asymptotic_se=((compute_se) & (se_type == "asymptotic")))
+    data <- MCMdatasummary(data, scale_data=mcmmodel$meta_data$scale_data, weights=weights, prep_asymptotic_se=((compute_se) & (se_type == "asymptotic")))
   } else {
     if (compute_se) {
       if (se_type %in% c("one-step", 'two-step'))
