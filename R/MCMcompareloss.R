@@ -1,4 +1,4 @@
-MCMcompareloss <- function(results, data, weights=NULL, loss_type='auto', extensive_model_info=FALSE) {
+MCMcompareloss <- function(results, test_data, weights=NULL, loss_type='auto', extensive_model_info=FALSE) {
   if (is.null(names(results))) {
     names(results) <- paste0("model", seq_len(length(results)))
   }
@@ -12,8 +12,8 @@ MCMcompareloss <- function(results, data, weights=NULL, loss_type='auto', extens
   if (length(results) < 1) {
     stop("Results should be a list of at least one MCM result object")
   }
-  if (class(data)[[1]] != "mcmdataclass") {
-    if (!(class(data)[[1]] %in% c("data.frame", "matrix"))) {
+  if (class(test_data)[[1]] != "mcmdataclass") {
+    if (!(class(test_data)[[1]] %in% c("data.frame", "matrix"))) {
       stop("Data should be an MCM data summary, dataframe, or matrix")
     }
     # If raw data is provided, check if input to weights argument matches that used in results
@@ -22,8 +22,9 @@ MCMcompareloss <- function(results, data, weights=NULL, loss_type='auto', extens
         if (is.null(weights)) {stop(paste0("No weights provided, but result ",i," was produced with weights."))} else {stop(paste0("Weights provided but result ",i," was produced without weights"))}
       }
     }
-    data <- MCMdatasummary(data, scale_data=results[[1]]$model$meta_data$scale_data, weights=weights, prep_asymptotic_se=FALSE)
+    data <- MCMdatasummary(test_data, scale_data=results[[1]]$model$meta_data$scale_data, weights=weights, prep_asymptotic_se=FALSE)
   } else {
+    data <- test_data
     # If a data summary is provided, check if its weighted setting matches that used in results
     for (i in names(results)) {
       if (xor(data$meta_data$weighted, results[[i]]$info$weighted)) {

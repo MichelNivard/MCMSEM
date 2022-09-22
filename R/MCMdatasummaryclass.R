@@ -21,7 +21,7 @@ mcmdataclass$methods(
     cat(paste0("N observed vars: ", .self$meta_data$ncol, "\n"))
   },
   copy=function(){
-    return(mcmresultclass(.self$meta_data, .self$M2, .self$M3, .self$M4))
+    return(mcmresultclass(.self$meta_data, .self$M2, .self$M3, .self$M4, .self$SE))
   },
   save=function(dest) {
     if (!(endsWith(dest, ".mcmdata"))) {dest <- paste0(dest,".mcmdata")}

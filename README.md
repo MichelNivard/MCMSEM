@@ -5,8 +5,29 @@ R-package which allows users to run multi co-moment structural equation models.
 Note this is the `dev-torch` branch, and **not** intended for end-users. If you would like to use MCMSEM yourself, please go to the main branch. If you would like to contribute to the code, feel free to check this branch out.  
 As of version 0.4.0 it is possible to run MCMSEM on a GPU, see [MCMSEM on GPU](#mcmsem-on-gpu).
 
-## Patch notes thus far (v0.10.0-dev-torch)
-### Torch-specific (v0.10.0)
+## Patch notes
+### v0.10.1
+ - Renamed `data` argument to `test_data` in `MCMcompareloss()` to communicate the function is intended to be used with a separate holdout/test sample
+ - Changed wording in manual page of `MCMcompareloss()` similarly
+ - Changed example of `MCMcompareloss()` in the manual to reflect the intended use with test sample:
+   - ```
+     mydata <- simulate_data()
+     # Split data in train and test sample
+     split <- sample(c(1,2), nrow(data), prob=c(0.8, 0.2), replace=TRUE)
+     mydata_train <- mydata[split == 1, ]
+     mydata_test <- mydata[split == 2, ]
+     
+     # Generate and fit models on trainsample
+     mymodel <- MCMmodel(mydata_train)
+     mymodel2 <- MCMmodel(mydata_train)
+     my_result1 <- MCMfit(mymodel, mydata_train)
+     my_result2 <- MCMfit(mymodel2, mydata_train)
+     
+     # compare loss in test sample
+     MCMcompareloss(list(my_result1, my_result2), mydata_test)
+     ```
+ - Added `.self$SE` to `mcmdatasummaryclass$copy()` 
+### v0.10.0
  - Moved calculation of loss from `.torch_objective()` to separate `.calc_loss()` function as it is used in three different places
  - Added `weighted`, `loss_type`, and `optimizer` to `mcmresultclass$info`
  - Added `MCMcompareloss()`, a function to compare the loss (and other statistics) of different models, given a specific (holdout/test) dataset
