@@ -6,6 +6,15 @@ Note this is the `dev-torch` branch, and **not** intended for end-users. If you 
 As of version 0.4.0 it is possible to run MCMSEM on a GPU, see [MCMSEM on GPU](#mcmsem-on-gpu).
 
 ## Patch notes
+### v0.10.2
+ - Added `train_loss`, `train_chisq` and `train_bic` to `MCMcompareloss()` output, and renamed the newly calculated columns to `test_loss`, `test_chisq`, `test_bic`.
+ - Added `train_n` to `MCMcompareloss(extensive_model_info=TRUE)`
+   - Note that `train_n` can be different for result objects from prior versions. This is because previously the N was stored at `MCMmodel` not `MCMfit`. Now the N is stored at actual model fit `MCMfit()`.
+ - Renamed `get_comoments()` to `.get_comoments()` to ensure it is a private function
+ - Moved selection of loss function and optimizer function from the supported ones to their own functions in `local.R` named `.get_lossfunc(loss_type)` and `.get_optimizerfunc(optimizer)` respectively.
+   - This is mainly done to allow for easier modification of the globally supported loss/optimizer lists
+ - Completed transition from `for (i in 1:x)` to `for (i in seq_len(x))`
+ - Allowed `use_kurtosis=FALSE` and `use_skewness=FALSE`
 ### v0.10.1
  - Renamed `data` argument to `test_data` in `MCMcompareloss()` to communicate the function is intended to be used with a separate holdout/test sample
  - Changed wording in manual page of `MCMcompareloss()` similarly

@@ -96,7 +96,7 @@
     }
   }
   K2 <- torch_ones_like(torch_matrices[['K']], device=device, dtype=torch_dtype)
-  for (i in 1:n_p) {
+  for (i in seq_len(n_p)) {
     # Copy kurtosis of latent factors to K2 matrix
     coords <- .nd_to_2d_idx(n_p, i, i, i, i)
     if (model$named_matrices$K[coords$x, coords$y] != "0") {

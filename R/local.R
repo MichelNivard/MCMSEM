@@ -1,4 +1,34 @@
-MCMSEMversion <- "0.10.1"
+MCMSEMversion <- "0.10.2"
+
+# Implemented loss functions
+.get_lossfunc <- function(loss_type) {
+  lossfuncs <- list(
+    mse=nn_mse_loss(reduction='sum'),
+    smooth_l1=nn_smooth_l1_loss(reduction='sum'),
+    l1=nn_l1_loss(reduction='sum')
+  )
+  if (!(loss_type %in% names(lossfuncs))) {
+    stop("loss_type should be one of c('mse', 'smooth_l1')")
+  }
+  return(lossfuncs[[loss_type]])
+}
+
+# Implemented optimizers for optimizer 1
+.get_optimfunc <- function(optimizer) {
+  optimfuncs <- list(
+    rprop=optim_rprop,
+    sgd=optim_sgd,
+    rmsprop=optim_rmsprop,
+    asgd=optim_asgd,
+    adam=optim_adam,
+    adagrad=optim_adagrad,
+    adadelta=optim_adadelta
+  )
+  if (!(optimizer %in% names(optimfuncs))) {
+    stop("optimizer should be one of c(",paste0("'", names(optimfuncs), "'", collapse=", "),")")
+  }
+  return(optimfuncs[[optimizer]])
+}
 
 # wrapper function to make the code more R-like
 .torch_kron <- function(a, b) {
@@ -34,7 +64,8 @@ MCMSEMversion <- "0.10.1"
   return(nd_coords)
 }
 
-get_comoments <- function(data, weights=NULL) {
+# Generate M2, M3, M4 comoment matrices
+.get_comoments <- function(data, weights=NULL) {
   if (is.null(weights)) {
     M2 <- cov(data)
     M3 <- M3.MM(data)

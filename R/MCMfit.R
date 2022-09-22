@@ -17,6 +17,7 @@ MCMfit <- function(mcmmodel, data, weights=NULL, compute_se=TRUE, se_type='asymp
     }
   }
   model <- mcmmodel$copy()  # Model is changed if either use_skewness or use_kurtosis is set to FALSE, so I make a local copy here to ensure the original object stays intact
+  model$meta_data$n_obs <- data$meta_data$n # Store the N of the training data, note this may not always be the same as the N the model was initially made with
   if (is.null(device)) {
     device <- torch_device("cpu")
   }
@@ -27,12 +28,6 @@ MCMfit <- function(mcmmodel, data, weights=NULL, compute_se=TRUE, se_type='asymp
     }
   }
   cpu_device <- torch_device("cpu")
-  if (!(loss_type %in% c("mse", "smooth_l1" ,'l1'))) {
-    stop("loss_type should be one of c('mse', 'smooth_l1')")
-  }
-  if (!(optimizer %in% c('rprop', 'sgd' ,'rmsprop', 'asgd', 'adam', 'adagrad', 'adadelta'))) {
-    stop("optimizer should be one of c('rprop', 'sgd' ,'rmsprop', 'asgd', 'adam', 'adagrad', 'adadelta')")
-  }
   if (!(se_type %in% c('two-step', 'one-step','asymptotic')))
     stop("se_type should be one of c('two-step', 'one-step','asymptotic')")
   if (data$meta_data$ncol != 2)
@@ -62,23 +57,9 @@ MCMfit <- function(mcmmodel, data, weights=NULL, compute_se=TRUE, se_type='asymp
     stop(msg)
   }
 
-  lossfuncs <- list(
-    mse=nn_mse_loss(reduction='sum'),
-    smooth_l1=nn_smooth_l1_loss(reduction='sum'),
-    l1=nn_l1_loss(reduction='sum')
-  )
-  lossfunc <- lossfuncs[[loss_type]]
-  #c('rprop', 'sgd' ,'rmsprop', 'asgd', 'adam', 'adagrad', 'adadelta')
-  optimfuncs <- list(
-    rprop=optim_rprop,
-    sgd=optim_sgd,
-    rmsprop=optim_rmsprop,
-    asgd=optim_asgd,
-    adam=optim_adam,
-    adagrad=optim_adagrad,
-    adadelta=optim_adadelta
-  )
-  optimfunc <- optimfuncs[[optimizer]]
+  lossfunc <- .get_lossfunc(loss_type)
+  optimfunc <- .get_optimfunc(optimizer)
+
   if (compute_se)
     model_copy <- model$copy()
   if (!(use_kurtosis)) {
@@ -164,7 +145,7 @@ MCMfit <- function(mcmmodel, data, weights=NULL, compute_se=TRUE, se_type='asymp
       ##############################
       # Matrix where bootstraps will be stored
       # Bootstrap
-      for (i in 1:bootstrap_iter){
+      for (i in seq_len(bootstrap_iter)) {
         ## Progress bar stuff
         setTxtProgressBar(pb, i)
         model2 <- model_copy$copy()  # Create new empty model
@@ -220,7 +201,7 @@ MCMfit <- function(mcmmodel, data, weights=NULL, compute_se=TRUE, se_type='asymp
       pars.boot2 <- matrix(NA,nrow=bootstrap_iter,ncol=length(model$param_values))
 
       ### STEP 2
-      for (i in 1:bootstrap_iter){
+      for (i in seq_len(bootstrap_iter)) {
         ## Progress bar stuff
         setTxtProgressBar(pb, i)
         model2 <- model_copy$copy()  # Create new empty model
@@ -286,7 +267,8 @@ MCMfit <- function(mcmmodel, data, weights=NULL, compute_se=TRUE, se_type='asymp
                         info=list(version=MCMSEMversion, compute_se=compute_se, se_type=se_type, optim_iters=optim_iters,
                                   bootstrap_iter=bootstrap_iter,bootstrap_chunks=bootstrap_chunks, learning_rate=learning_rate,
                                   silent=silent, use_bounds=use_bounds, use_skewness=use_skewness, use_kurtosis=use_kurtosis,
-                                  device=device$type, low_memory=low_memory, weighted=data$meta_data$weighted, loss_type=loss_type, optimizer=optimizer)
+                                  device=device$type, low_memory=low_memory, weighted=data$meta_data$weighted, loss_type=loss_type,
+                                  optimizer=optimizer, n=data$meta_data$n)
                       ))
 }
 

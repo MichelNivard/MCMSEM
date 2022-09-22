@@ -1,11 +1,4 @@
 plot.mcmmodelclass <- function(model,layout = NULL, use_values=FALSE, ...) {
-  #TODO: I think this is not required, remove it in the next version if nothing weird happens
-  #latents <- seq_len(model$meta_data$n_latent)
-  #if (model$meta_data$n_latent >= 1) {
-  #  qgraph(t(model$num_matrices$A[-latents,-latents] + model$num_matrices$S[-latents,-latents]), ...)
-  #} else {
-  #  qgraph(t(model$num_matrices$A + model$num_matrices$S), ...)
-  #}
   # Full model
   place.latents <- floor(quantile(seq_len(model$meta_data$n_phenotypes),seq_len(model$meta_data$n_latent)/(model$meta_data$n_latent+1)))
   if (model$meta_data$n_latent == 1) place.latents <- place.latents + 0.5
@@ -13,7 +6,7 @@ plot.mcmmodelclass <- function(model,layout = NULL, use_values=FALSE, ...) {
     pheno_pos <-rep(1,model$meta_data$n_phenotypes)
   } else {
     pheno_pos <- NULL
-    for (i in 1:model$meta_data$n_phenotypes) {
+    for (i in seq_len(model$meta_data$n_phenotypes)) {
       pheno_pos <- c(pheno_pos, ((i %% 2) / 2) + ((i-1) %% 2))  # simplest way I knew how to get 1.0, 0.5, 1.0, 0.5, ....
     }
   }

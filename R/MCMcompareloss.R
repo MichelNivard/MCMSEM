@@ -44,29 +44,20 @@ MCMcompareloss <- function(results, test_data, weights=NULL, loss_type='auto', e
   if (length(loss_type) == 1) {
     if (loss_type == 'auto') {
       losses <- losses_used
-    } else if (!(loss_type %in% c("mse", "smooth_l1" ,'l1'))) {
-      stop("loss_type should be one of c('auto', 'mse', 'smooth_l1') or a vector with a combination of these")
     } else {
+      lossfunc_ <- .get_lossfunc(loss_type)  # This is just to produce an error if loss type is not recognizerd
       losses <- c(loss_type)
     }
   } else {
     losses <- c()
     for (i in loss_type) {
-      if (!(i %in% c("mse", "smooth_l1" ,'l1'))) {
-        cat(paste0("loss type '",i,"' in vector not recognized, and therefore ignored.\n"))
-      } else {
-        losses <- c(losses, i)
-      }
+      lossfunc_ <- .get_lossfunc(i)  # This is just to produce an error if loss type is not recognizerd
+      losses <- c(losses, i)
     }
     losses <- unique(losses)
   }
   out <- data.frame(row.names=names(results))
 
-  lossfuncs <- list(
-    mse=nn_mse_loss(reduction='sum'),
-    smooth_l1=nn_smooth_l1_loss(reduction='sum'),
-    l1=nn_l1_loss(reduction='sum')
-  )
   m2v_masks <- list(
     m2=.torch_m2m2v_mask(torch_tensor(data$M2), device=torch_device("cpu"), dtype=torch_float32()),
     m3=.torch_m3m2v_mask(torch_tensor(data$M3), device=torch_device("cpu"), dtype=torch_float32()),
@@ -81,10 +72,17 @@ MCMcompareloss <- function(results, test_data, weights=NULL, loss_type='auto', e
       }
     }
   }
+  # Store original loss, chisq and bic for each model
+  for (resname in names(results)) {
+    out[resname, paste0(results[[resname]]$info$loss_type, "_train_loss")] <- results[[resname]]$loss
+    out[resname, "train_chisq"] <- results[[resname]]$model$n_obs * results[[resname]]$loss
+    out[resname, "train_bic"] <- results[[resname]]$model$n_obs * results[[resname]]$loss + ncol(results[[resname]]$df) * log(results[[resname]]$model$n_obs)
+  }
+
   # Determine loss for each model, and difference with model1 loss for models 2-N
   comoments_used <- c()
   for (loss_type in losses) {
-    lossfunc <- lossfuncs[[loss_type]]
+    lossfunc <- .get_lossfunc(loss_type)
     i <- 0
     for (resname in names(results)) {
       if (results[[resname]]$info$use_kurtosis & results[[resname]]$info$use_skewness) {
@@ -101,9 +99,9 @@ MCMcompareloss <- function(results, test_data, weights=NULL, loss_type='auto', e
         comoments_used <- c(comoments_used, "var")
       }
       loss <- as.numeric(loss)
-      out[resname, paste0(loss_type,"_loss")] <- loss
+      out[resname, paste0(loss_type,"_test_loss")] <- loss
       if (i > 0) {
-        out[resname, paste0(loss_type,"_diff")] <- out[1, paste0(loss_type,"_loss")] - loss
+        out[resname, paste0(loss_type,"_diff")] <- out[1, paste0(loss_type,"_test_loss")] - loss
       }
       i <- i + 1
     }
@@ -114,8 +112,8 @@ MCMcompareloss <- function(results, test_data, weights=NULL, loss_type='auto', e
   # Store chisq and BIC for each model
   for (loss_type in losses) {
     for (resname in names(results)) {
-      out[resname, paste0(loss_type,"_chisq")] <- data$meta_data$N * out[resname, paste0(loss_type,"_loss")]
-      out[resname, paste0(loss_type,"_bic")] <- data$meta_data$N * out[resname, paste0(loss_type,"_loss")] + ncol(results[[resname]]$df) * log(data$meta_data$N)
+      out[resname, paste0(loss_type,"_test_chisq")] <- data$meta_data$N * out[resname, paste0(loss_type,"_test_loss")]
+      out[resname, paste0(loss_type,"_test_bic")] <- data$meta_data$N * out[resname, paste0(loss_type,"_test_loss")] + ncol(results[[resname]]$df) * log(data$meta_data$N)
     }
   }
   # Store N parameters and optim iters and learning rates for each model
@@ -140,14 +138,12 @@ MCMcompareloss <- function(results, test_data, weights=NULL, loss_type='auto', e
       if (length(unique(out[, i]))==1) {out[,i] <- NULL}
     }
   } else {
-    # Store version, use_bounds, optimizer, compute se, se type, silent, device and low memory
+    # Store train_n version, use_bounds, optimizer, compute se, se type, silent, device, low memory and runtimes
     for (resname in names(results)) {
+      out[resname, 'train_n'] <- results[[resname]]$model$n_obs
       for (i in c("version", "use_bounds",  "optimizer", "compute_se", "se_type", "silent", "device", "low_memory")) {
         out[resname, i] <- results[[resname]]$info[[i]]
       }
-    }
-    # Store runtimes
-    for (resname in names(results)) {
       for (i in c("Preparation", "Optimizer", "SE", "Total")) {
         out[resname, paste0(i,"_runtime")] <- as.numeric(results[[resname]]$runtimes[[i]], units='secs')
       }

@@ -42,15 +42,15 @@ MCMmodel <- function(data, n_latent=1, constrained_a=TRUE, scale_data=TRUE, weig
     }
   } else {
     a_names <- NULL
-    for (i in 1:n_latent) {
-      for (j in 1:n_p) {
+    for (i in seq_len(n_latent)) {
+      for (j in seq_len(n_p)) {
         a_names <- c(a_names, paste0("a", i, "_", j))
       }
     }
   }
   b_names <- NULL
-  for (i in 1:n_p) {
-    js <- 1:n_p
+  for (i in seq_len(n_p)) {
+    js <- seq_len(n_p)
     for (j in js[js != i]) {
       b_names <- c(b_names, paste0("b",j,"_", i))
     }
@@ -63,7 +63,7 @@ MCMmodel <- function(data, n_latent=1, constrained_a=TRUE, scale_data=TRUE, weig
 
   sk_starts <- NULL
   k_starts <- NULL
-  for (i in 1:n_p) {
+  for (i in seq_len(n_p)) {
     sk_starts <- c(sk_starts, data$M3[i, i + (i-1)*n_p])
     k_starts <- c(k_starts, data$M4[i, i + (i-1)*n_p + (i-1)*n_p^2])
   }
@@ -86,7 +86,7 @@ MCMmodel <- function(data, n_latent=1, constrained_a=TRUE, scale_data=TRUE, weig
   colnames(start_values) <- unlist(par_names)
   rownames(start_values) <- "start"
   if ((n_latent > 1) & !(constrained_a)) {
-    for (n_fi in 1:(n_latent-1)) {
+    for (n_fi in seq_len(n_latent-1)) {
       num_matrices[["A"]][(n_latent+1):(n_latent+n_fi), n_fi+1] <- 0.0
       named_matrices[["A"]][(n_latent+1):(n_latent+n_fi), n_fi+1] <- "0"
     }
@@ -117,7 +117,7 @@ MCMmodel <- function(data, n_latent=1, constrained_a=TRUE, scale_data=TRUE, weig
     # Add free b-parameters for latent factors
     edit_coords <- list(); edit_coords[[1]] <- edit_coords[[2]] <- -1
     paramnames <- NULL
-    for (i in 1:(n_latent-1)) {
+    for (i in seq_len(n_latent-1)) {
       for (j in (i+1):n_latent) {
         edit_coords[[1]] <- c(edit_coords[[1]], i)
         edit_coords[[2]] <- c(edit_coords[[2]], j)
@@ -133,7 +133,7 @@ MCMmodel <- function(data, n_latent=1, constrained_a=TRUE, scale_data=TRUE, weig
   if (var_latent) {
     edit_coords <- list(); edit_coords[[1]] <- edit_coords[[2]] <- -1
     paramnames <- NULL
-    for (i in 1:n_latent) {
+    for (i in seq_len(n_latent)) {
       edit_coords[[1]] <- c(edit_coords[[1]], i)
       edit_coords[[2]] <- c(edit_coords[[2]], j)
       paramnames <- c(paramnames, paste0("sl",i))
@@ -144,7 +144,7 @@ MCMmodel <- function(data, n_latent=1, constrained_a=TRUE, scale_data=TRUE, weig
   if (skew_latent) {
     edit_coords <- list(); edit_coords[[1]] <- edit_coords[[2]] <- -1
     paramnames <- NULL
-    for (i in 1:n_latent) {
+    for (i in seq_len(n_latent)) {
       new_coords <- .nd_to_2d_idx(n_latent+n_p, i, i, i)
       edit_coords[[1]] <- c(edit_coords[[1]], new_coords[['x']])
       edit_coords[[2]] <- c(edit_coords[[2]], new_coords[['y']])
@@ -156,7 +156,7 @@ MCMmodel <- function(data, n_latent=1, constrained_a=TRUE, scale_data=TRUE, weig
   if (kurt_latent) {
     edit_coords <- list(); edit_coords[[1]] <- edit_coords[[2]] <- -1
     paramnames <- NULL
-    for (i in 1:n_latent) {
+    for (i in seq_len(n_latent)) {
       new_coords <- .nd_to_2d_idx(n_latent+n_p, i, i, i, i)
       edit_coords[[1]] <- c(edit_coords[[1]], new_coords[['x']])
       edit_coords[[2]] <- c(edit_coords[[2]], new_coords[['y']])

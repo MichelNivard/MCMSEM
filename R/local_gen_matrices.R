@@ -8,8 +8,8 @@
   }
   B <- matrix(rep(base_value, (n_p)^2), n_p)
   iter <- 1
-  for (i in 1:n_p) {
-    for (j in 1:n_p) {
+  for (i in seq_len(n_p)) {
+    for (j in seq_len(n_p)) {
       if (i != j) {
         B[i, j] <- par[['b']][iter]
         iter <- iter + 1
@@ -20,22 +20,22 @@
   matrices[['A']] <- A
   ############## Fm
   Fm <- matrix(rep(base_value, n_p * (n_p+n_f)), n_p)
-  for (i in 1:n_p) {
+  for (i in seq_len(n_p)) {
     Fm[i, i+n_f] <- if (is.character(base_value)) "1" else 1
   }
   matrices[['Fm']] <- Fm
   ############## S
   S <- matrix(rep(base_value, (n_p+n_f)^2), n_p+n_f)
-  for (i in 1:n_f) {
+  for (i in seq_len(n_f)) {
     S[i, i] <- if (is.character(base_value)) "1" else 1
   }
-  for (i in 1:n_p) {
+  for (i in seq_len(n_p)) {
     S[i+n_f, i+n_f] <- par[['s']][i]
   }
   matrices[['S']] <- S
   ############## Sk
   Sk <- matrix(rep(base_value, (n_p+n_f)^3), n_p + n_f)
-  for (i in 1:n_p) {
+  for (i in seq_len(n_p)) {
     Sk[i+n_f, i+n_f+(i-1+n_f)*(n_p+n_f)]  <- par[['sk']][i]
   }
   matrices[['Sk']] <- Sk
@@ -43,7 +43,7 @@
   K <- matrix(rep(base_value, (n_p+n_f)^4), n_p + n_f)
   if (!(is.character(base_value))) {
     K1_ref <- rnorm(2000)
-    for (i in 1:(n_p + n_f - 1)) {
+    for (i in seq_len(n_p + n_f - 1)) {
       K1_ref <- cbind(K1_ref, rnorm(2000))
     }
     K <- sqrt(S) %*% K %*% (sqrt(S) %x% sqrt(S) %x% sqrt(S))

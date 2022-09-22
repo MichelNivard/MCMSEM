@@ -31,6 +31,8 @@
     return(c(as.vector(t(x2)), as.vector(t(x3)))[idx])
   } else if (use_kurtosis) {
     return(c(as.vector(t(x2)), as.vector(t(x4)))[idx])
+  } else {
+    return(as.vector(t(x2))[idx])
   }
 }
 
@@ -53,6 +55,8 @@
     return(c(pred_matrices[['M2']][Rm2vmasks[['m2']]], pred_matrices[['M3']][Rm2vmasks[['m3']]]))
   } else if (use_kurtosis) {
     return(c(pred_matrices[['M2']][Rm2vmasks[['m2']]], pred_matrices[['M4']][Rm2vmasks[['m4']]]))
+  } else {
+    return(as.vector(pred_matrices[['M2']][Rm2vmasks[['m2']]]))
   }
 }
 

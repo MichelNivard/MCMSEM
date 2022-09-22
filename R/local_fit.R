@@ -44,7 +44,7 @@
     # Rstyle: M4 <- Fm %*% solve(diag(n_p) - A) %*% K %*%  (t(solve(diag(n_p)-A)) %x% t(solve(diag(n_p)-A))  %x%  t(solve(diag(n_p)-A))) %*% (t(Fm) %x% t(Fm) %x% t(Fm))
     M4 <- torch_matmul(torch_matmul(torch_matmul(Fm, torch_inverse(base_matrices[['diag_n_p']] - A)), K), torch_matmul(.torch_kron(.torch_kron( torch_transpose(torch_inverse(base_matrices[['diag_n_p']] - A), 1, 2),  torch_transpose(torch_inverse(base_matrices[['diag_n_p']] - A), 1, 2)),  torch_transpose(torch_inverse(base_matrices[['diag_n_p']] - A), 1, 2)), .torch_kron(.torch_kron(torch_transpose(Fm, 1, 2), torch_transpose(Fm, 1, 2)), torch_transpose(Fm, 1, 2))))
   }
-  pred_matrices <- if (use_kurtosis & use_skewness) {return(list(M2=M2, M3=M3, M4=M4))} else if (use_skewness) {return(list(M2=M2, M3=M3))} else if (use_kurtosis) {return(list(M2=M2, M4=M4))}
+  pred_matrices <- if (use_kurtosis & use_skewness) {return(list(M2=M2, M3=M3, M4=M4))} else if (use_skewness) {return(list(M2=M2, M3=M3))} else if (use_kurtosis) {return(list(M2=M2, M4=M4))} else {return(list(M2=M2))}
 }
 
 .calc_loss <- function(lossfunc, pred_matrices, m2v_masks, M2.obs, M3.obs, M4.obs, use_skewness, use_kurtosis) {

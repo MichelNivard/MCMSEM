@@ -39,7 +39,7 @@ MCMdatasummary <- function(data=NULL, path=NULL, weights=NULL, scale_data=TRUE, 
     data <- as.matrix(data)
     weighted <- !(is.null(weights))
     if (weighted) {weightsum <- sum(weights)} else {weightsum <- nrow(data)}
-    comoments <- get_comoments(data, weight=weights)
+    comoments <- .get_comoments(data, weight=weights)
     n <- nrow(data)
 
     if (prep_asymptotic_se) {
