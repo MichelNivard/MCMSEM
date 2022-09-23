@@ -1,5 +1,5 @@
 # Function to quadratically scale loss if estimates are out of bounds
-.loss_power_bounds <- function(par, torch_bounds) {
+.loss_power_bounds <- function(par, torch_bounds, outofbounds_penalty) {
   # Does not work for some reason, loss does not change, then jumps to NA
   lbound_check <- torch_less_equal(torch_cat(par), torch_bounds[["L"]])  # 0 if parameter is in bounds, 1 if parameter is out of bounds
   ubound_check <- torch_greater_equal(torch_cat(par), torch_bounds[["U"]])  # 0 if parameter is in bounds, 1 if parameter is out of bounds
@@ -8,7 +8,7 @@
   ldist_sum <- torch_sqrt(torch_sum(lbound_dist * lbound_check)+1e-15)  # Distance multiplied by check: 0 if in bounds
   udist_sum <- torch_sqrt(torch_sum(ubound_dist * ubound_check)+1e-15)  # Distance multiplied by check: 0 if in bounds
   # 1e-15 is added to the lines above to prevent NAN gradients due to sqrt(0) issue
-  pow <- torch_sum(ldist_sum) + torch_sum(udist_sum)
+  pow <- torch_sum(ldist_sum) + torch_sum(udist_sum) * outofbounds_penalty
   return(pow)
 }
 
@@ -63,11 +63,11 @@
 }
 
 # Objective function
-.torch_objective <- function(.par_list, lossfunc, torch_bounds, torch_masks, torch_maps, base_matrices, M2.obs, M3.obs, M4.obs, m2v_masks, use_bounds, use_skewness, use_kurtosis) {
+.torch_objective <- function(.par_list, lossfunc, torch_bounds, torch_masks, torch_maps, base_matrices, M2.obs, M3.obs, M4.obs, m2v_masks, use_bounds, use_skewness, use_kurtosis, outofbounds_penalty) {
   pred_matrices <- .get_predicted_matrices(.par_list, torch_masks, torch_maps, base_matrices, use_skewness, use_kurtosis)
   value <- .calc_loss(lossfunc, pred_matrices, m2v_masks, M2.obs, M3.obs, M4.obs, use_skewness, use_kurtosis)
   if (use_bounds) {
-    pow <- .loss_power_bounds(.par_list, torch_bounds)
+    pow <- .loss_power_bounds(.par_list, torch_bounds, outofbounds_penalty)
     loss <- value * (2^pow)
     return(loss)
   } else {
@@ -76,13 +76,13 @@
 }
 
 # Fit wrapper function
-.torch_fit <- function(optimfunc, M2.obs, M3.obs, M4.obs, m2v_masks, torch_bounds, torch_masks, torch_maps, base_matrices, .par_list, learning_rate, optim_iters, silent, use_bounds, use_skewness, use_kurtosis, lossfunc, return_history=FALSE, low_memory) {
+.torch_fit <- function(optimfunc, M2.obs, M3.obs, M4.obs, m2v_masks, torch_bounds, torch_masks, torch_maps, base_matrices, .par_list, learning_rate, optim_iters, silent, use_bounds, use_skewness, use_kurtosis, lossfunc, return_history=FALSE, low_memory, outofbounds_penalty) {
   loss_hist <- NULL
   optim <- optimfunc(.par_list,lr = learning_rate[1])
   if (low_memory) {gc(verbose=FALSE, full=TRUE)}
   for (i in seq_len(optim_iters[1])) {
     optim$zero_grad()
-    loss <- .torch_objective(.par_list, lossfunc, torch_bounds, torch_masks, torch_maps, base_matrices, M2.obs, M3.obs, M4.obs, m2v_masks, use_bounds, use_skewness, use_kurtosis)
+    loss <- .torch_objective(.par_list, lossfunc, torch_bounds, torch_masks, torch_maps, base_matrices, M2.obs, M3.obs, M4.obs, m2v_masks, use_bounds, use_skewness, use_kurtosis, outofbounds_penalty)
     if (low_memory) {gc(verbose=FALSE, full=TRUE)}
     loss$backward()
     loss_hist <- c(loss_hist, loss$detach())
@@ -91,7 +91,7 @@
   }
   calc_loss_torchfit <- function() {
     optim$zero_grad()
-    loss <- .torch_objective(.par_list, lossfunc, torch_bounds, torch_masks, torch_maps, base_matrices, M2.obs, M3.obs, M4.obs, m2v_masks, use_bounds, use_skewness, use_kurtosis)
+    loss <- .torch_objective(.par_list, lossfunc, torch_bounds, torch_masks, torch_maps, base_matrices, M2.obs, M3.obs, M4.obs, m2v_masks, use_bounds, use_skewness, use_kurtosis, outofbounds_penalty)
     if (low_memory) {gc(verbose=FALSE, full=TRUE)}
     loss$backward()
     loss_hist <<- c(loss_hist, loss$detach())

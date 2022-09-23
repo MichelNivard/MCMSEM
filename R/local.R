@@ -1,4 +1,4 @@
-MCMSEMversion <- "0.10.3"
+MCMSEMversion <- "0.11.0"
 
 # Implemented loss functions
 .get_lossfunc <- function(loss_type) {

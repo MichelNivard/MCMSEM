@@ -3,7 +3,7 @@
 
 # Exported MCMfit function
 MCMfit <- function(mcmmodel, data, weights=NULL, compute_se=TRUE, se_type='asymptotic', optimizer="rprop", optim_iters=c(50, 12), loss_type='mse', bootstrap_iter=200,bootstrap_chunks=1000,
-                   learning_rate=c(0.02, 1), silent=TRUE, use_bounds=TRUE, use_skewness=TRUE, use_kurtosis=TRUE, device=NULL, low_memory=FALSE) {
+                   learning_rate=c(0.02, 1), silent=TRUE, use_bounds=TRUE, use_skewness=TRUE, use_kurtosis=TRUE, device=NULL, low_memory=FALSE, outofbounds_penalty=1) {
   START_MCMfit <- Sys.time()
   if (class(data)[[1]] != "mcmdataclass") {
     data_org <- data
@@ -48,6 +48,12 @@ MCMfit <- function(mcmmodel, data, weights=NULL, compute_se=TRUE, se_type='asymp
       stop("learning_rate should be of length 2")
     }
   }
+  if (outofbounds_penalty < 0) {
+    stop("outofbounds_penalty should be a positive integer")
+  } else if ((outofbounds_penalty == 0) & (use_bounds)) {
+    cat("Setting use_bounds to FALSE as this is more efficient and has the same effect as outofbounds_penalty=0\n")
+    use_bounds <- FALSE
+  }
   # This code remains so this can be easily changed in future versions. As of torch 0.8.0 inverse does not work
   #  with half precision, so for now this is locked at 32 bit
   torch_precision <- 32
@@ -64,7 +70,7 @@ MCMfit <- function(mcmmodel, data, weights=NULL, compute_se=TRUE, se_type='asymp
     model_copy <- model$copy()
   if (!(use_kurtosis)) {
     kurt_par_idx <- which(startsWith(model$param_names, "k"))
-    model$start_values <- model$start_values[, -kurt_par_idx]
+    model$start_values$drop(kurt_par_idx)
     model$bounds <- model$bounds[, -kurt_par_idx]
     model$param_names <- model$param_names[-kurt_par_idx]
     model$param_values <- model$param_values[-kurt_par_idx]
@@ -79,7 +85,7 @@ MCMfit <- function(mcmmodel, data, weights=NULL, compute_se=TRUE, se_type='asymp
     model$param_coords <- new_coords
   } else if (!(use_skewness)) {
     skew_par_idx <- which(startsWith(model$param_names, "sk"))
-    model$start_values <- model$start_values[, -skew_par_idx]
+    model$start_values$drop(skew_par_idx)
     model$bounds <- model$bounds[, -skew_par_idx]
     model$param_names <- model$param_names[-skew_par_idx]
     model$param_values <- model$param_values[-skew_par_idx]
@@ -113,7 +119,7 @@ MCMfit <- function(mcmmodel, data, weights=NULL, compute_se=TRUE, se_type='asymp
   # Obtain estimates with optimizer
   START_optim <- Sys.time()
   TIME_prep <-  START_optim - START_MCMfit
-  out <- .torch_fit(optimfunc, M2.obs, M3.obs, M4.obs, m2v_masks, torch_bounds, torch_masks, torch_maps, base_matrices, .par_list, learning_rate, optim_iters, silent, use_bounds, use_skewness, use_kurtosis, lossfunc, return_history = TRUE, low_memory=low_memory)
+  out <- .torch_fit(optimfunc, M2.obs, M3.obs, M4.obs, m2v_masks, torch_bounds, torch_masks, torch_maps, base_matrices, .par_list, learning_rate, optim_iters, silent, use_bounds, use_skewness, use_kurtosis, lossfunc, return_history = TRUE, low_memory=low_memory, outofbounds_penalty=outofbounds_penalty)
   .par_tensor <- out[['par']]
   loss_hist <- as.numeric(torch_tensor(torch_vstack(out[["loss_hist"]]), device=cpu_device))
   pred_matrices <- out[['pred_matrices']]
@@ -171,7 +177,7 @@ MCMfit <- function(mcmmodel, data, weights=NULL, compute_se=TRUE, se_type='asymp
 
         #3. Fit model
         # Estimate parameters with model function specified above
-        .par_tensor <- .torch_fit(optimfunc, M2.obs, M3.obs, M4.obs, m2v_masks, torch_bounds, torch_masks, torch_maps, base_matrices, .par_list, learning_rate, optim_iters, silent, use_bounds, use_skewness, use_kurtosis, lossfunc, low_memory=low_memory)
+        .par_tensor <- .torch_fit(optimfunc, M2.obs, M3.obs, M4.obs, m2v_masks, torch_bounds, torch_masks, torch_maps, base_matrices, .par_list, learning_rate, optim_iters, silent, use_bounds, use_skewness, use_kurtosis, lossfunc, low_memory=low_memory, outofbounds_penalty=outofbounds_penalty)
         .par <- list()
         for (j in names(.par_tensor)) {
           if (length(param_list[[j]]) > 0) {
@@ -224,7 +230,7 @@ MCMfit <- function(mcmmodel, data, weights=NULL, compute_se=TRUE, se_type='asymp
 
         #3. Fit model
         # Estimate parameters with model function specified above
-        .par_tensor <- .torch_fit(optimfunc, M2.obs, M3.obs, M4.obs, m2v_masks, torch_bounds, torch_masks, torch_maps, base_matrices, .par_list, learning_rate, optim_iters, silent, use_bounds, use_skewness, use_kurtosis, lossfunc, low_memory=low_memory)
+        .par_tensor <- .torch_fit(optimfunc, M2.obs, M3.obs, M4.obs, m2v_masks, torch_bounds, torch_masks, torch_maps, base_matrices, .par_list, learning_rate, optim_iters, silent, use_bounds, use_skewness, use_kurtosis, lossfunc, low_memory=low_memory, outofbounds_penalty=outofbounds_penalty)
         .par <- list()
         for (j in names(.par_tensor)) {
           if (length(param_list[[j]]) > 0) {

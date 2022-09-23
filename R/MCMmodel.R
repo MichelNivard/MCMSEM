@@ -93,7 +93,7 @@ MCMmodel <- function(data, n_latent=1, constrained_a=TRUE, scale_data=TRUE, weig
   }
   model <- mcmmodelclass(named_matrices=named_matrices,
                        num_matrices=num_matrices,
-                       start_values=start_values,
+                       start_values=mcmstartvaluesclass(start_values),
                        bounds=bounds,
                        meta_data=list(n_obs=data$meta_data$N, n_phenotypes=n_p, n_latent=n_latent, bound_defaults=bound_defaults,
                                       weighted=data$meta_data$weighted, data_was_scaled=data$meta_data$data_was_scaled, scale_data=data$meta_data$scale_data,

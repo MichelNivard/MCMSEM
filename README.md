@@ -6,6 +6,17 @@ Note this is the `dev-torch` branch, and **not** intended for end-users. If you 
 As of version 0.4.0 it is possible to run MCMSEM on a GPU, see [MCMSEM on GPU](#mcmsem-on-gpu).
 
 ## Patch notes
+### v0.11.0
+ - Created `mcmstartvaluesclass` and changed all code for `MCMedit()`, `MCMmodel()` and `MCMfit()` accordingly
+   - This is done so that `model$start_values["start", "a1_1"] <- 0` no longer works, as a measure to force users to change start values via `MCMedit("start", ...)`
+ - Added option to edit all start values simultaneously to `MCMedit()`:
+   - `newmodel <- MCMedit(model, "start", "all", new_values)`
+   - Also added a brief description of this to wiki for `Editing an MCM model`
+ - Added `outofbounds_penalty` argument to `MCMfit()` to increase penalty scaling when parameters are out bounds:
+   - `loss *  2 ^ (distance_from_bounds * outofbounds_penalty)`
+   - `MCMfit()` will produce an error if the value of `outofbounds_penalty` is set to a value < 0
+   - If `outofbounds_penalty` is set to 0 `MCMfit()` will set `use_bounds` to `FALSE` instead, as that has the same effect but is more efficient
+ - Added `outofbounds_penalty` to manual page for `MCMfit()`
 ### v0.10.3
  - Fixed summary for models with 1 latent factor
  - Fixed summary for models without factor loadings and/or without causal paths 

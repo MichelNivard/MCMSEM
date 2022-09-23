@@ -1,19 +1,34 @@
+# Custom start values class as a workaround to prevent editing through model$start_values["start", "a"] <- 1.0
+mcmstartvaluesclass <- setRefClass("mcmstartvaluesclass",
+                                   fields=list(.df="data.frame"))
+mcmstartvaluesclass$methods(
+  initialize=function(data=data.frame(NULL)) {.self$.df <- data},
+  copy=function() {return(mcmstartvaluesclass(.self$.df))},
+  show=function() {print(.self$.df)},
+  get=function(x, y) {return(.self$.df[x, y])},
+  getncol=function() {return(ncol(.self$.df))},
+  set=function(x, y, z) {.self$.df[x, y] <- z},
+  set_all=function(x) {.self$.df["start", ] <- x},
+  getcolnames=function() {return(colnames(.self$.df))},
+  drop=function(idx) {.self$.df <- .self$.df[, -idx]}
+)
+
 # Define MCM model class structure
 mcmmodelclass <- setRefClass("mcmmodelclass",
                              fields=list(
                                named_matrices="list",
                                num_matrices="list",
-                               start_values="data.frame",
+                               start_values="mcmstartvaluesclass",
                                bounds="data.frame",
                                meta_data="list",
                                param_values="vector",
                                param_names="vector",
                                param_coords="list"
                              ))
-# Define MCM model class methods
 
+# Define MCM model class methods
 mcmmodelclass$methods(
-    initialize=function(named_matrices=NULL, num_matrices=NULL, start_values=NULL, bounds=NULL, meta_data=NULL,
+    initialize=function(named_matrices=NULL, num_matrices=NULL, start_values=mcmstartvaluesclass(), bounds=NULL, meta_data=NULL,
                         param_values=c(0), param_names=c(""), param_coords=list()){
       if (!(is.null(named_matrices))) {
         # This is executed upon initialization, required to force parse upon initialization of class instance
@@ -41,7 +56,7 @@ mcmmodelclass$methods(
   },
   copy=function() {
     # Create a deepcopy of the model instance
-    return(mcmmodelclass(named_matrices=.self$named_matrices, num_matrices=.self$num_matrices, start_values=.self$start_values,
+    return(mcmmodelclass(named_matrices=.self$named_matrices, num_matrices=.self$num_matrices, start_values=.self$start_values$copy(),
                          bounds=.self$bounds, meta_data=.self$meta_data, param_values=.self$param_values, param_names=.self$param_names,
                          param_coords=.self$param_coords))
   },
@@ -90,9 +105,10 @@ mcmmodelclass$methods(
         }
       }
     }
-    .self$start_values <- as.data.frame(t(.self$param_values))
-    colnames(.self$start_values) <- .self$param_names
-    rownames(.self$start_values) <- "start"
+    starts <- as.data.frame(t(.self$param_values))
+    colnames(starts) <- .self$param_names
+    rownames(starts) <- "start"
+    .self$start_values <- mcmstartvaluesclass(starts)
     .self$bounds <- .self$bounds[.self$param_names]
   },
   inverse_parse=function() {

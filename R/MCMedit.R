@@ -1,5 +1,5 @@
 MCMedit <- function(model, pointer, name, value) {
-  default_starts <- list(a=0.2, b=0, s=1, sk=0.8, k=4)
+  default_starts <- list(a=0.2, b=0, s=0, sk=0, k=0)
   x <- model$copy()
   if (pointer %in% names(x$num_matrices)) {
     # For modifying parameters:
@@ -94,14 +94,21 @@ MCMedit <- function(model, pointer, name, value) {
     row_to_change <- list(bound=c(1, 2), lbound=1, ubound=2)[[pointer]]
     x$bounds[row_to_change, col_to_change] <- value
   } else if (pointer == "start") {
-    if (all((!(name %in% x$param_names)) & !(name %in% c("a", "b", "s", "sk", "k", "fm")) )) {
+    if (name == "all") {
+      if (!(length(value) %in% c(x$start_values$getncol(), 1))) {
+        stop(paste0("Value should either be of length 1, or ", x$start_values$getncol()))
+      } else {
+        x$start_values$set_all(value)
+        x$param_values <- value
+      }
+    } else if (all((!(name %in% x$param_names)) & !(name %in% c("a", "b", "s", "sk", "k", "fm")) )) {
       stop(paste0("Parameter ", name, " not found"))
     } else if (all(name %in% c("a", "b", "s", "sk", "k", "fm"))) {
-      cols_to_change <- which(sub("^([[:alpha:]]*).*", "\\1", colnames(x$start_values)) == name)
-      x$start_values["start", cols_to_change] <- value
+      cols_to_change <- which(sub("^([[:alpha:]]*).*", "\\1", x$start_values$getcolnames()) == name)
+      x$start_values$set("start", cols_to_change, value)
       x$param_values[cols_to_change] <- value
     } else {
-      x$start_values[name] <- value
+      x$start_values$set("start", x$param_names == name, value)
       x$param_values[x$param_names == name] <- value
     }
     x$inverse_parse()
