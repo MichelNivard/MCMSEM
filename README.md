@@ -17,6 +17,7 @@ As of version 0.4.0 it is possible to run MCMSEM on a GPU, see [MCMSEM on GPU](#
    - `MCMfit()` will produce an error if the value of `outofbounds_penalty` is set to a value < 0
    - If `outofbounds_penalty` is set to 0 `MCMfit()` will set `use_bounds` to `FALSE` instead, as that has the same effect but is more efficient
  - Added `outofbounds_penalty` to manual page for `MCMfit()`
+ - Solved `unresolved reference n_obs` issue in `MCMcompareloss()
 ### v0.10.3
  - Fixed summary for models with 1 latent factor
  - Fixed summary for models without factor loadings and/or without causal paths 

@@ -75,8 +75,8 @@ MCMcompareloss <- function(results, test_data, weights=NULL, loss_type='auto', e
   # Store original loss, chisq and bic for each model
   for (resname in names(results)) {
     out[resname, paste0(results[[resname]]$info$loss_type, "_train_loss")] <- results[[resname]]$loss
-    out[resname, "train_chisq"] <- results[[resname]]$model$n_obs * results[[resname]]$loss
-    out[resname, "train_bic"] <- results[[resname]]$model$n_obs * results[[resname]]$loss + ncol(results[[resname]]$df) * log(results[[resname]]$model$n_obs)
+    out[resname, "train_chisq"] <- results[[resname]]$model$meta_data$n_obs * results[[resname]]$loss
+    out[resname, "train_bic"] <- results[[resname]]$model$meta_data$n_obs * results[[resname]]$loss + ncol(results[[resname]]$df) * log(results[[resname]]$model$meta_data$n_obs)
   }
 
   # Determine loss for each model, and difference with model1 loss for models 2-N
@@ -140,7 +140,7 @@ MCMcompareloss <- function(results, test_data, weights=NULL, loss_type='auto', e
   } else {
     # Store train_n version, use_bounds, optimizer, compute se, se type, silent, device, low memory and runtimes
     for (resname in names(results)) {
-      out[resname, 'train_n'] <- results[[resname]]$model$n_obs
+      out[resname, 'train_n'] <- results[[resname]]$model$meta_data$n_obs
       for (i in c("version", "use_bounds",  "optimizer", "compute_se", "se_type", "silent", "device", "low_memory")) {
         out[resname, i] <- results[[resname]]$info[[i]]
       }
