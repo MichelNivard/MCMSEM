@@ -10,7 +10,7 @@ summary.mcmresultclass <- function(res) {
         p <- if ('se' %in% rownames(res$df)) {2*pnorm(abs(res$df['est', parname])/res$df['se', parname], lower.tail=FALSE)} else {NA}
         group <- 1; fixed <- FALSE
         if (xor(row > res$model$meta_data$n_latent, col > res$model$meta_data$n_latent)) {
-          if (col < res$model$meta_data$n_latent) {
+          if (col <= res$model$meta_data$n_latent) {
             lhs <- res$model$meta_data$latent_names[col]
             rhs <- res$model$meta_data$original_colnames[row - res$model$meta_data$n_latent]
             Pars_fact <- rbind(Pars_fact, c(parname, lhs, "=~", rhs, parvalue, std, p, group, fixed))
@@ -32,8 +32,9 @@ summary.mcmresultclass <- function(res) {
       }
     }
   }
-  Pars_fact <- Pars_fact[2:nrow(Pars_fact), ]
-  Pars_reg <- Pars_reg[2:nrow(Pars_reg), ]
+  # Drop the first row safely, i.e. if there is only the NA row, this results in
+  Pars_fact <- Pars_fact[seq_len(nrow(Pars_fact)-1)+1,]
+  Pars_reg <- Pars_reg[seq_len(nrow(Pars_reg)-1)+1,]
   Pars <- rbind(Pars_fact, Pars_reg)
   colnames(Pars) <- c("label", "lhs", "edge", "rhs", "est", "se", "p", "group", "fixed"); rownames(Pars) <- seq_len(nrow(Pars))
   Vars <- data.frame(matrix(NA, ncol=9, nrow=1))

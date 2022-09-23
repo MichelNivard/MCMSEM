@@ -6,6 +6,9 @@ Note this is the `dev-torch` branch, and **not** intended for end-users. If you 
 As of version 0.4.0 it is possible to run MCMSEM on a GPU, see [MCMSEM on GPU](#mcmsem-on-gpu).
 
 ## Patch notes
+### v0.10.3
+ - Fixed summary for models with 1 latent factor
+ - Fixed summary for models without factor loadings and/or without causal paths 
 ### v0.10.2
  - Added `train_loss`, `train_chisq` and `train_bic` to `MCMcompareloss()` output, and renamed the newly calculated columns to `test_loss`, `test_chisq`, `test_bic`.
  - Added `train_n` to `MCMcompareloss(extensive_model_info=TRUE)`
@@ -245,7 +248,7 @@ Note that runtime is long, but that this is partly (or mostly, with many variabl
  - Added `use_bounds` in MCMfit, if enabled, loss will be dramatically increased as parameter estimates get further away from bounds.
  - Added USAGE to readme
 ### v0.3.0, Initial dev-torch
- -Fixed MCMfit so it now actually works
+ - Fixed MCMfit so it now actually works
  - Merged changes to std.err from `dev`
  - For now, SE calculation is still done with R-matrices (similar to `dev`) as opposed to torch tensors, as I haven't found a way to make it work without significantly impacting performance.
  - Removed updates and todo that belong to `dev`
