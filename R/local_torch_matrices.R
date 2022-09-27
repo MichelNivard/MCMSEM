@@ -61,6 +61,7 @@
     diag_n_p=torch_tensor(torch_diagflat(rep(1, model$meta_data$n_phenotypes + model$meta_data$n_latent)), device=device, dtype=torch_dtype)
   )
   param_list <- list(A=NULL, Fm=NULL, S=NULL, Sk=NULL, K=NULL)
+  .par_list <- list(A=NULL, Fm=NULL, S=NULL, Sk=NULL, K=NULL)
 
   torch_maps <- list(A=list(), Fm= list(), S=list(), Sk=list(), K=list())
   torch_masks <- list(
@@ -79,7 +80,8 @@
       torch_maps[[i$mat_name]][[param_name]] <- torch_maps[[i$mat_name]][[param_name]]  + new_mat
     } else {
       torch_maps[[i$mat_name]][[param_name]] <- new_mat
-      param_list[[i$mat_name]] <- c(param_list[[i$mat_name]], model$start_values$get("start", param_name))
+      param_list[[i$mat_name]] <- c(param_list[[i$mat_name]], param_name)
+      .par_list[[i$mat_name]] <- c(.par_list[[i$mat_name]], model$param_values[model$param_names == param_name])
     }
   }
   n_p <- model$meta_data$n_phenotypes + model$meta_data$n_latent
@@ -116,17 +118,17 @@
   base_matrices[['S']] <- (base_matrices[['S']] + torch_tensor(1e-16, device=device))
   # If the matrix (A, Fm, S, Sk, or K) does not have free parameters, use a constant 1 to ensure code will always work
   .par_list <- list(
-    A=if (length(param_list[['A']]) > 0) {torch_tensor(as.numeric(param_list[['A']]), requires_grad = TRUE, device=device, dtype=torch_dtype)} else {torch_tensor(1, device=device, dtype=torch_dtype)},
-    Fm=if (length(param_list[['Fm']]) > 0) {torch_tensor(as.numeric(param_list[['Fm']]), requires_grad = TRUE, device=device, dtype=torch_dtype)} else {torch_tensor(1, device=device, dtype=torch_dtype)},
-    S=if (length(param_list[['S']]) > 0) {torch_tensor(as.numeric(param_list[['S']]), requires_grad = TRUE, device=device, dtype=torch_dtype)} else {torch_tensor(1, device=device, dtype=torch_dtype)},
-    Sk=if (length(param_list[['Sk']]) > 0) {torch_tensor(as.numeric(param_list[['Sk']]), requires_grad = TRUE, device=device, dtype=torch_dtype)} else {torch_tensor(1, device=device, dtype=torch_dtype)},
-    K=if (length(param_list[['K']]) > 0) {torch_tensor(as.numeric(param_list[['K']]), requires_grad = TRUE, device=device, dtype=torch_dtype)} else {torch_tensor(1, device=device, dtype=torch_dtype)}
+    A=if (length(param_list[['A']]) > 0) {torch_tensor(as.numeric(.par_list[['A']]), requires_grad = TRUE, device=device, dtype=torch_dtype)} else {torch_tensor(1, device=device, dtype=torch_dtype)},
+    Fm=if (length(param_list[['Fm']]) > 0) {torch_tensor(as.numeric(.par_list[['Fm']]), requires_grad = TRUE, device=device, dtype=torch_dtype)} else {torch_tensor(1, device=device, dtype=torch_dtype)},
+    S=if (length(param_list[['S']]) > 0) {torch_tensor(as.numeric(.par_list[['S']]), requires_grad = TRUE, device=device, dtype=torch_dtype)} else {torch_tensor(1, device=device, dtype=torch_dtype)},
+    Sk=if (length(param_list[['Sk']]) > 0) {torch_tensor(as.numeric(.par_list[['Sk']]), requires_grad = TRUE, device=device, dtype=torch_dtype)} else {torch_tensor(1, device=device, dtype=torch_dtype)},
+    K=if (length(param_list[['K']]) > 0) {torch_tensor(as.numeric(.par_list[['K']]), requires_grad = TRUE, device=device, dtype=torch_dtype)} else {torch_tensor(1, device=device, dtype=torch_dtype)}
   )
   torch_bounds <- list(L=list(), U=list())
   for (i in names(.par_list)) {
     if (.par_list[[i]]$requires_grad) {
-      torch_bounds[["L"]][[i]] <- torch_tensor(as.numeric(model$bounds["L", names(param_list[[i]])]), device=device, dtype=torch_dtype)
-      torch_bounds[["U"]][[i]] <- torch_tensor(as.numeric(model$bounds["U", names(param_list[[i]])]), device=device, dtype=torch_dtype)
+      torch_bounds[["L"]][[i]] <- torch_tensor(as.numeric(model$bounds["L", param_list[[i]]]), device=device, dtype=torch_dtype)
+      torch_bounds[["U"]][[i]] <- torch_tensor(as.numeric(model$bounds["U", param_list[[i]]]), device=device, dtype=torch_dtype)
     } else {
       # Non-grad parameters also need bounds in order for the shapes to match
       torch_bounds[["L"]][[i]] <- (torch_ones_like(.par_list[[i]], device=device, dtype=torch_dtype) - 100)

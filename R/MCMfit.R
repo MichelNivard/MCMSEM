@@ -5,9 +5,49 @@
 MCMfit <- function(mcmmodel, data, weights=NULL, compute_se=TRUE, se_type='asymptotic', optimizer="rprop", optim_iters=c(50, 12), loss_type='mse', bootstrap_iter=200,bootstrap_chunks=1000,
                    learning_rate=c(0.02, 1), silent=TRUE, use_bounds=TRUE, use_skewness=TRUE, use_kurtosis=TRUE, device=NULL, low_memory=FALSE, outofbounds_penalty=1) {
   START_MCMfit <- Sys.time()
+  if (class(mcmmodel)[[1]] == "mcmresultclass") {
+    cat("Note: Using the old model from the result object provided\n")
+    # If a result class is provided, first check if settings are similar enough
+    if (use_kurtosis & !(mcmmodel$info$use_kurtosis)) {cat("      use_kurtosis reset to FALSE for the current fit, as it was set to FALSE previously. \n"); use_kurtosis <- FALSE}
+    if (use_skewness & !(mcmmodel$info$use_skewness)) {cat("      use_skewness reset to FALSE for the current fit, as it was set to FALSE previously. \n"); use_skewness <- FALSE}
+    if (class(data)[[1]] != "mcmdataclass") {cat("      Next time when you intend to fit your model twice, make an MCMdata summary first. That will save you time. \n")}
+    model <- mcmmodel$model$copy()
+    model$start_values$set_all(mcmmodel$model$param_values)
+  } else {
+    model <- mcmmodel$copy()  # Model is changed if either use_skewness or use_kurtosis is set to FALSE, so I make a local copy here to ensure the original object stays intact
+    if (!(use_kurtosis)) {
+      kurt_par_idx <- which(startsWith(model$param_names, "k"))
+      model$start_values$drop(kurt_par_idx)
+      model$param_names <- model$param_names[-kurt_par_idx]
+      model$param_values <- model$param_values[-kurt_par_idx]
+      new_coords <- list()
+      iter <- 1
+      for (i in model$param_coords) {
+        if (!(i[[1]] == "K")) {
+          new_coords[[iter]] <- i
+          iter <- iter +1
+        }
+      }
+      model$param_coords <- new_coords
+    } else if (!(use_skewness)) {
+      skew_par_idx <- which(startsWith(model$param_names, "sk"))
+      model$start_values$drop(skew_par_idx)
+      model$param_names <- model$param_names[-skew_par_idx]
+      model$param_values <- model$param_values[-skew_par_idx]
+      new_coords <- list()
+      iter <- 1
+      for (i in model$param_coords) {
+        if (!(i[[1]] == "Sk")) {
+          new_coords[[iter]] <- i
+          iter <- iter +1
+        }
+      }
+      model$param_coords <- new_coords
+    }
+  }
   if (class(data)[[1]] != "mcmdataclass") {
     data_org <- data
-    data <- MCMdatasummary(data, scale_data=mcmmodel$meta_data$scale_data, weights=weights, prep_asymptotic_se=((compute_se) & (se_type == "asymptotic")))
+    data <- MCMdatasummary(data, scale_data=model$meta_data$scale_data, weights=weights, prep_asymptotic_se=((compute_se) & (se_type == "asymptotic")))
   } else {
     if (compute_se) {
       if (se_type %in% c("one-step", 'two-step'))
@@ -16,7 +56,6 @@ MCMfit <- function(mcmmodel, data, weights=NULL, compute_se=TRUE, se_type='asymp
         stop("This summary data was made without the required preparation for asymptotic SE")
     }
   }
-  model <- mcmmodel$copy()  # Model is changed if either use_skewness or use_kurtosis is set to FALSE, so I make a local copy here to ensure the original object stays intact
   model$meta_data$n_obs <- data$meta_data$n # Store the N of the training data, note this may not always be the same as the N the model was initially made with
   if (is.null(device)) {
     device <- torch_device("cpu")
@@ -27,6 +66,7 @@ MCMfit <- function(mcmmodel, data, weights=NULL, compute_se=TRUE, se_type='asymp
       silent <- TRUE
     }
   }
+  if (model$meta_data$weighted & is.null(weights)) {stop("Model was created with weights but no weights are provided")}
   cpu_device <- torch_device("cpu")
   if (!(se_type %in% c('two-step', 'one-step','asymptotic')))
     stop("se_type should be one of c('two-step', 'one-step','asymptotic')")
@@ -68,37 +108,7 @@ MCMfit <- function(mcmmodel, data, weights=NULL, compute_se=TRUE, se_type='asymp
 
   if (compute_se)
     model_copy <- model$copy()
-  if (!(use_kurtosis)) {
-    kurt_par_idx <- which(startsWith(model$param_names, "k"))
-    model$start_values$drop(kurt_par_idx)
-    model$bounds <- model$bounds[, -kurt_par_idx]
-    model$param_names <- model$param_names[-kurt_par_idx]
-    model$param_values <- model$param_values[-kurt_par_idx]
-    new_coords <- list()
-    iter <- 1
-    for (i in model$param_coords) {
-      if (!(i[[1]] == "K")) {
-        new_coords[[iter]] <- i
-        iter <- iter +1
-      }
-    }
-    model$param_coords <- new_coords
-  } else if (!(use_skewness)) {
-    skew_par_idx <- which(startsWith(model$param_names, "sk"))
-    model$start_values$drop(skew_par_idx)
-    model$bounds <- model$bounds[, -skew_par_idx]
-    model$param_names <- model$param_names[-skew_par_idx]
-    model$param_values <- model$param_values[-skew_par_idx]
-    new_coords <- list()
-    iter <- 1
-    for (i in model$param_coords) {
-      if (!(i[[1]] == "Sk")) {
-        new_coords[[iter]] <- i
-        iter <- iter +1
-      }
-    }
-    model$param_coords <- new_coords
-  }
+
   # Obtain covariance, coskewness and cokurtosis matrices
   M2.obs <- torch_tensor(data$M2, device=device, dtype=torch_dtype)
   M3.obs <- torch_tensor(data$M3, device=device, dtype=torch_dtype)

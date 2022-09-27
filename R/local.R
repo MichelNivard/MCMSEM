@@ -1,7 +1,12 @@
-MCMSEMversion <- "0.11.0"
+MCMSEMversion <- "0.12.0"
 
 # Implemented loss functions
 .get_lossfunc <- function(loss_type) {
+  # For future reference, should we/someone ever want to create a custom loss function...
+  # Note that this function returns a function!, which takes as input 2 tensors and calculates a 0D tensor contining the loss from those...
+  #  in short:
+  # x <- .get_lossfunc("customloss")
+  # loss <- x(t1, t2)
   lossfuncs <- list(
     mse=nn_mse_loss(reduction='sum'),
     smooth_l1=nn_smooth_l1_loss(reduction='sum'),
@@ -15,6 +20,11 @@ MCMSEMversion <- "0.11.0"
 
 # Implemented optimizers for optimizer 1
 .get_optimfunc <- function(optimizer) {
+  # For future reference, should we/someone ever want to create a custom optimizer...
+  # Similar to .get_lossfunc, this function returns a function, though a more complicated one, see https://torch.mlverse.org/docs/reference/optimizer.html
+  # From that example, at the time of writing, the object optim_sgd2 would have to be returned from .get_optimfunc, i.e.
+  # x <- .get_optimfunc("sgd2")
+  # opt <- x(params, learning_rate=0.1)
   optimfuncs <- list(
     rprop=optim_rprop,
     sgd=optim_sgd,
@@ -42,7 +52,7 @@ MCMSEMversion <- "0.11.0"
   return(c(row, col))
 }
 
-# Turn ND (>2D) index into 2D index for use with M3 and M4
+# Turn ND (>=2D) index into 2D index for use with M3 and M4
 .nd_to_2d_idx <- function(nrows, x, y, ...) {
   # nrow must be provided as that determines stepsizes
   # x: first dim idx (i.e. row); y = second dim idx (i.e. col), ... = additional dim(s) idx(s)
@@ -71,6 +81,7 @@ MCMSEMversion <- "0.11.0"
     M3 <- M3.MM(data)
     M4 <- M4.MM(data)
   } else {
+    # Custom implementation of weighted M2, M3, and M4 matrices
     weights <- torch_reshape(torch_tensor(weights), c(nrow(data),1))
     tens <- torch_tensor(data)
 

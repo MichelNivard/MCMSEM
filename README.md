@@ -6,6 +6,15 @@ Note this is the `dev-torch` branch, and **not** intended for end-users. If you 
 As of version 0.4.0 it is possible to run MCMSEM on a GPU, see [MCMSEM on GPU](#mcmsem-on-gpu).
 
 ## Patch notes
+### v0.12.0
+ - Changed `MCMfit()` so it no longer uses `start_values` but uses `param_values`, instead. Now `start_values` are only stored for reference. This causes no change in behavior at initial `MCMfit()` call as through `MCMedit` `param_values` and `start_values` are always equal when `MCMfit()` is called for the first time.
+ - Changed `MCMfit()` to also accept an `mcmresultclass` object to the `model` argument, so a user can train an already fitted model again (for more iterations, or lower learning_rate, etc.). 
+   - ``` 
+     data <- simulate_data()
+     model <- MCMmodel(data)
+     res <- MCMfit(model, data)
+     res2 <- MCMfit(res, data)
+     ```
 ### v0.11.0
  - Created `mcmstartvaluesclass` and changed all code for `MCMedit()`, `MCMmodel()` and `MCMfit()` accordingly
    - This is done so that `model$start_values["start", "a1_1"] <- 0` no longer works, as a measure to force users to change start values via `MCMedit("start", ...)`
