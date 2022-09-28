@@ -76,11 +76,12 @@
 }
 
 # Fit wrapper function
-.torch_fit <- function(optimfunc, M2.obs, M3.obs, M4.obs, m2v_masks, torch_bounds, torch_masks, torch_maps, base_matrices, .par_list, learning_rate, optim_iters, silent, use_bounds, use_skewness, use_kurtosis, lossfunc, return_history=FALSE, low_memory, outofbounds_penalty) {
+.torch_fit <- function(optimfunc, M2.obs, M3.obs, M4.obs, m2v_masks, torch_bounds, torch_masks, torch_maps, base_matrices, .par_list, learning_rate, optim_iters, silent, use_bounds, use_skewness, use_kurtosis, lossfunc, return_history=FALSE, low_memory, outofbounds_penalty,debug=FALSE) {
   loss_hist <- NULL
   optim <- optimfunc(.par_list,lr = learning_rate[1])
   if (low_memory) {gc(verbose=FALSE, full=TRUE)}
   for (i in seq_len(optim_iters[1])) {
+    if (debug) {cat(paste0("Optimizer1:",i,"\n"))}
     optim$zero_grad()
     loss <- .torch_objective(.par_list, lossfunc, torch_bounds, torch_masks, torch_maps, base_matrices, M2.obs, M3.obs, M4.obs, m2v_masks, use_bounds, use_skewness, use_kurtosis, outofbounds_penalty)
     if (low_memory) {gc(verbose=FALSE, full=TRUE)}
@@ -101,6 +102,7 @@
   # Use lbfgs to get really close....
   optim <- optim_lbfgs(.par_list,lr= learning_rate[2])
   for (i in seq_len(optim_iters[2])) {
+    if (debug) {cat(paste0("Optimizer2:",i,"\n"))}
     optim$step(calc_loss_torchfit)
   }
   if (!(silent)) {cat("\n")}

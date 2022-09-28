@@ -6,6 +6,8 @@ Note this is the `dev-torch` branch, and **not** intended for end-users. If you 
 As of version 0.4.0 it is possible to run MCMSEM on a GPU, see [MCMSEM on GPU](#mcmsem-on-gpu).
 
 ## Patch notes
+### v0.12.1
+ - Added `debug` argument to `MCMfit`, if enables prints detailed progress
 ### v0.12.0
  - Changed `MCMfit()` so it no longer uses `start_values` but uses `param_values`, instead. Now `start_values` are only stored for reference. This causes no change in behavior at initial `MCMfit()` call as through `MCMedit` `param_values` and `start_values` are always equal when `MCMfit()` is called for the first time.
  - Changed `MCMfit()` to also accept an `mcmresultclass` object to the `model` argument, so a user can train an already fitted model again (for more iterations, or lower learning_rate, etc.). 

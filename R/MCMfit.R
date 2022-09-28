@@ -3,8 +3,9 @@
 
 # Exported MCMfit function
 MCMfit <- function(mcmmodel, data, weights=NULL, compute_se=TRUE, se_type='asymptotic', optimizer="rprop", optim_iters=c(50, 12), loss_type='mse', bootstrap_iter=200,bootstrap_chunks=1000,
-                   learning_rate=c(0.02, 1), silent=TRUE, use_bounds=TRUE, use_skewness=TRUE, use_kurtosis=TRUE, device=NULL, low_memory=FALSE, outofbounds_penalty=1) {
+                   learning_rate=c(0.02, 1), silent=TRUE, use_bounds=TRUE, use_skewness=TRUE, use_kurtosis=TRUE, device=NULL, low_memory=FALSE, outofbounds_penalty=1, debug=FALSE) {
   START_MCMfit <- Sys.time()
+  if (debug) {cat("Verifying input...\n")}
   if (class(mcmmodel)[[1]] == "mcmresultclass") {
     cat("Note: Using the old model from the result object provided\n")
     # If a result class is provided, first check if settings are similar enough
@@ -47,6 +48,7 @@ MCMfit <- function(mcmmodel, data, weights=NULL, compute_se=TRUE, se_type='asymp
   }
   if (class(data)[[1]] != "mcmdataclass") {
     data_org <- data
+    if (debug) {cat("Converting data\n")}
     data <- MCMdatasummary(data, scale_data=model$meta_data$scale_data, weights=weights, prep_asymptotic_se=((compute_se) & (se_type == "asymptotic")))
   } else {
     if (compute_se) {
@@ -108,12 +110,12 @@ MCMfit <- function(mcmmodel, data, weights=NULL, compute_se=TRUE, se_type='asymp
 
   if (compute_se)
     model_copy <- model$copy()
-
+  if (debug) {cat("Transferring co-moments\n")}
   # Obtain covariance, coskewness and cokurtosis matrices
   M2.obs <- torch_tensor(data$M2, device=device, dtype=torch_dtype)
   M3.obs <- torch_tensor(data$M3, device=device, dtype=torch_dtype)
   M4.obs <- torch_tensor(data$M4, device=device, dtype=torch_dtype)
-
+  if (debug) {cat("Generating torch matrices\n")}
   torch_matrices <- .get_torch_matrices(model, device, M2.obs, M3.obs, M4.obs, torch_dtype)
   param_list <- torch_matrices[['param_list']]
   m2v_masks <- torch_matrices[['m2v_masks']]
@@ -123,13 +125,15 @@ MCMfit <- function(mcmmodel, data, weights=NULL, compute_se=TRUE, se_type='asymp
   base_matrices <- torch_matrices[['base_matrices']]
   .par_list <- torch_matrices[['.par_list']]
   if (low_memory) {
+    if (debug) {cat("Clearing memory\n")}
     rm(torch_matrices)
     gc(full=TRUE)
   }
   # Obtain estimates with optimizer
   START_optim <- Sys.time()
   TIME_prep <-  START_optim - START_MCMfit
-  out <- .torch_fit(optimfunc, M2.obs, M3.obs, M4.obs, m2v_masks, torch_bounds, torch_masks, torch_maps, base_matrices, .par_list, learning_rate, optim_iters, silent, use_bounds, use_skewness, use_kurtosis, lossfunc, return_history = TRUE, low_memory=low_memory, outofbounds_penalty=outofbounds_penalty)
+  if (debug) {cat("Strting fit\n")}
+  out <- .torch_fit(optimfunc, M2.obs, M3.obs, M4.obs, m2v_masks, torch_bounds, torch_masks, torch_maps, base_matrices, .par_list, learning_rate, optim_iters, silent, use_bounds, use_skewness, use_kurtosis, lossfunc, return_history = TRUE, low_memory=low_memory, outofbounds_penalty=outofbounds_penalty,debug=debug)
   .par_tensor <- out[['par']]
   loss_hist <- as.numeric(torch_tensor(torch_vstack(out[["loss_hist"]]), device=cpu_device))
   pred_matrices <- out[['pred_matrices']]
