@@ -104,6 +104,10 @@ MCMfit <- function(mcmmodel, data, weights=NULL, compute_se=TRUE, se_type='asymp
     msg <- paste0("Model expected ", model$meta_data$n_phenotypes, " phenotypes but ", data$meta_data$ncol, " were found in the data. Please create a new model with this dataset.")
     stop(msg)
   }
+  # Check if S is diagonal
+  diag_s <- model$named_matrices$S
+  diag(diag_s) <- "0"
+  diag_s <- all(diag_s == "0")
 
   lossfunc <- .get_lossfunc(loss_type)
   optimfunc <- .get_optimfunc(optimizer)
@@ -133,7 +137,7 @@ MCMfit <- function(mcmmodel, data, weights=NULL, compute_se=TRUE, se_type='asymp
   START_optim <- Sys.time()
   TIME_prep <-  START_optim - START_MCMfit
   if (debug) {cat("Strting fit\n")}
-  out <- .torch_fit(optimfunc, M2.obs, M3.obs, M4.obs, m2v_masks, torch_bounds, torch_masks, torch_maps, base_matrices, .par_list, learning_rate, optim_iters, silent, use_bounds, use_skewness, use_kurtosis, lossfunc, return_history = TRUE, low_memory=low_memory, outofbounds_penalty=outofbounds_penalty,debug=debug)
+  out <- .torch_fit(optimfunc, M2.obs, M3.obs, M4.obs, m2v_masks, torch_bounds, torch_masks, torch_maps, base_matrices, .par_list, learning_rate, optim_iters, silent, use_bounds, use_skewness, use_kurtosis, lossfunc, return_history = TRUE, low_memory=low_memory, outofbounds_penalty=outofbounds_penalty,debug=debug, diag_s=diag_s)
   .par_tensor <- out[['par']]
   loss_hist <- as.numeric(torch_tensor(torch_vstack(out[["loss_hist"]]), device=cpu_device))
   pred_matrices <- out[['pred_matrices']]
@@ -150,7 +154,7 @@ MCMfit <- function(mcmmodel, data, weights=NULL, compute_se=TRUE, se_type='asymp
   if (compute_se) {
     if(se_type == 'asymptotic'){
       # SEs <- .std.err(data=data,par=as.numeric(torch_tensor(torch_cat(.par), device=cpu_device)), model=model, use_skewness, use_kurtosis)
-      SEs <- .std.err(data, .par_list, use_skewness, use_kurtosis, torch_masks, torch_maps, base_matrices, m2v_masks, device, low_memory)
+      SEs <- .std.err(data, .par_list, use_skewness, use_kurtosis, torch_masks, torch_maps, base_matrices, m2v_masks, device, low_memory, diag_s)
     }
 
     if(se_type != 'asymptotic') {
@@ -191,7 +195,7 @@ MCMfit <- function(mcmmodel, data, weights=NULL, compute_se=TRUE, se_type='asymp
 
         #3. Fit model
         # Estimate parameters with model function specified above
-        .par_tensor <- .torch_fit(optimfunc, M2.obs, M3.obs, M4.obs, m2v_masks, torch_bounds, torch_masks, torch_maps, base_matrices, .par_list, learning_rate, optim_iters, silent, use_bounds, use_skewness, use_kurtosis, lossfunc, low_memory=low_memory, outofbounds_penalty=outofbounds_penalty)
+        .par_tensor <- .torch_fit(optimfunc, M2.obs, M3.obs, M4.obs, m2v_masks, torch_bounds, torch_masks, torch_maps, base_matrices, .par_list, learning_rate, optim_iters, silent, use_bounds, use_skewness, use_kurtosis, lossfunc, low_memory=low_memory, outofbounds_penalty=outofbounds_penalty, diag_s=diag_s)
         .par <- list()
         for (j in names(.par_tensor)) {
           if (length(param_list[[j]]) > 0) {
@@ -244,7 +248,7 @@ MCMfit <- function(mcmmodel, data, weights=NULL, compute_se=TRUE, se_type='asymp
 
         #3. Fit model
         # Estimate parameters with model function specified above
-        .par_tensor <- .torch_fit(optimfunc, M2.obs, M3.obs, M4.obs, m2v_masks, torch_bounds, torch_masks, torch_maps, base_matrices, .par_list, learning_rate, optim_iters, silent, use_bounds, use_skewness, use_kurtosis, lossfunc, low_memory=low_memory, outofbounds_penalty=outofbounds_penalty)
+        .par_tensor <- .torch_fit(optimfunc, M2.obs, M3.obs, M4.obs, m2v_masks, torch_bounds, torch_masks, torch_maps, base_matrices, .par_list, learning_rate, optim_iters, silent, use_bounds, use_skewness, use_kurtosis, lossfunc, low_memory=low_memory, outofbounds_penalty=outofbounds_penalty, diag_s=diag_s)
         .par <- list()
         for (j in names(.par_tensor)) {
           if (length(param_list[[j]]) > 0) {

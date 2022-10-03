@@ -46,7 +46,13 @@
     for (i in seq_len(n_p + n_f - 1)) {
       K1_ref <- cbind(K1_ref, rnorm(2000))
     }
-    K <- sqrt(S) %*% K %*% (sqrt(S) %x% sqrt(S) %x% sqrt(S))
+    # K <- sqrt(S) %*% K %*% (sqrt(S) %x% sqrt(S) %x% sqrt(S))
+    # Note this following solution only works if S is diagonal, assuming that is the case here:
+    skron <- diag(S) %x% diag(S) %x% diag(S)
+    for (i in seq_len(nrow(K))) {
+      K[i, ] <- K[i, ] * skron
+    }
+
     matrices[['K1_ref']] <- round(M4.MM(K1_ref)) != 0
   }
   for (i in seq_len(n_f)) {

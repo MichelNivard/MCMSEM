@@ -6,6 +6,9 @@ Note this is the `dev-torch` branch, and **not** intended for end-users. If you 
 As of version 0.4.0 it is possible to run MCMSEM on a GPU, see [MCMSEM on GPU](#mcmsem-on-gpu).
 
 ## Patch notes
+### v0.13
+ - Implemented more efficient calculation of `K` from `S` when `S` is a diagonal matrix
+   - Replaced `K %*% (S %x% S %x% S)` with `K * (diag(S) %x% diag(S) %x% (diag(S)))`  
 ### v0.12.1
  - Added `debug` argument to `MCMfit`, if enables prints detailed progress
 ### v0.12.0

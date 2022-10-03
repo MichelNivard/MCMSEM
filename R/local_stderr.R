@@ -37,11 +37,11 @@
 }
 
 ######## Compute Jacobian:
-.jac.fn_torch <- function(par_vec, .par_list, par_to_list_coords, torch_masks, torch_maps, base_matrices, use_skewness, use_kurtosis, Rm2vmasks, device) {
+.jac.fn_torch <- function(par_vec, .par_list, par_to_list_coords, torch_masks, torch_maps, base_matrices, use_skewness, use_kurtosis, Rm2vmasks, device, diag_s) {
   for (i in names(par_to_list_coords)) {
     .par_list[[i]] <- torch_tensor(par_vec[par_to_list_coords[[i]]], device=device)
   }
-  pred_matrices <- .get_predicted_matrices(.par_list, torch_masks, torch_maps, base_matrices, use_skewness, use_kurtosis)
+  pred_matrices <- .get_predicted_matrices(.par_list, torch_masks, torch_maps, base_matrices, use_skewness, use_kurtosis,diag_s)
   pred_matrices[['M2']] <- as.matrix(torch_tensor(pred_matrices[['M2']], device=torch_device("cpu")))
   if (use_skewness) {
     pred_matrices[['M3']] <- as.matrix(torch_tensor(pred_matrices[['M3']], device=torch_device("cpu")))
@@ -61,14 +61,14 @@
 }
 
 # Jacobian wrapper to force garbage collect after .jac.fn_torch_ call
-.jac.fn_torch_lowmem <- function(par_vec, .par_list, par_to_list_coords, torch_masks, torch_maps, base_matrices, use_skewness, use_kurtosis, Rm2vmasks, device) {
-  val <- .jac.fn_torch(par_vec, .par_list, par_to_list_coords, torch_masks, torch_maps, base_matrices, use_skewness, use_kurtosis, Rm2vmasks, device)
+.jac.fn_torch_lowmem <- function(par_vec, .par_list, par_to_list_coords, torch_masks, torch_maps, base_matrices, use_skewness, use_kurtosis, Rm2vmasks, device, diag_s) {
+  val <- .jac.fn_torch(par_vec, .par_list, par_to_list_coords, torch_masks, torch_maps, base_matrices, use_skewness, use_kurtosis, Rm2vmasks, device, diag_s)
   gc(verbose=FALSE, full=TRUE)
   return(val)
 }
 
 ### pull it together to make std errors:
-.std.err <- function(data, .par_list, use_skewness, use_kurtosis, torch_masks, torch_maps, base_matrices, m2v_masks, device, low_memory) {
+.std.err <- function(data, .par_list, use_skewness, use_kurtosis, torch_masks, torch_maps, base_matrices, m2v_masks, device, low_memory, diag_s) {
   # idx is pre-determined in MCMdatasummary() depending on the number of variables
   # Note there is probably a cleaner way to do this as these numbers only depend on number of columns..
   # If you want to be a contributor, here's your chance.
@@ -109,7 +109,7 @@
   if (low_memory) {func <- .jac.fn_torch_lowmem} else {func <- .jac.fn_torch}
   G <- jacobian(func = func,x = par_vec, .par_list=.par_list, par_to_list_coords=par_to_list_coords, torch_masks=torch_masks,
                 torch_maps=torch_maps, base_matrices=base_matrices, use_skewness=use_skewness, use_kurtosis=use_kurtosis,
-                Rm2vmasks=Rm2vmasks, device=device)
+                Rm2vmasks=Rm2vmasks, device=device, diag_s=diag_s)
 
   Asycov <- solve(t(G)%*%W%*%G) %*% t(G)%*%W%*%S.m %*%W%*%G %*% solve(t(G)%*%W%*%G)
   se <- sqrt(2)*sqrt(diag(Asycov))

@@ -13,7 +13,7 @@
 }
 
 # Calculate predicted M2, M3, M4 (depending on use_skewness, use_kurtosis) matrices
-.get_predicted_matrices <- function(.par_list, torch_masks, torch_maps, base_matrices, use_skewness, use_kurtosis) {
+.get_predicted_matrices <- function(.par_list, torch_masks, torch_maps, base_matrices, use_skewness, use_kurtosis, diag_s) {
   # dev note: All the lines for computing these matrices (especially K, M2, M3 and M4) are unreadable due to their excessive length, I know.
   #           This is because it saves VRAM, any intermediate objects that are created here are also stored on the GPU and waste highly valuable space.
   #           I know this makes it a pain to modify antyhing, and I'm sorry for that, but it is something we have to deal with for now :(
@@ -30,8 +30,15 @@
     # Note this is purely for readability as this R code will not actually work with base-R matrices as it uses 3D tensors in sum(..., dim=3)
     ## This is still in testing phase:
     ## sqrts <- torch_sqrt(S)
-    sqrts <- torch_sign(S) * torch_sqrt(torch_abs(S))
-   K <- torch_add(torch_mul(torch_mul(torch_matmul(torch_matmul(sqrts, base_matrices[['K']]), .torch_kron(sqrts, .torch_kron(sqrts, sqrts))), base_matrices[['K2']]), torch_masks[['K']]), torch_sum(torch_mul(torch_maps[['K']], .par_list[['K']]), dim=3))
+    if (diag_s) {
+      sqrts <- torch_diag(torch_sign(S) * torch_sqrt(torch_abs(S)))
+      skron <- .torch_kron(sqrts, .torch_kron(sqrts, sqrts))
+      K <- torch_add(torch_mul(torch_mul(torch_mul(torch_matmul(sqrts, base_matrices[['K']]), skron), base_matrices[['K2']]), torch_masks[['K']]), torch_sum(torch_mul(torch_maps[['K']], .par_list[['K']]), dim=3))
+    } else {
+      # This is the 'true' version of K but is significantly more memory intensive
+      sqrts <- torch_sign(S) * torch_sqrt(torch_abs(S))
+      K <- torch_add(torch_mul(torch_mul(torch_matmul(torch_matmul(sqrts, base_matrices[['K']]), .torch_kron(sqrts, .torch_kron(sqrts, sqrts))), base_matrices[['K2']]), torch_masks[['K']]), torch_sum(torch_mul(torch_maps[['K']], .par_list[['K']]), dim=3))
+    }
   }
 
   # Rstyle: M2 <- Fm %*% solve(diag(n_p) - A) %*% S %*%  t(solve(diag(n_p)-A))  %*% t(Fm)
@@ -63,8 +70,8 @@
 }
 
 # Objective function
-.torch_objective <- function(.par_list, lossfunc, torch_bounds, torch_masks, torch_maps, base_matrices, M2.obs, M3.obs, M4.obs, m2v_masks, use_bounds, use_skewness, use_kurtosis, outofbounds_penalty) {
-  pred_matrices <- .get_predicted_matrices(.par_list, torch_masks, torch_maps, base_matrices, use_skewness, use_kurtosis)
+.torch_objective <- function(.par_list, lossfunc, torch_bounds, torch_masks, torch_maps, base_matrices, M2.obs, M3.obs, M4.obs, m2v_masks, use_bounds, use_skewness, use_kurtosis, outofbounds_penalty, diag_s) {
+  pred_matrices <- .get_predicted_matrices(.par_list, torch_masks, torch_maps, base_matrices, use_skewness, use_kurtosis, diag_s)
   value <- .calc_loss(lossfunc, pred_matrices, m2v_masks, M2.obs, M3.obs, M4.obs, use_skewness, use_kurtosis)
   if (use_bounds) {
     pow <- .loss_power_bounds(.par_list, torch_bounds, outofbounds_penalty)
@@ -76,14 +83,14 @@
 }
 
 # Fit wrapper function
-.torch_fit <- function(optimfunc, M2.obs, M3.obs, M4.obs, m2v_masks, torch_bounds, torch_masks, torch_maps, base_matrices, .par_list, learning_rate, optim_iters, silent, use_bounds, use_skewness, use_kurtosis, lossfunc, return_history=FALSE, low_memory, outofbounds_penalty,debug=FALSE) {
+.torch_fit <- function(optimfunc, M2.obs, M3.obs, M4.obs, m2v_masks, torch_bounds, torch_masks, torch_maps, base_matrices, .par_list, learning_rate, optim_iters, silent, use_bounds, use_skewness, use_kurtosis, lossfunc, return_history=FALSE, low_memory, outofbounds_penalty, diag_s,debug=FALSE) {
   loss_hist <- NULL
   optim <- optimfunc(.par_list,lr = learning_rate[1])
   if (low_memory) {gc(verbose=FALSE, full=TRUE)}
   for (i in seq_len(optim_iters[1])) {
     if (debug) {cat(paste0("Optimizer1:",i,"\n"))}
     optim$zero_grad()
-    loss <- .torch_objective(.par_list, lossfunc, torch_bounds, torch_masks, torch_maps, base_matrices, M2.obs, M3.obs, M4.obs, m2v_masks, use_bounds, use_skewness, use_kurtosis, outofbounds_penalty)
+    loss <- .torch_objective(.par_list, lossfunc, torch_bounds, torch_masks, torch_maps, base_matrices, M2.obs, M3.obs, M4.obs, m2v_masks, use_bounds, use_skewness, use_kurtosis, outofbounds_penalty, diag_s)
     if (low_memory) {gc(verbose=FALSE, full=TRUE)}
     loss$backward()
     loss_hist <- c(loss_hist, loss$detach())
@@ -92,7 +99,7 @@
   }
   calc_loss_torchfit <- function() {
     optim$zero_grad()
-    loss <- .torch_objective(.par_list, lossfunc, torch_bounds, torch_masks, torch_maps, base_matrices, M2.obs, M3.obs, M4.obs, m2v_masks, use_bounds, use_skewness, use_kurtosis, outofbounds_penalty)
+    loss <- .torch_objective(.par_list, lossfunc, torch_bounds, torch_masks, torch_maps, base_matrices, M2.obs, M3.obs, M4.obs, m2v_masks, use_bounds, use_skewness, use_kurtosis, outofbounds_penalty, diag_s)
     if (low_memory) {gc(verbose=FALSE, full=TRUE)}
     loss$backward()
     loss_hist <<- c(loss_hist, loss$detach())
@@ -107,7 +114,7 @@
   }
   if (!(silent)) {cat("\n")}
   if (return_history) {
-    pred_matrices <- .get_predicted_matrices(.par_list, torch_masks, torch_maps, base_matrices, use_skewness, use_kurtosis)
+    pred_matrices <- .get_predicted_matrices(.par_list, torch_masks, torch_maps, base_matrices, use_skewness, use_kurtosis, diag_s)
     return(list(par=.par_list, loss_hist=loss_hist, pred_matrices=pred_matrices))
   } else {
     return(.par_list)
