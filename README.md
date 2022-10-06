@@ -6,6 +6,16 @@ Note this is the `dev-torch` branch, and **not** intended for end-users. If you 
 As of version 0.4.0 it is possible to run MCMSEM on a GPU, see [MCMSEM on GPU](#mcmsem-on-gpu).
 
 ## Patch notes
+### v0.14.1
+ - Fixed improper assignment of `a` parameters, that would result in the left `A` matrix, instead of the right (see below)
+   ```
+    0  0  0  0  0  0  |  0  0  0  0  0  0
+    0  0  0  0  0  0  |  0  0  0  0  0  0
+    0  0  0  0  0  0  |  0  0  0  0  0  0
+    a1 a2 a3 b...     |  a1 0  0  b...   
+    a1 a2 a3 b...     |  a1 a2 0  b...   
+    a1 a2 a3 b...     |  a1 a2 a3 b...   
+    ```
 ### v0.14.0
  - Implemented `slowneckerproduct` when `low_memory=TRUE`, an iterative approach to `x %*% (y %x% y %x% y)`, which is significantly slower but does not require saving the entire `(y %x% y %x% y)` product, saving significant memory.
  - Added `monitor_grads` argument to `MCMfit()`. Setting `monitor_grads` to TRUE will make MCMSEM check for NaN gradients between each optimizer iteration, if any NaN gradients are found optimization is stopped early and a warning is printed. Then results are returned before the gradients are applied.

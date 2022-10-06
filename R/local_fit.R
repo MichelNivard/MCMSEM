@@ -55,7 +55,6 @@
       M4 <- .jit_slownecker$fn(torch_matmul(torch_matmul(Fm, torch_inverse(base_matrices[['diag_n_p']] - A)), K), torch_transpose(torch_inverse(base_matrices[['diag_n_p']] - A), 1, 2), fmkronrow)
     } else {
       M4 <- torch_matmul(torch_matmul(torch_matmul(Fm, torch_inverse(base_matrices[['diag_n_p']] - A)), K), torch_matmul(.torch_kron(.torch_kron( torch_transpose(torch_inverse(base_matrices[['diag_n_p']] - A), 1, 2),  torch_transpose(torch_inverse(base_matrices[['diag_n_p']] - A), 1, 2)),  torch_transpose(torch_inverse(base_matrices[['diag_n_p']] - A), 1, 2)), .torch_kron(.torch_kron(torch_transpose(Fm, 1, 2), torch_transpose(Fm, 1, 2)), torch_transpose(Fm, 1, 2))))
-
     }
   }
   pred_matrices <- if (use_kurtosis & use_skewness) {return(list(M2=M2, M3=M3, M4=M4))} else if (use_skewness) {return(list(M2=M2, M3=M3))} else if (use_kurtosis) {return(list(M2=M2, M4=M4))} else {return(list(M2=M2))}
