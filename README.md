@@ -5,57 +5,17 @@ R-package which allows users to run multi co-moment structural equation models.
 Note this is the `dev-torch` branch, and **not** intended for end-users. If you would like to use MCMSEM yourself, please go to the main branch. If you would like to contribute to the code, feel free to check this branch out.  
 As of version 0.4.0 it is possible to run MCMSEM on a GPU, see [MCMSEM on GPU](#mcmsem-on-gpu).
 
-## Cloud GPU usage notes:
- - This will be put in a readme or wiki later, I'm just leaving it here so I don't forget anything
- - Notes/warnings:
-  - Getting all the requirements for MCMSEM to work properly on a cloud VM can be tricky, Linux experience is a plus
-  - This will cost you money, not only running MCMSEM, but also getting everything set up. We cannot be held liable for any costs incurred as a result of following this manual, running MCMSEM, or any other source.
- - Recommended provider: Google Cloud 
-  - Easiest to set up and use
-  - Multiple GPU types available, and more importantly, all with single GPU configs
- - Alternatives include AWS and Microsoft Azure, but if you want to use those you are on your own, sorry.
- - First create or set up a Google cloud account with billing information
- - Create a Google cloud project
-  - This should pop up once you visit https://console.cloud.google.com, or you can find projects in the top left hand corner and create one there
- - Next request a quota increase from Google for the desired node types in the desired region
-  - You will get a notification linking you to the correct page when you try to create a node outside your quota
- - Once this is approved (or to get to the request page), go to your VM instances: https://console.cloud.google.com/compute/instances
- - Click `CREATE INSTANCE`
- - In Machine configuration, select `GPU`, and select the preferred GPU and machine type. 
-  - I used and recommend NVIDA A100 40GB (a2-highgpu-1g)
-  - Important: Multiple GPUs **will not** benefit you, don't pay for stuff you won't use!
- - Under Boot Disk, select CHANGE
- - Under Operating System choose `Deep Learning on Linux`
- - Then, under Version choose `Debian 10 based Deep Learning VM with M97`*
-  - At the time of writing this is the preferred image, but this is likely to change in the future...
-  - The point is that you choose an image CUDA 11.3 and cudNN 8.4 (or whatever R torch requires when you are reading this)
-  - This saves you from having to install CUDA and cudNN yourself, saving you a lot of time, money and headaches
- - Make sure to set the disk size to an appropriate ammount given your data, for an estimate, data size + 50GB should be fine
- - Create the server, then in the list of your VM instances, wait untill it's running. 
- - Once your VM is up and running, connect to it via the SSH button
- - This connect you to your VM via SSH in your browser and has Google manage all required keys. If you really want to set this up yourself and not connect from the browser, see https://cloud.google.com/compute/docs/instances/connecting-advanced
- - Once connected you can start uploading your data (as this may be slow depending on traffic) and start the installation procedure.
- - First, install R 4.2.1 (or some later version), Rs own manual, at the time of writing, is a bit vague on how to do this https://cran.r-project.org/bin/linux/debian/#debian-buster-stable but the general idea is:
-  - Import key fingerprint `apt-key adv --keyserver keyserver.ubuntu.com --recv-key '95C0FAF38DB3CCAD0C080A7BDC78B2DDEABC47B7'`
-  - Add `deb http://cloud.r-project.org/bin/linux/debian bullseye-cran40/` to `/etc/apt/sources.list`
-  - `sudo apt update`
-  - `sudo apt install -t buster-cran40 r-base`
-  - install dependencies (I have a list of these saved on my home PC, I will add these later)
-  - Install R packages:
-  - `sudo R`
-  - `install.packages("devtools")`
-  - `install.packages("torch")`
-  - `library(torch)`
-  - Check if CUDA works : `a <- torch_tensor(1, device=torch_device('cuda'))`
-  - Odds are many of these steps will not work on the first go, Google is your best option here.
- - Once that is done, `library(devtools)` and install the latest version of `MCMSEM`
- - Then you are good to go. I recommend making an image of your VM at this point for future use should you need to do this again at some point.
- - IMPORTANT: When your analysis is done, or you are shutting down for the day, or for whatever reason you won't be using your VM for a while, make sure to stop it from your VM instances console https://console.cloud.google.com/compute/instances otherwise you will pay for server time you do not use.
-
 ## Patch notes
-### v0.13
+### v0.14.0
+ - Implemented `slowneckerproduct` when `low_memory=TRUE`, an iterative approach to `x %*% (y %x% y %x% y)`, which is significantly slower but does not require saving the entire `(y %x% y %x% y)` product, saving significant memory.
+ - Added `monitor_grads` argument to `MCMfit()`. Setting `monitor_grads` to TRUE will make MCMSEM check for NaN gradients between each optimizer iteration, if any NaN gradients are found optimization is stopped early and a warning is printed. Then results are returned before the gradients are applied.
+   - Currently `monitor_grads` does not work in LBFGS
+   - Because this check will incur a performance penalty, `monitor_grads` is set to FALSE by default.
+ - Moved cloud notes to `wiki/1.1 MCMSEM on the cloud.md`
+ - Added wiki folder to `.Rbuildignore`
+### v0.13.0
  - Implemented more efficient calculation of `K` from `S` when `S` is a diagonal matrix
-   - Replaced `K %*% (S %x% S %x% S)` with `K * (diag(S) %x% diag(S) %x% (diag(S)))`  
+   - Replaced `K %*% (S %x% S %x% S)` with `K * (diag(S) %x% diag(S) %x% (diag(S)))` when applicable 
 ### v0.12.1
  - Added `debug` argument to `MCMfit`, if enables prints detailed progress
 ### v0.12.0
@@ -345,17 +305,15 @@ Note that runtime is long, but that this is partly (or mostly, with many variabl
 ### v0.1.0 - Initial commit
  
 ### Things still TODO:
-1. Add gradient history (probably as option)
-2. Stop computation when loss/gradient is NaN (then return last non-NA result)
-3. Set up MCMSEM on AWS/GoogleCloud and create a manual on how this is done
-4. Create wiki pages for:
+1. Get `monitor_grads` to work in LBFGS
+2. Create/update wiki/manual pages for:
    1. MCMdatasummary() - Include recommendation for generating datasummary object of data which will be used in different models
    2. MCMsavesummary()
    3. weighted analysis
    4. MCMcompareloss()
-5. Add Hessian
-6. Find a way to get the full jacobian using torch? (and have it be faster than the default jacobian with the current .jac.fn)
-7. Expand checks in `MCMmodel` 
+3. Add Hessian
+4. Find a way to get the full jacobian using torch? (and have it be faster than the default jacobian with the current .jac.fn)
+5. Expand checks in `MCMmodel` 
 
 ## Citation
 If you use this package please include the following citation:  

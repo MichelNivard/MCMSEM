@@ -11,7 +11,7 @@
         for (k in j:(p-1)) {
           if (dims == 3) {
             vect[iter] <- ((i * p + j) * p + k)+1; iter <- iter+1
-        } else {
+          } else {
             for (l in k:(p-1)){
               vect[iter] <- (((i * p * p + j * p + k) * p + l) + 1); iter <- iter + 1
           }}}}}}
@@ -37,11 +37,11 @@
 }
 
 ######## Compute Jacobian:
-.jac.fn_torch <- function(par_vec, .par_list, par_to_list_coords, torch_masks, torch_maps, base_matrices, use_skewness, use_kurtosis, Rm2vmasks, device, diag_s) {
+.jac.fn_torch <- function(par_vec, .par_list, par_to_list_coords, torch_masks, torch_maps, base_matrices, use_skewness, use_kurtosis, Rm2vmasks, device, diag_s, low_memory) {
   for (i in names(par_to_list_coords)) {
     .par_list[[i]] <- torch_tensor(par_vec[par_to_list_coords[[i]]], device=device)
   }
-  pred_matrices <- .get_predicted_matrices(.par_list, torch_masks, torch_maps, base_matrices, use_skewness, use_kurtosis,diag_s)
+  pred_matrices <- .get_predicted_matrices(.par_list, torch_masks, torch_maps, base_matrices, use_skewness, use_kurtosis,diag_s, low_memory)
   pred_matrices[['M2']] <- as.matrix(torch_tensor(pred_matrices[['M2']], device=torch_device("cpu")))
   if (use_skewness) {
     pred_matrices[['M3']] <- as.matrix(torch_tensor(pred_matrices[['M3']], device=torch_device("cpu")))
@@ -60,12 +60,8 @@
   }
 }
 
-# Jacobian wrapper to force garbage collect after .jac.fn_torch_ call
-.jac.fn_torch_lowmem <- function(par_vec, .par_list, par_to_list_coords, torch_masks, torch_maps, base_matrices, use_skewness, use_kurtosis, Rm2vmasks, device, diag_s) {
-  val <- .jac.fn_torch(par_vec, .par_list, par_to_list_coords, torch_masks, torch_maps, base_matrices, use_skewness, use_kurtosis, Rm2vmasks, device, diag_s)
-  gc(verbose=FALSE, full=TRUE)
-  return(val)
-}
+# Jacobian wrapper to force garbage collect after .jac.fn_torch, superceeded by .jit_slowneckerproduct, re-enable this in case of memory issues
+# .jac.fn_torch_lowmem <- function(par_vec, .par_list, par_to_list_coords, torch_masks, torch_maps, base_matrices, use_skewness, use_kurtosis, Rm2vmasks, device, diag_s, low_memory) {val <- .jac.fn_torch(par_vec, .par_list, par_to_list_coords, torch_masks, torch_maps, base_matrices, use_skewness, use_kurtosis, Rm2vmasks, device, diag_s, low_memory); gc(verbose=FALSE, full=TRUE); return(val)}
 
 ### pull it together to make std errors:
 .std.err <- function(data, .par_list, use_skewness, use_kurtosis, torch_masks, torch_maps, base_matrices, m2v_masks, device, low_memory, diag_s) {
@@ -106,10 +102,11 @@
     m4=which(as.logical(as.numeric(torch_tensor(m2v_masks[['m4']], device=torch_device("cpu")))))
   )
 
-  if (low_memory) {func <- .jac.fn_torch_lowmem} else {func <- .jac.fn_torch}
-  G <- jacobian(func = func,x = par_vec, .par_list=.par_list, par_to_list_coords=par_to_list_coords, torch_masks=torch_masks,
+  # if (low_memory) {func <- .jac.fn_torch_lowmem} else {func <- .jac.fn_torch}  # superceeded by .jit_slowneckerproduct, turn this back on in case of memory issues
+  G <- jacobian(func = .jac.fn_torch,  # If the previous line is re-enabled, replace with: G <- jacobian(func = func,
+                x = par_vec, method = 'simple', .par_list=.par_list, par_to_list_coords=par_to_list_coords, torch_masks=torch_masks,
                 torch_maps=torch_maps, base_matrices=base_matrices, use_skewness=use_skewness, use_kurtosis=use_kurtosis,
-                Rm2vmasks=Rm2vmasks, device=device, diag_s=diag_s)
+                Rm2vmasks=Rm2vmasks, device=device, diag_s=diag_s, low_memory=low_memory)
 
   Asycov <- solve(t(G)%*%W%*%G) %*% t(G)%*%W%*%S.m %*%W%*%G %*% solve(t(G)%*%W%*%G)
   se <- sqrt(2)*sqrt(diag(Asycov))

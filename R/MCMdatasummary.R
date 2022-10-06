@@ -78,7 +78,6 @@ MCMdatasummary <- function(data=NULL, path=NULL, weights=NULL, scale_data=TRUE, 
       SE <- list(computed=FALSE, S.m=NULL, idx=NULL)
     }
 
-
     return(mcmdataclass(meta_data=list(scale_data=scale_data, data_was_scaled=data_was_scaled, weighted=weighted, ncol=ncol, colnames=colnames, N=n, weightsum=weightsum),
                         M2=comoments$M2, M3=comoments$M3, M4=comoments$M4, SE=SE))
   }

@@ -13,7 +13,7 @@
 }
 
 # Calculate predicted M2, M3, M4 (depending on use_skewness, use_kurtosis) matrices
-.get_predicted_matrices <- function(.par_list, torch_masks, torch_maps, base_matrices, use_skewness, use_kurtosis, diag_s) {
+.get_predicted_matrices <- function(.par_list, torch_masks, torch_maps, base_matrices, use_skewness, use_kurtosis, diag_s, low_memory) {
   # dev note: All the lines for computing these matrices (especially K, M2, M3 and M4) are unreadable due to their excessive length, I know.
   #           This is because it saves VRAM, any intermediate objects that are created here are also stored on the GPU and waste highly valuable space.
   #           I know this makes it a pain to modify antyhing, and I'm sorry for that, but it is something we have to deal with for now :(
@@ -49,7 +49,14 @@
   }
   if (use_kurtosis) {
     # Rstyle: M4 <- Fm %*% solve(diag(n_p) - A) %*% K %*%  (t(solve(diag(n_p)-A)) %x% t(solve(diag(n_p)-A))  %x%  t(solve(diag(n_p)-A))) %*% (t(Fm) %x% t(Fm) %x% t(Fm))
-    M4 <- torch_matmul(torch_matmul(torch_matmul(Fm, torch_inverse(base_matrices[['diag_n_p']] - A)), K), torch_matmul(.torch_kron(.torch_kron( torch_transpose(torch_inverse(base_matrices[['diag_n_p']] - A), 1, 2),  torch_transpose(torch_inverse(base_matrices[['diag_n_p']] - A), 1, 2)),  torch_transpose(torch_inverse(base_matrices[['diag_n_p']] - A), 1, 2)), .torch_kron(.torch_kron(torch_transpose(Fm, 1, 2), torch_transpose(Fm, 1, 2)), torch_transpose(Fm, 1, 2))))
+    if (low_memory) {
+      # M4 <- .jit_slownecker$fn(.jit_slownecker$fn(torch_matmul(torch_matmul(Fm, torch_inverse(base_matrices[['diag_n_p']] - A)), K), torch_transpose(torch_inverse(base_matrices[['diag_n_p']] - A), 1, 2)), torch_transpose(Fm, 1, 2))
+      fmkronrow <- torch_tensor(.torch_kron(.torch_kron(torch_sum(Fm, dim=1), torch_sum(Fm, dim=1)), torch_sum(Fm, dim=1)), device=Fm$device, dtype=torch_bool())
+      M4 <- .jit_slownecker$fn(torch_matmul(torch_matmul(Fm, torch_inverse(base_matrices[['diag_n_p']] - A)), K), torch_transpose(torch_inverse(base_matrices[['diag_n_p']] - A), 1, 2), fmkronrow)
+    } else {
+      M4 <- torch_matmul(torch_matmul(torch_matmul(Fm, torch_inverse(base_matrices[['diag_n_p']] - A)), K), torch_matmul(.torch_kron(.torch_kron( torch_transpose(torch_inverse(base_matrices[['diag_n_p']] - A), 1, 2),  torch_transpose(torch_inverse(base_matrices[['diag_n_p']] - A), 1, 2)),  torch_transpose(torch_inverse(base_matrices[['diag_n_p']] - A), 1, 2)), .torch_kron(.torch_kron(torch_transpose(Fm, 1, 2), torch_transpose(Fm, 1, 2)), torch_transpose(Fm, 1, 2))))
+
+    }
   }
   pred_matrices <- if (use_kurtosis & use_skewness) {return(list(M2=M2, M3=M3, M4=M4))} else if (use_skewness) {return(list(M2=M2, M3=M3))} else if (use_kurtosis) {return(list(M2=M2, M4=M4))} else {return(list(M2=M2))}
 }
@@ -70,8 +77,8 @@
 }
 
 # Objective function
-.torch_objective <- function(.par_list, lossfunc, torch_bounds, torch_masks, torch_maps, base_matrices, M2.obs, M3.obs, M4.obs, m2v_masks, use_bounds, use_skewness, use_kurtosis, outofbounds_penalty, diag_s) {
-  pred_matrices <- .get_predicted_matrices(.par_list, torch_masks, torch_maps, base_matrices, use_skewness, use_kurtosis, diag_s)
+.torch_objective <- function(.par_list, lossfunc, torch_bounds, torch_masks, torch_maps, base_matrices, M2.obs, M3.obs, M4.obs, m2v_masks, use_bounds, use_skewness, use_kurtosis, outofbounds_penalty, diag_s, low_memory) {
+  pred_matrices <- .get_predicted_matrices(.par_list, torch_masks, torch_maps, base_matrices, use_skewness, use_kurtosis, diag_s, low_memory)
   value <- .calc_loss(lossfunc, pred_matrices, m2v_masks, M2.obs, M3.obs, M4.obs, use_skewness, use_kurtosis)
   if (use_bounds) {
     pow <- .loss_power_bounds(.par_list, torch_bounds, outofbounds_penalty)
@@ -83,24 +90,29 @@
 }
 
 # Fit wrapper function
-.torch_fit <- function(optimfunc, M2.obs, M3.obs, M4.obs, m2v_masks, torch_bounds, torch_masks, torch_maps, base_matrices, .par_list, learning_rate, optim_iters, silent, use_bounds, use_skewness, use_kurtosis, lossfunc, return_history=FALSE, low_memory, outofbounds_penalty, diag_s,debug=FALSE) {
+.torch_fit <- function(optimfunc, M2.obs, M3.obs, M4.obs, m2v_masks, torch_bounds, torch_masks, torch_maps, base_matrices, .par_list, learning_rate, optim_iters, silent, use_bounds, use_skewness, use_kurtosis, lossfunc, return_history=FALSE, low_memory, outofbounds_penalty, diag_s,debug=FALSE, monitor_grads=FALSE) {
   loss_hist <- NULL
   optim <- optimfunc(.par_list,lr = learning_rate[1])
-  if (low_memory) {gc(verbose=FALSE, full=TRUE)}
+  #if (low_memory) {gc(verbose=FALSE, full=TRUE)}  # Superceeded by .jit_slowneckerproduct, turn this back on in case of memory issues
   for (i in seq_len(optim_iters[1])) {
     if (debug) {cat(paste0("Optimizer1:",i,"\n"))}
     optim$zero_grad()
-    loss <- .torch_objective(.par_list, lossfunc, torch_bounds, torch_masks, torch_maps, base_matrices, M2.obs, M3.obs, M4.obs, m2v_masks, use_bounds, use_skewness, use_kurtosis, outofbounds_penalty, diag_s)
-    if (low_memory) {gc(verbose=FALSE, full=TRUE)}
+    loss <- .torch_objective(.par_list, lossfunc, torch_bounds, torch_masks, torch_maps, base_matrices, M2.obs, M3.obs, M4.obs, m2v_masks, use_bounds, use_skewness, use_kurtosis, outofbounds_penalty, diag_s, low_memory)
+    #if (low_memory) {gc(verbose=FALSE, full=TRUE)}  # Superceeded by .jit_slowneckerproduct, turn this back on in case of memory issues
     loss$backward()
+    if (monitor_grads) {
+      for (matname in names(.par_list)) {if (.par_list[[matname]]$requires_grad) {if (any(as.logical(torch_isnan(torch_tensor(A, device=torch_device('cpu')))))) {
+            warning(paste0("NaN gradients found in ", matname, ", MCMfit stopped early"))
+              if (return_history) {pred_matrices <- .get_predicted_matrices(.par_list, torch_masks, torch_maps, base_matrices, use_skewness, use_kurtosis, diag_s, low_memory);return(list(par=.par_list, loss_hist=loss_hist, pred_matrices=pred_matrices))
+              } else {return(.par_list)}}}}}
     loss_hist <- c(loss_hist, loss$detach())
     optim$step()
     if (!(silent)) cat(paste0("\rloss ", as.numeric(loss), "           "))
   }
   calc_loss_torchfit <- function() {
     optim$zero_grad()
-    loss <- .torch_objective(.par_list, lossfunc, torch_bounds, torch_masks, torch_maps, base_matrices, M2.obs, M3.obs, M4.obs, m2v_masks, use_bounds, use_skewness, use_kurtosis, outofbounds_penalty, diag_s)
-    if (low_memory) {gc(verbose=FALSE, full=TRUE)}
+    loss <- .torch_objective(.par_list, lossfunc, torch_bounds, torch_masks, torch_maps, base_matrices, M2.obs, M3.obs, M4.obs, m2v_masks, use_bounds, use_skewness, use_kurtosis, outofbounds_penalty, diag_s, low_memory)
+    #if (low_memory) {gc(verbose=FALSE, full=TRUE)} # Superceeded by .jit_slowneckerproduct, turn this back on in case of memory issues
     loss$backward()
     loss_hist <<- c(loss_hist, loss$detach())
     if (!(silent)) {cat(paste0("\rloss ", as.numeric(loss), "          "))}
@@ -114,7 +126,7 @@
   }
   if (!(silent)) {cat("\n")}
   if (return_history) {
-    pred_matrices <- .get_predicted_matrices(.par_list, torch_masks, torch_maps, base_matrices, use_skewness, use_kurtosis, diag_s)
+    pred_matrices <- .get_predicted_matrices(.par_list, torch_masks, torch_maps, base_matrices, use_skewness, use_kurtosis, diag_s, low_memory)
     return(list(par=.par_list, loss_hist=loss_hist, pred_matrices=pred_matrices))
   } else {
     return(.par_list)

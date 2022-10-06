@@ -6,7 +6,7 @@
 }
 \usage{
 MCMfit(mcmmodel, data, weights=NULL, compute_se=TRUE, se_type='asymptotic', optimizer='rprop', optim_iters=c(50, 12), loss_type='mse', bootstrap_iter=200,bootstrap_chunks=1000,
-                   learning_rate=0.02, silent=TRUE, use_bounds=TRUE, use_skewness=TRUE, use_kurtosis=TRUE, device=NULL, low_memory=FALSE, outofbounds_penalty=1)
+                   learning_rate=0.02, silent=TRUE, use_bounds=TRUE, use_skewness=TRUE, use_kurtosis=TRUE, device=NULL, low_memory=FALSE, outofbounds_penalty=1, monitor_grads=FALSE, debug=FALSE)
 }
 \arguments{
   \item{model}{MCMmodelclass object}
@@ -25,8 +25,10 @@ MCMfit(mcmmodel, data, weights=NULL, compute_se=TRUE, se_type='asymptotic', opti
   \item{use_skewness}{Use skewness and co-skewness to estimate parameters}
   \item{use_kurtosis}{Use kurtosis and co-kurtosis to estimate parameters}
   \item{device}{torch device object, can be used to run optimization on GPU; device=torch_device('cuda'), see "MCMSEM on GPU" in the README, defaults to using CPU.}
-  \item{low_memory}{Forces aggressive garbage collection when enabled. Only set this option to TRUE when running into CUDA out of Memory errors.}
+  \item{low_memory}{Forces a more memory-friendly version of the optimization at the cost of runtime (note this cost gets VERY significant with large (>30 variables) models). Only set this option to TRUE when running into CUDA out of Memory errors.}
   \item{outofbounds_penalty}{loss penalty scaling when parameters are out of bounds: loss *  2 ^ (distance_from_bounds * outofbounds_penalty)}
+  \item{monitor_grads}{Monitor the gradients during optimization, this will cause optimization to stop early when NaN gradients are encountered, and returns the last non-NaN result instead.}
+  \item{debug}{Print more process information}
 }
 \value{
   MCMresult object. This can be converted to a dataframe with as.data.frame(result)

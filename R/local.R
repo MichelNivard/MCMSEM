@@ -1,4 +1,4 @@
-MCMSEMversion <- "0.13.0"
+MCMSEMversion <- "0.14.0"
 
 # Implemented loss functions
 .get_lossfunc <- function(loss_type) {
@@ -110,3 +110,51 @@ MCMSEMversion <- "0.13.0"
   }
   return(list(M2=M2, M3=M3, M4=M4))
 }
+
+.twod_to_nd_idx <- function(nrows, x, y, ndims) {
+  nd_coords <- list()
+  nd_coords[[1]] <- x
+  for (i in ndims:2) {
+    nd_coords[[i]] <- floor((y - 1) / nrows^(i-2)) + 1
+    y <- ((y - 1) %% nrows^(i-2)) + 1
+  }
+  return(nd_coords)
+}
+
+.torch_slowneckerproduct <- function(x, y, kronrow) {
+  # This function is superceeded by .jit_slownecker$fn, but I'm leaving this here so you can read what happens in R language (note it is conensed, so copy-paste somewhere else and use newlines to make it more readable) should anything ever need changing and the person changing it is not comfortable in PyTorch
+  device <- x$device
+  out <- torch_tensor(matrix(0, nrow=nrow(x), ncol=sum(kronrow)), device=device)
+  firstprod <- .torch_kron(y, y) # In case of memory issues: drop this line
+  ncol <- 1
+  for (j in seq_len(ncol(y)^3)) {
+    if (kronrow[j]) {
+      idx1 <- (j-1) %% ncol(y) + 1
+      idx2 <- (floor((j-1)/ ncol(y)) %% ncol(y)) + 1
+      idx3 <- (floor((j-1)/ ncol(y)^2) %% ncol(y)) + 1
+      kroncol <- .torch_kron(firstprod[,idx1+idx2*ncol(y)], y[,idx3]) # In case of memory issues replace with: kroncol <- .torch_kron(.torch_kron(y[, idx1], y[, idx2]), y[, idx3])
+      for (i in seq_len(nrow(out))) {
+        out[i, ncol] <- torch_matmul(kroncol, x[i, ])
+      }
+      ncol <- ncol + 1
+    }
+  }
+  return(out, device=device)
+}
+
+.jit_slownecker <- jit_compile("
+def fn(x, y, kronrow):
+    out = torch.zeros((x.shape[0], int(torch.sum(kronrow))), device=x.device)
+    firstprod = torch.kron(y, y)  # In case of memory issues: drop this line
+    ncol = 0
+    for j in range(int(y.shape[1]**3)):
+        if kronrow[j]:
+            idx0 = j % y.shape[1]
+            idx1 = int(j / y.shape[1]) % y.shape[1]
+            idx2 = int(j / y.shape[1]**2) % y.shape[1]
+            kroncol = torch.kron(firstprod[:, idx2+idx1*y.shape[1]], y[:, idx0]) # In case of memory issues replace with: kroncol = torch.kron(torch.kron(y[:, idx0], y[:, idx1]), y[:, idx2])
+            for k in range(out.shape[0]):
+                out[k, ncol] = torch.matmul(x[k, :], kroncol)
+            ncol += 1
+    return out
+")
