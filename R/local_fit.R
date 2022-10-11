@@ -31,8 +31,8 @@
     ## This is still in testing phase:
     ## sqrts <- torch_sqrt(S)
     if (diag_s) {
-      sqrts <- torch_diag(torch_sign(S) * torch_sqrt(torch_abs(S)))
-      skron <- .torch_kron(sqrts, .torch_kron(sqrts, sqrts))
+      sqrts <- torch_sign(S) * torch_sqrt(torch_abs(S))
+      skron <- .torch_kron(torch_diag(sqrts), .torch_kron(torch_diag(sqrts), torch_diag(sqrts)))
       K <- torch_add(torch_mul(torch_mul(torch_mul(torch_matmul(sqrts, base_matrices[['K']]), skron), base_matrices[['K2']]), torch_masks[['K']]), torch_sum(torch_mul(torch_maps[['K']], .par_list[['K']]), dim=3))
     } else {
       # This is the 'true' version of K but is significantly more memory intensive

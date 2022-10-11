@@ -7,7 +7,8 @@ As of version 0.4.0 it is possible to run MCMSEM on a GPU, see [MCMSEM on GPU](#
 
 ## Patch notes
 ### v0.15.0
- - Bugfix: hardcoded values in K2 to 3.0
+ - Bugfix: Fixed improper calculation of K with diagonal S
+ - Bugfix: set hardcoded values in K2 back to 3.0
 ### v0.14.1
  - Fixed improper assignment of `a` parameters, that would result in the left `A` matrix, instead of the right (see below)
    ```
