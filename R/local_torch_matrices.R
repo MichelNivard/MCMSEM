@@ -112,7 +112,8 @@
     # Copy kurtosis of latent factors to K2 matrix
     coords <- .nd_to_2d_idx(n_p, i, i, i, i)
     if (model$named_matrices$K[coords$x, coords$y] != "0") {
-      K2[coords$x, coords$y]  <- model$num_matrices$K[coords$x, coords$y]
+      # K2[coords$x, coords$y]  <- model$num_matrices$K[coords$x, coords$y]
+      K2[coords$x, coords$y]  <- 3.0
     }
   }
   base_matrices <- list(

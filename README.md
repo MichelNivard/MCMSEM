@@ -6,6 +6,8 @@ Note this is the `dev-torch` branch, and **not** intended for end-users. If you 
 As of version 0.4.0 it is possible to run MCMSEM on a GPU, see [MCMSEM on GPU](#mcmsem-on-gpu).
 
 ## Patch notes
+### v0.15.0
+ - Bugfix: hardcoded values in K2 to 3.0
 ### v0.14.1
  - Fixed improper assignment of `a` parameters, that would result in the left `A` matrix, instead of the right (see below)
    ```
@@ -315,15 +317,21 @@ Note that runtime is long, but that this is partly (or mostly, with many variabl
 ### v0.1.0 - Initial commit
  
 ### Things still TODO:
-1. Get `monitor_grads` to work in LBFGS
-2. Create/update wiki/manual pages for:
+1. Figure out source of memory error with 30 variables and `low_memory=TRUE`
+2. Get `.slownecker_jit` to work in `install_github()` 
+3. Add gradient history to output
+4. Move moment matrices in result to `res$observed` and `res$predicted`
+5. Allow for use of multiple different optimizers: `optimizer=c("rprop", "rprop")`
+6. Get `monitor_grads` to work in LBFGS
+7. Create/update wiki/manual pages for:
    1. MCMdatasummary() - Include recommendation for generating datasummary object of data which will be used in different models
    2. MCMsavesummary()
    3. weighted analysis
    4. MCMcompareloss()
-3. Add Hessian
-4. Find a way to get the full jacobian using torch? (and have it be faster than the default jacobian with the current .jac.fn)
-5. Expand checks in `MCMmodel` 
+8. Torch-version of `S.m` generation
+9. Add Hessian
+10. Find a way to get the full jacobian using torch? (and have it be faster than the default jacobian with the current .jac.fn)
+11. Expand checks in `MCMmodel` 
 
 ## Citation
 If you use this package please include the following citation:  
