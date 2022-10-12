@@ -6,6 +6,9 @@ Note this is the `dev-torch` branch, and **not** intended for end-users. If you 
 As of version 0.4.0 it is possible to run MCMSEM on a GPU, see [MCMSEM on GPU](#mcmsem-on-gpu).
 
 ## Patch notes
+### v0.15.1
+ - Moved definition of jit slownecker function to `.torch_fit` and `.std.err` to ensure compilation when the function is called, instead of when package is installed.
+   - Thanks [@dfalbel](https://github.com/dfalbel) for your help.
 ### v0.15.0
  - Bugfix: Fixed improper calculation of K with diagonal S
  - Bugfix: set hardcoded values in K2 back to 3.0

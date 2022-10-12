@@ -13,7 +13,7 @@
 }
 
 # Calculate predicted M2, M3, M4 (depending on use_skewness, use_kurtosis) matrices
-.get_predicted_matrices <- function(.par_list, torch_masks, torch_maps, base_matrices, use_skewness, use_kurtosis, diag_s, low_memory) {
+.get_predicted_matrices <- function(.par_list, torch_masks, torch_maps, base_matrices, use_skewness, use_kurtosis, diag_s, low_memory, .jit_slownecker) {
   # dev note: All the lines for computing these matrices (especially K, M2, M3 and M4) are unreadable due to their excessive length, I know.
   #           This is because it saves VRAM, any intermediate objects that are created here are also stored on the GPU and waste highly valuable space.
   #           I know this makes it a pain to modify antyhing, and I'm sorry for that, but it is something we have to deal with for now :(
@@ -76,8 +76,8 @@
 }
 
 # Objective function
-.torch_objective <- function(.par_list, lossfunc, torch_bounds, torch_masks, torch_maps, base_matrices, M2.obs, M3.obs, M4.obs, m2v_masks, use_bounds, use_skewness, use_kurtosis, outofbounds_penalty, diag_s, low_memory) {
-  pred_matrices <- .get_predicted_matrices(.par_list, torch_masks, torch_maps, base_matrices, use_skewness, use_kurtosis, diag_s, low_memory)
+.torch_objective <- function(.par_list, lossfunc, torch_bounds, torch_masks, torch_maps, base_matrices, M2.obs, M3.obs, M4.obs, m2v_masks, use_bounds, use_skewness, use_kurtosis, outofbounds_penalty, diag_s, low_memory, .jit_slownecker) {
+  pred_matrices <- .get_predicted_matrices(.par_list, torch_masks, torch_maps, base_matrices, use_skewness, use_kurtosis, diag_s, low_memory, .jit_slownecker)
   value <- .calc_loss(lossfunc, pred_matrices, m2v_masks, M2.obs, M3.obs, M4.obs, use_skewness, use_kurtosis)
   if (use_bounds) {
     pow <- .loss_power_bounds(.par_list, torch_bounds, outofbounds_penalty)
@@ -93,10 +93,26 @@
   loss_hist <- NULL
   optim <- optimfunc(.par_list,lr = learning_rate[1])
   #if (low_memory) {gc(verbose=FALSE, full=TRUE)}  # Superceeded by .jit_slowneckerproduct, turn this back on in case of memory issues
+  .jit_slownecker <- jit_compile("
+def fn(x, y, kronrow):
+    out = torch.zeros((x.shape[0], int(torch.sum(kronrow))), device=x.device)
+    firstprod = torch.kron(y, y)  # In case of memory issues: drop this line
+    ncol = 0
+    for j in range(int(y.shape[1]**3)):
+        if kronrow[j]:
+            idx0 = j % y.shape[1]
+            idx1 = int(j / y.shape[1]) % y.shape[1]
+            idx2 = int(j / y.shape[1]**2) % y.shape[1]
+            kroncol = torch.kron(firstprod[:, idx2+idx1*y.shape[1]], y[:, idx0]) # In case of memory issues replace with: kroncol = torch.kron(torch.kron(y[:, idx0], y[:, idx1]), y[:, idx2])
+            for k in range(out.shape[0]):
+                out[k, ncol] = torch.matmul(x[k, :], kroncol)
+            ncol += 1
+    return out
+")
   for (i in seq_len(optim_iters[1])) {
     if (debug) {cat(paste0("Optimizer1:",i,"\n"))}
     optim$zero_grad()
-    loss <- .torch_objective(.par_list, lossfunc, torch_bounds, torch_masks, torch_maps, base_matrices, M2.obs, M3.obs, M4.obs, m2v_masks, use_bounds, use_skewness, use_kurtosis, outofbounds_penalty, diag_s, low_memory)
+    loss <- .torch_objective(.par_list, lossfunc, torch_bounds, torch_masks, torch_maps, base_matrices, M2.obs, M3.obs, M4.obs, m2v_masks, use_bounds, use_skewness, use_kurtosis, outofbounds_penalty, diag_s, low_memory, .jit_slownecker)
     #if (low_memory) {gc(verbose=FALSE, full=TRUE)}  # Superceeded by .jit_slowneckerproduct, turn this back on in case of memory issues
     loss$backward()
     if (monitor_grads) {
@@ -110,7 +126,7 @@
   }
   calc_loss_torchfit <- function() {
     optim$zero_grad()
-    loss <- .torch_objective(.par_list, lossfunc, torch_bounds, torch_masks, torch_maps, base_matrices, M2.obs, M3.obs, M4.obs, m2v_masks, use_bounds, use_skewness, use_kurtosis, outofbounds_penalty, diag_s, low_memory)
+    loss <- .torch_objective(.par_list, lossfunc, torch_bounds, torch_masks, torch_maps, base_matrices, M2.obs, M3.obs, M4.obs, m2v_masks, use_bounds, use_skewness, use_kurtosis, outofbounds_penalty, diag_s, low_memory, .jit_slownecker)
     #if (low_memory) {gc(verbose=FALSE, full=TRUE)} # Superceeded by .jit_slowneckerproduct, turn this back on in case of memory issues
     loss$backward()
     loss_hist <<- c(loss_hist, loss$detach())
@@ -125,7 +141,7 @@
   }
   if (!(silent)) {cat("\n")}
   if (return_history) {
-    pred_matrices <- .get_predicted_matrices(.par_list, torch_masks, torch_maps, base_matrices, use_skewness, use_kurtosis, diag_s, low_memory)
+    pred_matrices <- .get_predicted_matrices(.par_list, torch_masks, torch_maps, base_matrices, use_skewness, use_kurtosis, diag_s, low_memory, .jit_slownecker)
     return(list(par=.par_list, loss_hist=loss_hist, pred_matrices=pred_matrices))
   } else {
     return(.par_list)

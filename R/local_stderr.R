@@ -37,11 +37,11 @@
 }
 
 ######## Compute Jacobian:
-.jac.fn_torch <- function(par_vec, .par_list, par_to_list_coords, torch_masks, torch_maps, base_matrices, use_skewness, use_kurtosis, Rm2vmasks, device, diag_s, low_memory) {
+.jac.fn_torch <- function(par_vec, .par_list, par_to_list_coords, torch_masks, torch_maps, base_matrices, use_skewness, use_kurtosis, Rm2vmasks, device, diag_s, low_memory, .jit_slownecker) {
   for (i in names(par_to_list_coords)) {
     .par_list[[i]] <- torch_tensor(par_vec[par_to_list_coords[[i]]], device=device)
   }
-  pred_matrices <- .get_predicted_matrices(.par_list, torch_masks, torch_maps, base_matrices, use_skewness, use_kurtosis,diag_s, low_memory)
+  pred_matrices <- .get_predicted_matrices(.par_list, torch_masks, torch_maps, base_matrices, use_skewness, use_kurtosis,diag_s, low_memory, .jit_slownecker)
   pred_matrices[['M2']] <- as.matrix(torch_tensor(pred_matrices[['M2']], device=torch_device("cpu")))
   if (use_skewness) {
     pred_matrices[['M3']] <- as.matrix(torch_tensor(pred_matrices[['M3']], device=torch_device("cpu")))
@@ -101,12 +101,28 @@
     m3=which(as.logical(as.numeric(torch_tensor(m2v_masks[['m3']], device=torch_device("cpu"))))),
     m4=which(as.logical(as.numeric(torch_tensor(m2v_masks[['m4']], device=torch_device("cpu")))))
   )
-
+  # Slownecker function compiled when .std.err is called
+  .jit_slownecker <- jit_compile("
+def fn(x, y, kronrow):
+    out = torch.zeros((x.shape[0], int(torch.sum(kronrow))), device=x.device)
+    firstprod = torch.kron(y, y)  # In case of memory issues: drop this line
+    ncol = 0
+    for j in range(int(y.shape[1]**3)):
+        if kronrow[j]:
+            idx0 = j % y.shape[1]
+            idx1 = int(j / y.shape[1]) % y.shape[1]
+            idx2 = int(j / y.shape[1]**2) % y.shape[1]
+            kroncol = torch.kron(firstprod[:, idx2+idx1*y.shape[1]], y[:, idx0]) # In case of memory issues replace with: kroncol = torch.kron(torch.kron(y[:, idx0], y[:, idx1]), y[:, idx2])
+            for k in range(out.shape[0]):
+                out[k, ncol] = torch.matmul(x[k, :], kroncol)
+            ncol += 1
+    return out
+")
   # if (low_memory) {func <- .jac.fn_torch_lowmem} else {func <- .jac.fn_torch}  # superceeded by .jit_slowneckerproduct, turn this back on in case of memory issues
   G <- jacobian(func = .jac.fn_torch,  # If the previous line is re-enabled, replace with: G <- jacobian(func = func,
                 x = par_vec, method = 'simple', .par_list=.par_list, par_to_list_coords=par_to_list_coords, torch_masks=torch_masks,
                 torch_maps=torch_maps, base_matrices=base_matrices, use_skewness=use_skewness, use_kurtosis=use_kurtosis,
-                Rm2vmasks=Rm2vmasks, device=device, diag_s=diag_s, low_memory=low_memory)
+                Rm2vmasks=Rm2vmasks, device=device, diag_s=diag_s, low_memory=low_memory, .jit_slownecker=.jit_slownecker)
 
   Asycov <- solve(t(G)%*%W%*%G) %*% t(G)%*%W%*%S.m %*%W%*%G %*% solve(t(G)%*%W%*%G)
   se <- sqrt(2)*sqrt(diag(Asycov))
