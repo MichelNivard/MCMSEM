@@ -90,7 +90,8 @@
                 x = par_vec, method = jacobian_method, .par_list=.par_list, par_to_list_coords=par_to_list_coords, torch_masks=torch_masks,
                 torch_maps=torch_maps, base_matrices=base_matrices, use_skewness=use_skewness, use_kurtosis=use_kurtosis,
                 Rm2vmasks=Rm2vmasks, device=device, diag_s=diag_s, low_memory=low_memory, .jit_slownecker=.jit_slownecker)
-
+  Gexp <<- G
+  Wexp <<- W
   Asycov <- solve(t(G)%*%W%*%G) %*% t(G)%*%W%*%S.m %*%W%*%G %*% solve(t(G)%*%W%*%G)
   se <- sqrt(2)*sqrt(diag(Asycov))
   return(se)
