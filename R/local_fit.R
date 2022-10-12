@@ -93,22 +93,7 @@
   loss_hist <- NULL
   optim <- optimfunc(.par_list,lr = learning_rate[1])
   #if (low_memory) {gc(verbose=FALSE, full=TRUE)}  # Superceeded by .jit_slowneckerproduct, turn this back on in case of memory issues
-  .jit_slownecker <- jit_compile("
-def fn(x, y, kronrow):
-    out = torch.zeros((x.shape[0], int(torch.sum(kronrow))), device=x.device)
-    firstprod = torch.kron(y, y)  # In case of memory issues: drop this line
-    ncol = 0
-    for j in range(int(y.shape[1]**3)):
-        if kronrow[j]:
-            idx0 = j % y.shape[1]
-            idx1 = int(j / y.shape[1]) % y.shape[1]
-            idx2 = int(j / y.shape[1]**2) % y.shape[1]
-            kroncol = torch.kron(firstprod[:, idx2+idx1*y.shape[1]], y[:, idx0]) # In case of memory issues replace with: kroncol = torch.kron(torch.kron(y[:, idx0], y[:, idx1]), y[:, idx2])
-            for k in range(out.shape[0]):
-                out[k, ncol] = torch.matmul(x[k, :], kroncol)
-            ncol += 1
-    return out
-")
+  .jit_slownecker <- jit_compile(.jit_funcs[['slownecker']])
   for (i in seq_len(optim_iters[1])) {
     if (debug) {cat(paste0("Optimizer1:",i,"\n"))}
     optim$zero_grad()

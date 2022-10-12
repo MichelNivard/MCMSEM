@@ -6,6 +6,16 @@ Note this is the `dev-torch` branch, and **not** intended for end-users. If you 
 As of version 0.4.0 it is possible to run MCMSEM on a GPU, see [MCMSEM on GPU](#mcmsem-on-gpu).
 
 ## Patch notes
+### v0.16.0
+ - Ported pre-calculation of `S.m` matrix in `MCMdatasummary()` to torch `jit_compile`, speeding up this part approximately 10x
+   - ```
+     nvars=30, nobs=    100   1000  10000
+     S.m R-apply       1.4s  17.7s   155s
+     S.m torch-jit     0.1s   1.1s  10.6s
+     ```
+   - Note this was one of the slowest part in `MCMdatasummary()` with many variables so I expect significant time savings
+ - Moved all TorchScript code to list defined in `jit_funcs.R`
+ - Added `jacobian_method` argument to `MCMfit` to change jacobian method for calculating standard errors
 ### v0.15.1
  - Moved definition of jit slownecker function to `.torch_fit` and `.std.err` to ensure compilation when the function is called, instead of when package is installed.
    - Thanks [@dfalbel](https://github.com/dfalbel) for your help.
@@ -321,21 +331,20 @@ Note that runtime is long, but that this is partly (or mostly, with many variabl
 ### v0.1.0 - Initial commit
  
 ### Things still TODO:
-1. Figure out source of memory error with 30 variables and `low_memory=TRUE`
-2. Get `.slownecker_jit` to work in `install_github()` 
-3. Add gradient history to output
-4. Move moment matrices in result to `res$observed` and `res$predicted`
-5. Allow for use of multiple different optimizers: `optimizer=c("rprop", "rprop")`
-6. Get `monitor_grads` to work in LBFGS
-7. Create/update wiki/manual pages for:
+1. Figure out source of memory error with 30 variables and `low_memory=TRUE` 
+2. Add gradient history to output
+3. Move moment matrices in result to `res$observed` and `res$predicted`
+4. Allow for use of multiple different optimizers: `optimizer=c("rprop", "rprop")`
+5. Get `monitor_grads` to work in LBFGS
+6. Create/update wiki/manual pages for:
    1. MCMdatasummary() - Include recommendation for generating datasummary object of data which will be used in different models
    2. MCMsavesummary()
    3. weighted analysis
    4. MCMcompareloss()
-8. Torch-version of `S.m` generation
-9. Add Hessian
-10. Find a way to get the full jacobian using torch? (and have it be faster than the default jacobian with the current .jac.fn)
-11. Expand checks in `MCMmodel` 
+7. Torch-version of `S.m` generation
+8. Add Hessian
+9. Find a way to get the full jacobian using torch? (and have it be faster than the default jacobian with the current .jac.fn)
+10. Expand checks in `MCMmodel` 
 
 ## Citation
 If you use this package please include the following citation:  

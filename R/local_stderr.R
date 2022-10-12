@@ -18,24 +18,6 @@
   return(vect)
 }
 
-# Make pseudo obs for standard errors:
-.t4crossprod <- function(x, idx, use_skewness, use_kurtosis){
-  x2 <- x %o% x
-  x3 <- x2 %x% x
-  if (use_kurtosis) {
-    x4 <- x3 %x% x
-  }
-  if (use_skewness & use_kurtosis) {
-    return(c(as.vector(t(x2)), as.vector(t(x3)), as.vector(t(x4)))[idx])
-  } else if (use_skewness) {
-    return(c(as.vector(t(x2)), as.vector(t(x3)))[idx])
-  } else if (use_kurtosis) {
-    return(c(as.vector(t(x2)), as.vector(t(x4)))[idx])
-  } else {
-    return(as.vector(t(x2))[idx])
-  }
-}
-
 ######## Compute Jacobian:
 .jac.fn_torch <- function(par_vec, .par_list, par_to_list_coords, torch_masks, torch_maps, base_matrices, use_skewness, use_kurtosis, Rm2vmasks, device, diag_s, low_memory, .jit_slownecker) {
   for (i in names(par_to_list_coords)) {
@@ -64,7 +46,7 @@
 # .jac.fn_torch_lowmem <- function(par_vec, .par_list, par_to_list_coords, torch_masks, torch_maps, base_matrices, use_skewness, use_kurtosis, Rm2vmasks, device, diag_s, low_memory) {val <- .jac.fn_torch(par_vec, .par_list, par_to_list_coords, torch_masks, torch_maps, base_matrices, use_skewness, use_kurtosis, Rm2vmasks, device, diag_s, low_memory); gc(verbose=FALSE, full=TRUE); return(val)}
 
 ### pull it together to make std errors:
-.std.err <- function(data, .par_list, use_skewness, use_kurtosis, torch_masks, torch_maps, base_matrices, m2v_masks, device, low_memory, diag_s) {
+.std.err <- function(data, .par_list, use_skewness, use_kurtosis, torch_masks, torch_maps, base_matrices, m2v_masks, device, low_memory, diag_s, jacobian_method) {
   # idx is pre-determined in MCMdatasummary() depending on the number of variables
   # Note there is probably a cleaner way to do this as these numbers only depend on number of columns..
   # If you want to be a contributor, here's your chance.
@@ -102,25 +84,10 @@
     m4=which(as.logical(as.numeric(torch_tensor(m2v_masks[['m4']], device=torch_device("cpu")))))
   )
   # Slownecker function compiled when .std.err is called
-  .jit_slownecker <- jit_compile("
-def fn(x, y, kronrow):
-    out = torch.zeros((x.shape[0], int(torch.sum(kronrow))), device=x.device)
-    firstprod = torch.kron(y, y)  # In case of memory issues: drop this line
-    ncol = 0
-    for j in range(int(y.shape[1]**3)):
-        if kronrow[j]:
-            idx0 = j % y.shape[1]
-            idx1 = int(j / y.shape[1]) % y.shape[1]
-            idx2 = int(j / y.shape[1]**2) % y.shape[1]
-            kroncol = torch.kron(firstprod[:, idx2+idx1*y.shape[1]], y[:, idx0]) # In case of memory issues replace with: kroncol = torch.kron(torch.kron(y[:, idx0], y[:, idx1]), y[:, idx2])
-            for k in range(out.shape[0]):
-                out[k, ncol] = torch.matmul(x[k, :], kroncol)
-            ncol += 1
-    return out
-")
+  .jit_slownecker <- jit_compile(.jit_funcs[['slownecker']])
   # if (low_memory) {func <- .jac.fn_torch_lowmem} else {func <- .jac.fn_torch}  # superceeded by .jit_slowneckerproduct, turn this back on in case of memory issues
   G <- jacobian(func = .jac.fn_torch,  # If the previous line is re-enabled, replace with: G <- jacobian(func = func,
-                x = par_vec, method = 'simple', .par_list=.par_list, par_to_list_coords=par_to_list_coords, torch_masks=torch_masks,
+                x = par_vec, method = jacobian_method, .par_list=.par_list, par_to_list_coords=par_to_list_coords, torch_masks=torch_masks,
                 torch_maps=torch_maps, base_matrices=base_matrices, use_skewness=use_skewness, use_kurtosis=use_kurtosis,
                 Rm2vmasks=Rm2vmasks, device=device, diag_s=diag_s, low_memory=low_memory, .jit_slownecker=.jit_slownecker)
 

@@ -46,21 +46,28 @@ MCMdatasummary <- function(data=NULL, path=NULL, weights=NULL, scale_data=TRUE, 
       # if there is too much data for spoeedly opperation, sample 100000 observations to base this on
       if(n > 100000){
         samp <- sample(1:n,100000,F)
-        data <- data[samp, ]
+        data <- torch_tensor(data[samp, ])
+      } else {
+        data <- torch_tensor(data)
       }
       # observed cov between pseudo obsertvations ovver n-1 gets us cov betwene moments moments
-      dim2 <- data[1, ] %o% data[1, ]
-      dim2locs <- .dimlocations(nrow(t(dim2)), dims=2)
-      dim3 <- dim2 %x% data[1, ]
-      dim3locs <- .dimlocations(nrow(t(dim3)), dims=3)
-      dim4 <- dim3 %x% data[1, ]
-      dim4locs <- .dimlocations(nrow(t(dim4)), dims=4)
+      dim2locs <- torch_tensor(.dimlocations(ncol(data), dims=2) - 1, dtype=torch_int64())
+      dim3locs <- torch_tensor(.dimlocations(ncol(data), dims=3) - 1, dtype=torch_int64())
+      dim4locs <- torch_tensor(.dimlocations(ncol(data), dims=4) - 1, dtype=torch_int64())
+
+      # R style: t4crossprod
+      #x2 <- x %o% x %x% x %x% x
+      #x3 <- x2 %x% x
+      #return(c(as.vector(t(x2)), as.vector(t(x3)), as.vector(t(x4)))[idx])
+      # apply that to scaled data across rows
+      # with idx = c(as.numeric(dim2locs), length(as.vector(dim2)) + as.numeric(dim3locs),  length(as.vector(dim2)) + length(as.vector(dim3)) + as.numeric(dim4locs)) + 1
+
+      .jit_t4crossprod <- jit_compile(.jit_funcs[['t4crossprod']])
+      S.m <- .jit_t4crossprod$fn(data, dim2locs, dim3locs, dim4locs)
       # S.m <- cov(t(S.m))/(n-1)
       # Replace this with torch_cov(S.m) / (n - 1)  once that is implemented in torch for R
-      S.m <- apply(scale(data, center = T, scale = F),1, .t4crossprod,
-                   idx=c(dim2locs, length(as.vector(dim2)) + dim3locs,  length(as.vector(dim2)) + length(as.vector(dim3)) + dim4locs),
-                   use_skewness=TRUE, use_kurtosis=TRUE)
-      S.m <- torch_transpose(torch_tensor(S.m, device=torch_device("cpu")), 1, 2)
+
+      S.m <- torch_transpose(S.m, 1, 2)
       S.m <- torch_subtract(S.m, torch_reshape(torch_mean(S.m, dim=1), c(1, S.m$shape[2])))
       S.m <- torch_matmul(torch_transpose(S.m, 1, 2), S.m)  / (S.m$shape[1] - 1) / (n - 1)
       idx <- list(
