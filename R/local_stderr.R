@@ -24,12 +24,12 @@
     .par_list[[i]] <- torch_tensor(par_vec[par_to_list_coords[[i]]], device=device)
   }
   pred_matrices <- .get_predicted_matrices(.par_list, torch_masks, torch_maps, base_matrices, use_skewness, use_kurtosis,diag_s, low_memory, .jit_slownecker)
-  pred_matrices[['M2']] <- as.matrix(torch_tensor(pred_matrices[['M2']], device=torch_device("cpu")))
+  pred_matrices[['M2']] <- as.matrix(torch_tensor(pred_matrices[['M2']], device=device))
   if (use_skewness) {
-    pred_matrices[['M3']] <- as.matrix(torch_tensor(pred_matrices[['M3']], device=torch_device("cpu")))
+    pred_matrices[['M3']] <- as.matrix(torch_tensor(pred_matrices[['M3']], device=device))
   }
   if (use_kurtosis) {
-    pred_matrices[['M4']] <- as.matrix(torch_tensor(pred_matrices[['M4']], device=torch_device("cpu")))
+    pred_matrices[['M4']] <- as.matrix(torch_tensor(pred_matrices[['M4']], device=device))
   }
   if (use_skewness & use_kurtosis) {
     return(c(pred_matrices[['M2']][Rm2vmasks[['m2']]], pred_matrices[['M3']][Rm2vmasks[['m3']]], pred_matrices[['M4']][Rm2vmasks[['m4']]]))
@@ -68,7 +68,7 @@
   .par_list_grad_only <- list()
   for (i in names(.par_list)) {
     if (.par_list[[i]]$requires_grad) {
-      current_vec <- as.numeric(torch_tensor(.par_list[[i]], device=torch_device("cpu")))
+      current_vec <- as.numeric(torch_tensor(.par_list[[i]], device=device))
       par_vec <- c(par_vec, current_vec)
       par_to_list_coords[[i]] <- coord_start:(coord_start+(length(current_vec)-1))
       coord_start <- coord_start + length(current_vec)
@@ -79,9 +79,9 @@
   }
 
   Rm2vmasks <- list(
-    m2=which(as.logical(as.numeric(torch_tensor(m2v_masks[['m2']], device=torch_device("cpu"))))),
-    m3=which(as.logical(as.numeric(torch_tensor(m2v_masks[['m3']], device=torch_device("cpu"))))),
-    m4=which(as.logical(as.numeric(torch_tensor(m2v_masks[['m4']], device=torch_device("cpu")))))
+    m2=which(as.logical(as.numeric(torch_tensor(m2v_masks[['m2']], device=device)))),
+    m3=which(as.logical(as.numeric(torch_tensor(m2v_masks[['m3']], device=device)))),
+    m4=which(as.logical(as.numeric(torch_tensor(m2v_masks[['m4']], device=device))))
   )
   # Slownecker function compiled when .std.err is called
   .jit_slownecker <- jit_compile(.jit_funcs[['slownecker']])
