@@ -6,6 +6,17 @@ Note this is the `dev-torch` branch, and **not** intended for end-users. If you 
 As of version 0.4.0 it is possible to run MCMSEM on a GPU, see [MCMSEM on GPU](#mcmsem-on-gpu).
 
 ## Patch notes
+### v0.17.0
+ - > :warning: __WARNING__: The name of the `optimizer` argument to `MCMfit()` changed to `optimizers`. Additionally, when `learning_rate` or `optim_iters` are of length 1 they this value will be used for all optimizers. Previously, if the length was 1 this value would only be used for the first optimizer. Please change your code accordingly.
+ - > :warning: __WARNING__: Observed and predicted (co-)moment matrices in result objects are moved from `result$history$M#obs` and `result$history$M#pred` to `result$observed$M#` and `result$predicted$M#` respectively, where # is 2, 3 or 4 depending on moments used
+ - Added `use_skewness` and `use_kurtosis` arguments to `MCMdatasummary()`, this allows for skipping preparation of `S.m` matrix with kurtosis parameters if they won't be used
+   - Note older saved `mcmdatasummary` objects will by default have both kurtosis and skew `S.m` so should still work fine.
+ - Added checks in `MCMfit` to verify `mcmdatasummary` object SE parameters were generated with the correct settings
+ - Changed `optimizer` argument to `MCMfit()` to `optimizers` and allowed for any number of different optimizers to be run in sequel.
+   - For example, if you would like to use RPROP with different learning rates instead of LBFGS: `MCMfit(model, data, optimizers=c('rprop', 'rprop', 'rprop'), otpim_iters=c(100, 100, 100), learning_rate=c(0.01, 0.001, 0.0001)`
+ - Moved moment matrices in MCM result object from `res$history` to `res$observed` and `res$predicted`
+ - Changed `MCMcompareloss()` to use new result object layout
+   - Note this means result objects generated in previous MCMSEM versions will not work with the current `MCMcompareloss()`
 ### v0.16.0
  - Ported pre-calculation of `S.m` matrix in `MCMdatasummary()` to torch `jit_compile`, speeding up this part approximately 10x
    - ```
@@ -333,18 +344,15 @@ Note that runtime is long, but that this is partly (or mostly, with many variabl
 ### Things still TODO:
 1. Figure out source of memory error with 30 variables and `low_memory=TRUE` 
 2. Add gradient history to output
-3. Move moment matrices in result to `res$observed` and `res$predicted`
-4. Allow for use of multiple different optimizers: `optimizer=c("rprop", "rprop")`
-5. Get `monitor_grads` to work in LBFGS
-6. Create/update wiki/manual pages for:
+3. Get `monitor_grads` to work in LBFGS
+4. Create/update wiki/manual pages for:
    1. MCMdatasummary() - Include recommendation for generating datasummary object of data which will be used in different models
    2. MCMsavesummary()
    3. weighted analysis
    4. MCMcompareloss()
-7. Torch-version of `S.m` generation
-8. Add Hessian
-9. Find a way to get the full jacobian using torch? (and have it be faster than the default jacobian with the current .jac.fn)
-10. Expand checks in `MCMmodel` 
+5. Add Hessian
+6. Find a way to get the full jacobian using torch? (and have it be faster than the default jacobian with the current .jac.fn)
+7. Expand checks in `MCMmodel` 
 
 ## Citation
 If you use this package please include the following citation:  

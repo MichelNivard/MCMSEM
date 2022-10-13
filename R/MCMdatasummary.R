@@ -1,4 +1,4 @@
-MCMdatasummary <- function(data=NULL, path=NULL, weights=NULL, scale_data=TRUE, prep_asymptotic_se=TRUE) {
+MCMdatasummary <- function(data=NULL, path=NULL, weights=NULL, scale_data=TRUE, prep_asymptotic_se=TRUE, use_skewness=TRUE, use_kurtosis=TRUE) {
   if (is.null(data) & is.null(path)) {
     stop("Either argument data (to generate a new summary) or argument path (to load an existing summary) should be provided")
   }
@@ -63,19 +63,35 @@ MCMdatasummary <- function(data=NULL, path=NULL, weights=NULL, scale_data=TRUE, 
       # with idx = c(as.numeric(dim2locs), length(as.vector(dim2)) + as.numeric(dim3locs),  length(as.vector(dim2)) + length(as.vector(dim3)) + as.numeric(dim4locs)) + 1
 
       .jit_t4crossprod <- jit_compile(.jit_funcs[['t4crossprod']])
-      S.m <- .jit_t4crossprod$fn(data, dim2locs, dim3locs, dim4locs)
+      if (use_kurtosis & use_skewness) {
+        S.m <- .jit_t4crossprod$fn(data, dim2locs, dim3locs, dim4locs)
+      } else if (use_kurtosis) {
+        S.m <- .jit_t4crossprod$fn(data, dim2locs, torch_tensor(0), dim4locs)
+      } else if (use_skewness) {
+        S.m <- .jit_t4crossprod$fn(data, dim2locs, dim3locs, torch_tensor(0))
+      } else {
+        S.m <- .jit_t4crossprod$fn(data, dim2locs, torch_tensor(0), torch_tensor(0))
+      }
+
       # S.m <- cov(t(S.m))/(n-1)
       # Replace this with torch_cov(S.m) / (n - 1)  once that is implemented in torch for R
-
-      S.m <- torch_transpose(S.m, 1, 2)
       S.m <- torch_subtract(S.m, torch_reshape(torch_mean(S.m, dim=1), c(1, S.m$shape[2])))
       S.m <- torch_matmul(torch_transpose(S.m, 1, 2), S.m)  / (S.m$shape[1] - 1) / (n - 1)
-      idx <- list(
-        idx=1:ncol(S.m),
-        idx_nokurt=1:(ncol(S.m)-length(dim4locs)),
-        idx_noskew=c(1:length(dim2locs), (length(dim2locs)+length(dim3locs)+1):ncol(S.m)),
-        idx_nokurt_noskew=1:length(dim2locs)
-      )
+      idx <- list()
+      if (use_skewness & use_kurtosis) {
+        idx[['idx']] <- 1:ncol(S.m)
+        idx[['idx_nokurt']] <- 1:(ncol(S.m)-length(dim4locs))
+        idx[['idx_noskew']] <- c(1:length(dim2locs), (length(dim2locs)+length(dim3locs)+1):ncol(S.m))
+        idx[['idx_nokurt_noskew']] <- 1:length(dim2locs)
+      } else if (use_kurtosis) {
+        idx[['idx_noskew']] <- 1:ncol(S.m)
+        idx[['idx_nokurt_noskew']] <- 1:length(dim2locs)
+      } else if (use_skewness) {
+        idx[['idx_nokurt']] <- 1:ncol(S.m)
+        idx[['idx_nokurt_noskew']] <- 1:length(dim2locs)
+      } else {
+        idx[['idx_nokurt_noskew']] <- 1:length(dim2locs)
+      }
       SE <- list(
         computed=TRUE,
         S.m=as.matrix(S.m),

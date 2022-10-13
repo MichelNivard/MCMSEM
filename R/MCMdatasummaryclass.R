@@ -46,9 +46,9 @@ mcmdataclass$methods(
     if (.self$SE$computed) {
       #file.h5[['SE/sm']] <- .self$SE$S.m
       file.h5$create_dataset("sm", robj = .self$SE$S.m, chunk_dims = "auto", gzip_level = 9)
-      file.h5[['SE/idx']] <- .self$SE$idx$idx
-      file.h5[['SE/idx_nokurt']] <- .self$SE$idx$idx_nokurt
-      file.h5[['SE/idx_noskew']] <- .self$SE$idx$idx_noskew
+      if ("idx" %in% names(.self$SE$idx)) {file.h5[['SE/idx']] <- .self$SE$idx$idx}
+      if ("idx_nokurt" %in% names(.self$SE$idx)) {file.h5[['SE/idx_nokurt']] <- .self$SE$idx$idx_nokurt}
+      if ("idx_noskew" %in% names(.self$SE$idx)) {file.h5[['SE/idx_noskew']] <- .self$SE$idx$idx_noskew}
       file.h5[['SE/idx_nokurt_noskew']] <- .self$SE$idx$idx_nokurt_noskew
     }
     file.h5$close_all()
@@ -61,13 +61,14 @@ mcmdataclass$methods(
     .self$SE <- list(
       computed=as.logical(file.h5[['SE/computed']]$read()),
       S.m=file.h5[['sm']]$read(),
-      idx=list(
-        idx=file.h5[['SE/idx']]$read(),
-        idx_nokurt=file.h5[['SE/idx_nokurt']]$read(),
-        idx_noskew=file.h5[['SE/idx_noskew']]$read(),
-        idx_nokurt_noskew=file.h5[['SE/idx_nokurt_noskew']]$read()
-      )
+      idx=list()
     )
+    idxnames <- list.datasets(file.h5, path="SE/")
+    for (idxname in c("idx", "idx_nokurt", "idx_noskew", "idx_nokurt_noskew")) {
+      if (idxname %in% idxnames) {
+        .self$SE$idx[[idxname]] <- file.h5[[paste0('SE/', idxname)]]$read()
+      }
+    }
     bools <- c("data_was_scaled", "scale_data", "weighted")  #meta data objects that should be converted to boolean
     for (i in file.h5[["meta"]]$ls()$name) {
       if (i %in% bools) {

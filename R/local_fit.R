@@ -89,40 +89,45 @@
 }
 
 # Fit wrapper function
-.torch_fit <- function(optimfunc, M2.obs, M3.obs, M4.obs, m2v_masks, torch_bounds, torch_masks, torch_maps, base_matrices, .par_list, learning_rate, optim_iters, silent, use_bounds, use_skewness, use_kurtosis, lossfunc, return_history=FALSE, low_memory, outofbounds_penalty, diag_s,debug=FALSE, monitor_grads=FALSE) {
+.torch_fit <- function(optimizers, M2.obs, M3.obs, M4.obs, m2v_masks, torch_bounds, torch_masks, torch_maps, base_matrices, .par_list, learning_rate, optim_iters, silent, use_bounds, use_skewness, use_kurtosis, lossfunc, return_history=FALSE, low_memory, outofbounds_penalty, diag_s,debug=FALSE, monitor_grads=FALSE) {
   loss_hist <- NULL
-  optim <- optimfunc(.par_list,lr = learning_rate[1])
-  #if (low_memory) {gc(verbose=FALSE, full=TRUE)}  # Superceeded by .jit_slowneckerproduct, turn this back on in case of memory issues
-  .jit_slownecker <- jit_compile(.jit_funcs[['slownecker']])
-  for (i in seq_len(optim_iters[1])) {
-    if (debug) {cat(paste0("Optimizer1:",i,"\n"))}
-    optim$zero_grad()
-    loss <- .torch_objective(.par_list, lossfunc, torch_bounds, torch_masks, torch_maps, base_matrices, M2.obs, M3.obs, M4.obs, m2v_masks, use_bounds, use_skewness, use_kurtosis, outofbounds_penalty, diag_s, low_memory, .jit_slownecker)
-    #if (low_memory) {gc(verbose=FALSE, full=TRUE)}  # Superceeded by .jit_slowneckerproduct, turn this back on in case of memory issues
-    loss$backward()
-    if (monitor_grads) {
-      for (matname in names(.par_list)) {if (.par_list[[matname]]$requires_grad) {if (any(as.logical(torch_isnan(torch_tensor(A, device=torch_device('cpu')))))) {
-            warning(paste0("NaN gradients found in ", matname, ", MCMfit stopped early"))
-              if (return_history) {pred_matrices <- .get_predicted_matrices(.par_list, torch_masks, torch_maps, base_matrices, use_skewness, use_kurtosis, diag_s, low_memory);return(list(par=.par_list, loss_hist=loss_hist, pred_matrices=pred_matrices))
-              } else {return(.par_list)}}}}}
-    loss_hist <- c(loss_hist, loss$detach())
-    optim$step()
-    if (!(silent)) cat(paste0("\rloss ", as.numeric(loss), "           "))
-  }
-  calc_loss_torchfit <- function() {
-    optim$zero_grad()
-    loss <- .torch_objective(.par_list, lossfunc, torch_bounds, torch_masks, torch_maps, base_matrices, M2.obs, M3.obs, M4.obs, m2v_masks, use_bounds, use_skewness, use_kurtosis, outofbounds_penalty, diag_s, low_memory, .jit_slownecker)
-    #if (low_memory) {gc(verbose=FALSE, full=TRUE)} # Superceeded by .jit_slowneckerproduct, turn this back on in case of memory issues
-    loss$backward()
-    loss_hist <<- c(loss_hist, loss$detach())
-    if (!(silent)) {cat(paste0("\rloss ", as.numeric(loss), "          "))}
-    return(loss)
-  }
-  # Use lbfgs to get really close....
-  optim <- optim_lbfgs(.par_list,lr= learning_rate[2])
-  for (i in seq_len(optim_iters[2])) {
-    if (debug) {cat(paste0("Optimizer2:",i,"\n"))}
-    optim$step(calc_loss_torchfit)
+  for (optimiz in optimizers) {
+    if (optimiz != "lbfgs") {
+      optim <- .get_optimfunc(optimiz)(.par_list,lr = learning_rate[1])
+      #if (low_memory) {gc(verbose=FALSE, full=TRUE)}  # Superceeded by .jit_slowneckerproduct, turn this back on in case of memory issues
+      .jit_slownecker <- jit_compile(.jit_funcs[['slownecker']])
+      for (i in seq_len(optim_iters[1])) {
+        if (debug) {cat(paste0("Optimizer:",i,"\n"))}
+        optim$zero_grad()
+        loss <- .torch_objective(.par_list, lossfunc, torch_bounds, torch_masks, torch_maps, base_matrices, M2.obs, M3.obs, M4.obs, m2v_masks, use_bounds, use_skewness, use_kurtosis, outofbounds_penalty, diag_s, low_memory, .jit_slownecker)
+        #if (low_memory) {gc(verbose=FALSE, full=TRUE)}  # Superceeded by .jit_slowneckerproduct, turn this back on in case of memory issues
+        loss$backward()
+        if (monitor_grads) {
+          for (matname in names(.par_list)) {if (.par_list[[matname]]$requires_grad) {if (any(as.logical(torch_isnan(torch_tensor(A, device=torch_device('cpu')))))) {
+                warning(paste0("NaN gradients found in ", matname, ", MCMfit stopped early"))
+                  if (return_history) {pred_matrices <- .get_predicted_matrices(.par_list, torch_masks, torch_maps, base_matrices, use_skewness, use_kurtosis, diag_s, low_memory);return(list(par=.par_list, loss_hist=loss_hist, pred_matrices=pred_matrices))
+                  } else {return(.par_list)}}}}}
+        loss_hist <- c(loss_hist, loss$detach())
+        optim$step()
+        if (!(silent)) cat(paste0("\rloss ", as.numeric(loss), "           "))
+      }
+    } else {
+      calc_loss_torchfit <- function() {
+      optim$zero_grad()
+        loss <- .torch_objective(.par_list, lossfunc, torch_bounds, torch_masks, torch_maps, base_matrices, M2.obs, M3.obs, M4.obs, m2v_masks, use_bounds, use_skewness, use_kurtosis, outofbounds_penalty, diag_s, low_memory, .jit_slownecker)
+        #if (low_memory) {gc(verbose=FALSE, full=TRUE)} # Superceeded by .jit_slowneckerproduct, turn this back on in case of memory issues
+        loss$backward()
+        loss_hist <<- c(loss_hist, loss$detach())
+        if (!(silent)) {cat(paste0("\rloss ", as.numeric(loss), "          "))}
+        return(loss)
+      }
+      # Use lbfgs to get really close....
+      optim <- optim_lbfgs(.par_list,lr= learning_rate[2])
+      for (i in seq_len(optim_iters[2])) {
+        if (debug) {cat(paste0("Optimizer:",i,"\n"))}
+        optim$step(calc_loss_torchfit)
+      }
+    }
   }
   if (!(silent)) {cat("\n")}
   if (return_history) {

@@ -6,24 +6,29 @@ mcmresultclass <- setRefClass("mcmresultclass",
                                loss="numeric",
                                history="list",
                                runtimes="list",
-                               info="list"
+                               info="list",
+                               observed="list",
+                               predicted="list"
                              ))
 
 mcmresultclass$methods(
-  initialize=function(df=data.frame(), model=mcmmodelclass(), loss=as.numeric(NA), history=list(), runtimes=list(), info=list()) {
+  initialize=function(df=data.frame(), model=mcmmodelclass(), loss=as.numeric(NA), history=list(), runtimes=list(), info=list(),
+                      observed=list(), predicted=list()) {
     .self$df <- df
     .self$model <- model
     .self$loss <- loss
     .self$history <- history
     .self$runtimes <- runtimes
     .self$info <- info
+    .self$observed <- observed
+    .self$predicted <- predicted
   },
   show=function(){
     cat("  MCM model Result\n")
     print(.self$df)
   },
   copy=function(){
-    return(mcmresultclass(.self$df, .self$model$copy(), .self$loss, .self$history, .self$runtimes, .self$info))
+    return(mcmresultclass(.self$df, .self$model$copy(), .self$loss, .self$history, .self$runtimes, .self$info, .self$observed, .self$predicted))
   }
 )
 

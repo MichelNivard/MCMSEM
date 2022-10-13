@@ -47,6 +47,14 @@
 
 ### pull it together to make std errors:
 .std.err <- function(data, .par_list, use_skewness, use_kurtosis, torch_masks, torch_maps, base_matrices, m2v_masks, device, low_memory, diag_s, jacobian_method) {
+  # Temporary fix to check if forcing CPU leads to more consistency
+  device <- torch_device('cpu')
+  for (i in names(.par_list)) {.par_list[[i]] <- torch_tensor(.par_list[[i]], device=torch_device('cpu'), requires_grad = .par_list[[i]]$requires_grad)}
+  for (i in names(torch_masks)) {torch_masks[[i]] <- torch_tensor(torch_masks[[i]], device=torch_device('cpu'))}
+  for (i in names(torch_maps)) {torch_maps[[i]] <- torch_tensor(torch_maps[[i]], device=torch_device('cpu'))}
+  for (i in names(base_matrices)) {base_matrices[[i]] <- torch_tensor(base_matrices[[i]], device=torch_device('cpu'))}
+  for (i in names(m2v_masks)) {m2v_masks[[i]] <- torch_tensor(m2v_masks[[i]], device=torch_device('cpu'))}
+
   # idx is pre-determined in MCMdatasummary() depending on the number of variables
   # Note there is probably a cleaner way to do this as these numbers only depend on number of columns..
   # If you want to be a contributor, here's your chance.

@@ -65,9 +65,9 @@ MCMcompareloss <- function(results, test_data, weights=NULL, loss_type='auto', e
   )
   # Check if models were fitted on the same data
   if (length(results) > 1) {
-    M2_model1 <- results[[names(results)[1]]]$history$M2obs
+    M2_model1 <- results[[names(results)[1]]]$observed$M2
     for (resname in names(results)[2:length(results)]) {
-      if (sum((round(results[[resname]]$history$M2obs - M2_model1, 3)))!=0) {
+      if (sum((round(results[[resname]]$observed$M2 - M2_model1, 3)))!=0) {
         warning("Results seem to have been create using different datasets")
       }
     }
@@ -86,16 +86,16 @@ MCMcompareloss <- function(results, test_data, weights=NULL, loss_type='auto', e
     i <- 0
     for (resname in names(results)) {
       if (results[[resname]]$info$use_kurtosis & results[[resname]]$info$use_skewness) {
-        loss <- .calc_loss(lossfunc, list(M2=results[[resname]]$history$M2pred, M3=results[[resname]]$history$M3pred, M4=results[[resname]]$history$M4pred), m2v_masks, data$M2, data$M3, data$M4, TRUE, TRUE)
+        loss <- .calc_loss(lossfunc, list(M2=results[[resname]]$predicted$M2, M3=results[[resname]]$predicted$M3, M4=results[[resname]]$predicted$M4), m2v_masks, data$M2, data$M3, data$M4, TRUE, TRUE)
         comoments_used <- c(comoments_used, "kurtskewvar")
       } else if (results[[resname]]$info$use_skewness) {
-        loss <- .calc_loss(lossfunc, list(M2=results[[resname]]$history$M2pred, M3=results[[resname]]$history$M3pred), m2v_masks, data$M2, data$M3, data$M4, TRUE, FALSE)
+        loss <- .calc_loss(lossfunc, list(M2=results[[resname]]$predicted$M2, M3=results[[resname]]$predicted$M3), m2v_masks, data$M2, data$M3, data$M4, TRUE, FALSE)
         comoments_used <- c(comoments_used, "skewvar")
       } else if (results[[resname]]$info$use_kurtosis) {
-        loss <- .calc_loss(lossfunc, list(M2=results[[resname]]$history$M2pred, M4=results[[resname]]$history$M4pred), m2v_masks, data$M2, data$M3, data$M4, FALSE, TRUE)
+        loss <- .calc_loss(lossfunc, list(M2=results[[resname]]$predicted$M2, M4=results[[resname]]$predicted$M4), m2v_masks, data$M2, data$M3, data$M4, FALSE, TRUE)
         comoments_used <- c(comoments_used, "kurtvar")
       } else {
-        loss <- .calc_loss(lossfunc, list(M2=results[[resname]]$history$M2pred), m2v_masks, data$M2, data$M3, data$M4, FALSE, FALSE)
+        loss <- .calc_loss(lossfunc, list(M2=results[[resname]]$predicted$M2), m2v_masks, data$M2, data$M3, data$M4, FALSE, FALSE)
         comoments_used <- c(comoments_used, "var")
       }
       loss <- as.numeric(loss)

@@ -2,7 +2,7 @@
 # Local functions used in MCMfit moved to local_fit.R
 
 # Exported MCMfit function
-MCMfit <- function(mcmmodel, data, weights=NULL, compute_se=TRUE, se_type='asymptotic', optimizer="rprop", optim_iters=c(50, 12), loss_type='mse', bootstrap_iter=200,bootstrap_chunks=1000,
+MCMfit <- function(mcmmodel, data, weights=NULL, compute_se=TRUE, se_type='asymptotic', optimizers=c("rprop", "lbfgs"), optim_iters=c(50, 12), loss_type='mse', bootstrap_iter=200,bootstrap_chunks=1000,
                    learning_rate=c(0.02, 1), silent=TRUE, use_bounds=TRUE, use_skewness=TRUE, use_kurtosis=TRUE, device=NULL, low_memory=FALSE, outofbounds_penalty=1, monitor_grads=FALSE, debug=FALSE,
                    jacobian_method='simple') {
   START_MCMfit <- Sys.time()
@@ -50,7 +50,7 @@ MCMfit <- function(mcmmodel, data, weights=NULL, compute_se=TRUE, se_type='asymp
   if (class(data)[[1]] != "mcmdataclass") {
     data_org <- data
     if (debug) {cat("Converting data\n")}
-    data <- MCMdatasummary(data, scale_data=model$meta_data$scale_data, weights=weights, prep_asymptotic_se=((compute_se) & (se_type == "asymptotic")))
+    data <- MCMdatasummary(data, scale_data=model$meta_data$scale_data, weights=weights, prep_asymptotic_se=((compute_se) & (se_type == "asymptotic")), use_skewness=use_skewness, use_kurtosis=use_kurtosis)
   } else {
     if (compute_se) {
       if (se_type %in% c("one-step", 'two-step'))
@@ -58,6 +58,16 @@ MCMfit <- function(mcmmodel, data, weights=NULL, compute_se=TRUE, se_type='asymp
       if ((se_type == 'asymptotic') & !(data$SE$computed))
         stop("This summary data was made without the required preparation for asymptotic SE")
     }
+    kurtskew_se_prepared <- "idx" %in% names(data$SE$idx)
+    kurt_se_prepared <- "idx_noskew" %in% names(data$SE$idx)
+    skew_se_prepared <- "idx_nokurt" %in% names(data$SE$idx)
+    if ((use_kurtosis & use_skewness) & !(kurtskew_se_prepared)) {
+      if (kurt_se_prepared) {stop("Data summary object was prepared with use_skewness=FALSE")}
+      if (skew_se_prepared) {stop("Data summary object was prepared with use_kurtosis=FALSE")}
+      if (!(kurt_se_prepared) & !(skew_se_prepared)) {stop("Data summary object was prepared with use_skewness=FALSE and use_kurtosis=FALSE")}
+    }
+    if (use_kurtosis & !(kurt_se_prepared)) {{stop("Data summary object was prepared with use_kurtosis=FALSE")}}
+    if (use_skewness & !(skew_se_prepared)) {{stop("Data summary object was prepared with use_skewness=FALSE")}}
   }
   model$meta_data$n_obs <- data$meta_data$n # Store the N of the training data, note this may not always be the same as the N the model was initially made with
   if (is.null(device)) {
@@ -77,18 +87,18 @@ MCMfit <- function(mcmmodel, data, weights=NULL, compute_se=TRUE, se_type='asymp
     warning("Use of a dataframe with more than 2 columns is still experimental.")
   if (!(use_skewness) & !(use_kurtosis))
     stop("At least either skewness or kurtosis has to be used")
-  if (length(optim_iters) != 2) {
+  if (length(optim_iters) != length(optimizers)) {
     if (length(optim_iters) == 1) {
-      optim_iters <- c(optim_iters, 12) # If one value is passed to optim_iters I'm assuming that would be for RPROP
+      optim_iters <- rep(optim_iters, length(optimizers))
     } else {
-      stop("optim_iters should be of length 2")
+      stop("length of optim_iters should be equal to length of optimizers")
     }
   }
-  if (length(learning_rate) != 2) {
+  if (length(learning_rate) != length(optimizers)) {
     if (length(learning_rate) == 1) {
-      learning_rate <- c(learning_rate, 1.0) # If one value is passed to optim_iters I'm assuming that would be for RPROP
+      learning_rate <- rep(learning_rate, length(optimizers)) # If one value is passed to optim_iters I'm assuming that would be for RPROP
     } else {
-      stop("learning_rate should be of length 2")
+      stop("length of learning_rate should be equal to length of optimizers")
     }
   }
   if (outofbounds_penalty < 0) {
@@ -111,7 +121,6 @@ MCMfit <- function(mcmmodel, data, weights=NULL, compute_se=TRUE, se_type='asymp
   diag_s <- all(diag_s == "0")
 
   lossfunc <- .get_lossfunc(loss_type)
-  optimfunc <- .get_optimfunc(optimizer)
 
   if (compute_se)
     model_copy <- model$copy()
@@ -138,7 +147,7 @@ MCMfit <- function(mcmmodel, data, weights=NULL, compute_se=TRUE, se_type='asymp
   START_optim <- Sys.time()
   TIME_prep <-  START_optim - START_MCMfit
   if (debug) {cat("Strting fit\n")}
-  out <- .torch_fit(optimfunc, M2.obs, M3.obs, M4.obs, m2v_masks, torch_bounds, torch_masks, torch_maps, base_matrices, .par_list, learning_rate, optim_iters, silent, use_bounds, use_skewness, use_kurtosis, lossfunc, return_history = TRUE, low_memory=low_memory, outofbounds_penalty=outofbounds_penalty,debug=debug, diag_s=diag_s, monitor_grads=monitor_grads)
+  out <- .torch_fit(optimizers, M2.obs, M3.obs, M4.obs, m2v_masks, torch_bounds, torch_masks, torch_maps, base_matrices, .par_list, learning_rate, optim_iters, silent, use_bounds, use_skewness, use_kurtosis, lossfunc, return_history = TRUE, low_memory=low_memory, outofbounds_penalty=outofbounds_penalty,debug=debug, diag_s=diag_s, monitor_grads=monitor_grads)
   .par_tensor <- out[['par']]
   loss_hist <- as.numeric(torch_tensor(torch_vstack(out[["loss_hist"]]), device=cpu_device))
   pred_matrices <- out[['pred_matrices']]
@@ -196,7 +205,7 @@ MCMfit <- function(mcmmodel, data, weights=NULL, compute_se=TRUE, se_type='asymp
 
         #3. Fit model
         # Estimate parameters with model function specified above
-        .par_tensor <- .torch_fit(optimfunc, M2.obs, M3.obs, M4.obs, m2v_masks, torch_bounds, torch_masks, torch_maps, base_matrices, .par_list, learning_rate, optim_iters, silent, use_bounds, use_skewness, use_kurtosis, lossfunc, low_memory=low_memory, outofbounds_penalty=outofbounds_penalty, diag_s=diag_s, monitor_grads=monitor_grads)
+        .par_tensor <- .torch_fit(optimizers, M2.obs, M3.obs, M4.obs, m2v_masks, torch_bounds, torch_masks, torch_maps, base_matrices, .par_list, learning_rate, optim_iters, silent, use_bounds, use_skewness, use_kurtosis, lossfunc, low_memory=low_memory, outofbounds_penalty=outofbounds_penalty, diag_s=diag_s, monitor_grads=monitor_grads)
         .par <- list()
         for (j in names(.par_tensor)) {
           if (length(param_list[[j]]) > 0) {
@@ -215,7 +224,7 @@ MCMfit <- function(mcmmodel, data, weights=NULL, compute_se=TRUE, se_type='asymp
       ##############################
       ### STEP 1
       # 1. Bind the data to a random sample binning people into "bootstrap_chunks" groups
-      step1 <- cbind(data,sample(1:bootstrap_chunks,nrow(data_org),replace=T))
+      step1 <- cbind(data_org,sample(1:bootstrap_chunks,nrow(data_org),replace=T))
       colnames(step1)[ncol(step1)] <- "group"
       step1 <- as.data.frame(step1)
 
@@ -249,7 +258,7 @@ MCMfit <- function(mcmmodel, data, weights=NULL, compute_se=TRUE, se_type='asymp
 
         #3. Fit model
         # Estimate parameters with model function specified above
-        .par_tensor <- .torch_fit(optimfunc, M2.obs, M3.obs, M4.obs, m2v_masks, torch_bounds, torch_masks, torch_maps, base_matrices, .par_list, learning_rate, optim_iters, silent, use_bounds, use_skewness, use_kurtosis, lossfunc, low_memory=low_memory, outofbounds_penalty=outofbounds_penalty, diag_s=diag_s, monitor_grads=monitor_grads)
+        .par_tensor <- .torch_fit(optimizers, M2.obs, M3.obs, M4.obs, m2v_masks, torch_bounds, torch_masks, torch_maps, base_matrices, .par_list, learning_rate, optim_iters, silent, use_bounds, use_skewness, use_kurtosis, lossfunc, low_memory=low_memory, outofbounds_penalty=outofbounds_penalty, diag_s=diag_s, monitor_grads=monitor_grads)
         .par <- list()
         for (j in names(.par_tensor)) {
           if (length(param_list[[j]]) > 0) {
@@ -280,11 +289,12 @@ MCMfit <- function(mcmmodel, data, weights=NULL, compute_se=TRUE, se_type='asymp
   STOP <- Sys.time()
   TIME_se <- STOP - START_se
   TIME_total <- STOP - START_MCMfit
-  history <- list(loss=loss_hist, M2pred=as.matrix(torch_tensor(pred_matrices$M2, device=cpu_device)), M2obs=as.matrix(torch_tensor(M2.obs, device=cpu_device)))
-  if (use_skewness) {history[['M3pred']] <- as.matrix(torch_tensor(pred_matrices$M3, device=cpu_device)); history[['M3obs']] <- as.matrix(torch_tensor(M3.obs, device=cpu_device))}
-  if (use_skewness) {history[['M4pred']] <- as.matrix(torch_tensor(pred_matrices$M4, device=cpu_device)); history[['M4obs']] <- as.matrix(torch_tensor(M4.obs, device=cpu_device))}
+  history <- list(loss=loss_hist)
   loss <- .calc_loss(lossfunc, pred_matrices, m2v_masks, M2.obs, M3.obs, M4.obs, use_skewness, use_kurtosis)
-                             
+  observed <- list(M2=as.matrix(torch_tensor(M2.obs, device=cpu_device)))
+  predicted <- list(M2=as.matrix(torch_tensor(pred_matrices$M2, device=cpu_device)))
+  if (use_skewness) {predicted[['M3']] <- as.matrix(torch_tensor(pred_matrices$M3, device=cpu_device)); observed[['M3']] <- as.matrix(torch_tensor(M3.obs, device=cpu_device))}
+  if (use_skewness) {predicted[['M4']] <- as.matrix(torch_tensor(pred_matrices$M4, device=cpu_device)); observed[['M4']] <- as.matrix(torch_tensor(M4.obs, device=cpu_device))}
                                
   return(mcmresultclass(df=results, loss=as.numeric(torch_tensor(loss, device=cpu_device)), model=model$copy(),
                         history=history,
@@ -293,7 +303,9 @@ MCMfit <- function(mcmmodel, data, weights=NULL, compute_se=TRUE, se_type='asymp
                                   bootstrap_iter=bootstrap_iter,bootstrap_chunks=bootstrap_chunks, learning_rate=learning_rate,
                                   silent=silent, use_bounds=use_bounds, use_skewness=use_skewness, use_kurtosis=use_kurtosis,
                                   device=device$type, low_memory=low_memory, weighted=data$meta_data$weighted, loss_type=loss_type,
-                                  optimizer=optimizer, n=data$meta_data$n)
+                                  optimizer=optimizer, n=data$meta_data$n),
+                        observed=observed,
+                        predicted=predicted
                       ))
 }
 
