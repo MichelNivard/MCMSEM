@@ -150,6 +150,14 @@ MCMfit <- function(mcmmodel, data, weights=NULL, compute_se=TRUE, se_type='asymp
   out <- .torch_fit(optimizers, M2.obs, M3.obs, M4.obs, m2v_masks, torch_bounds, torch_masks, torch_maps, base_matrices, .par_list, learning_rate, optim_iters, silent, use_bounds, use_skewness, use_kurtosis, lossfunc, return_history = TRUE, low_memory=low_memory, outofbounds_penalty=outofbounds_penalty,debug=debug, diag_s=diag_s, monitor_grads=monitor_grads)
   .par_tensor <- out[['par']]
   loss_hist <- as.numeric(torch_tensor(torch_vstack(out[["loss_hist"]]), device=cpu_device))
+  grad_hist <- list()
+  for (matname in names(.par_list)) {
+    if (.par_list[[matname]]$requires_grad) {
+      grad_hist[[matname]] <- as.data.frame(as.matrix(torch_tensor(out[['grad_hist']][[matname]], device=cpu_device)))
+      colnames(grad_hist[[matname]]) <- param_list[[matname]]
+    }
+  }
+
   pred_matrices <- out[['pred_matrices']]
   # Store estimates including minimization objective, using this to evaluate/compare fit
   .par <- list()
@@ -290,14 +298,15 @@ MCMfit <- function(mcmmodel, data, weights=NULL, compute_se=TRUE, se_type='asymp
   TIME_se <- STOP - START_se
   TIME_total <- STOP - START_MCMfit
   history <- list(loss=loss_hist)
+  grad_hist <- mcmmultigradienthistoryclass(x=grad_hist, hasgrads=monitor_grads)
   loss <- .calc_loss(lossfunc, pred_matrices, m2v_masks, M2.obs, M3.obs, M4.obs, use_skewness, use_kurtosis)
   observed <- list(M2=as.matrix(torch_tensor(M2.obs, device=cpu_device)))
   predicted <- list(M2=as.matrix(torch_tensor(pred_matrices$M2, device=cpu_device)))
   if (use_skewness) {predicted[['M3']] <- as.matrix(torch_tensor(pred_matrices$M3, device=cpu_device)); observed[['M3']] <- as.matrix(torch_tensor(M3.obs, device=cpu_device))}
   if (use_skewness) {predicted[['M4']] <- as.matrix(torch_tensor(pred_matrices$M4, device=cpu_device)); observed[['M4']] <- as.matrix(torch_tensor(M4.obs, device=cpu_device))}
                                
-  return(mcmresultclass(df=results, loss=as.numeric(torch_tensor(loss, device=cpu_device)), model=model$copy(),
-                        history=history,
+  return(mcmresultclass(df=results, loss=as.numeric(torch_tensor(loss, device=cpu_device)),
+                        gradients=grad_hist, model=model$copy(), history=history,
                         runtimes=list(Preparation=TIME_prep, Optimizer=TIME_optim, SE=TIME_se, Total=TIME_total),
                         info=list(version=MCMSEMversion, compute_se=compute_se, se_type=se_type, optim_iters=optim_iters,
                                   bootstrap_iter=bootstrap_iter,bootstrap_chunks=bootstrap_chunks, learning_rate=learning_rate,

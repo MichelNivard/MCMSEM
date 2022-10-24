@@ -4,6 +4,7 @@ mcmresultclass <- setRefClass("mcmresultclass",
                                df="data.frame",
                                model="mcmmodelclass",
                                loss="numeric",
+                               gradients="mcmmultigradienthistoryclass",
                                history="list",
                                runtimes="list",
                                info="list",
@@ -12,11 +13,12 @@ mcmresultclass <- setRefClass("mcmresultclass",
                              ))
 
 mcmresultclass$methods(
-  initialize=function(df=data.frame(), model=mcmmodelclass(), loss=as.numeric(NA), history=list(), runtimes=list(), info=list(),
+  initialize=function(df=data.frame(), model=mcmmodelclass(), loss=as.numeric(NA), gradients=mcmmultigradienthistoryclass(), history=list(), runtimes=list(), info=list(),
                       observed=list(), predicted=list()) {
     .self$df <- df
     .self$model <- model
     .self$loss <- loss
+    .self$gradients <- gradients
     .self$history <- history
     .self$runtimes <- runtimes
     .self$info <- info
@@ -28,7 +30,7 @@ mcmresultclass$methods(
     print(.self$df)
   },
   copy=function(){
-    return(mcmresultclass(.self$df, .self$model$copy(), .self$loss, .self$history, .self$runtimes, .self$info, .self$observed, .self$predicted))
+    return(mcmresultclass(.self$df, .self$model$copy(), .self$loss, .self$gradients, .self$history, .self$runtimes, .self$info, .self$observed, .self$predicted))
   }
 )
 

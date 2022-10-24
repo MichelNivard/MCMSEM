@@ -6,6 +6,56 @@ Note this is the `dev-torch` branch, and **not** intended for end-users. If you 
 As of version 0.4.0 it is possible to run MCMSEM on a GPU, see [MCMSEM on GPU](#mcmsem-on-gpu).
 
 ## Patch notes
+### v0.18.0
+ - > :warning: __WARNING__: Due to added gradients in MCM result and summary objects this version is incompatible with older MCM result objects. Additionally columns `group` and `fixed` have been removed from MCM result summary objects.
+ - Added `mcmgradienthistoryclass`, which stores gradient history of parameters from a single matrix, with the following attributes and `S3` methods
+   - `.self$df: data.frame`: data frame of loss history, with shape (n_iterations, n_parameters)
+   - `.self$label: character`: original matrix label (A, Fm, S, Sk or K)
+   - `.self$hasgrads: logical`: `TRUE` if the object has a gradient history 
+   - `.self$last_iter: data.frame`: gradients at the last iteration (this is always filled regardless of `monitor_grads` in `MCMfit()`)
+   - `as.data.frame(mcmgradienthistoryclass)` to extract gradient history as dataframe
+   - `as.matrix(mcmgradienthistoryclass)` to extract gradient history as matrix
+   - `min(mcmgradienthistoryclass)` to extract minimum values per parameter from gradient history class
+   - `max(mcmgradienthistoryclass)` to extract minimum values per parameter from gradient history class
+   - `summary(mcmgradienthistoryclass)` to extract a summary: min, max, min(abs), max(abs), last_gradient per parameter from gradient history class
+   - `plot(mcmgradienthistoryclass)` to plot gradient history as a line plot
+   - As well as several scaling/manipulation methods, mainly used to benefit plotting:
+     - `abs(mcmgradienthistoryclass)` to change values in a gradient history object to absolute values (note this returns a new `mcmgradientclass` object)
+     - `log(mcmgradienthistoryclass)` to change values in a gradient history object to absolute values (note this returns a new `mcmgradientclass` object)
+     - `log10(mcmgradienthistoryclass)` to change values in a gradient history object to absolute values (note this returns a new `mcmgradientclass` object)
+     - `sqrt(mcmgradienthistoryclass)` to change values in a gradient history object to absolute values (note this returns a new `mcmgradientclass` object)
+ - Added `mcmmultigradienthistoryclass`, which stores all gradient histories as a collection of `mcmgradienthistoryclass` objects (one for each parameter matrix), with the following attributes and `S3` methods:  
+   - `.self$A: mcmgradienthistoryclass`: MCM gradient history object with loss history of A parameters
+   - `.self$Fm: mcmgradienthistoryclass`: MCM gradient history object with loss history of Fm parameters
+   - `.self$S: mcmgradienthistoryclass`: MCM gradient history object with loss history of S parameters
+   - `.self$Sk: mcmgradienthistoryclass`: MCM gradient history object with loss history of Sk parameters
+   - `.self$K: mcmgradienthistoryclass`: MCM gradient history object with loss history of K parameters
+   - `.self$hasgrads: logical`: `TRUE` if any of the `mcmgradienthistoryclass` objects contained in `.self` has a gradient history 
+   - `as.data.frame(mcmmultigradienthistoryclass)` to extract full gradient history as dataframe
+   - `as.matrix(mcmmultigradienthistoryclass)` to extract full gradient history as matrix
+   - `min(mcmmultigradienthistoryclass)` to extract minimum values per matrix per parameter from gradient history class
+   - `max(mcmmultigradienthistoryclass)` to extract minimum values per matrix per parameter from gradient history class
+   - `summary(mcmmultigradienthistoryclass)` to extract a summary: min, max, min(abs), max(abs), last_gradient per matrix per parameter from gradient history class
+   - `plot(mcmmultigradienthistoryclass)` to plot gradient histories as a line plot (1 plot window per parameter matrix)
+   - As well as several scaling/manipulation methods, mainly used to benefit plotting:
+     - `abs(mcmmultigradienthistoryclass)` to change values in a gradient history object to absolute values (note this returns a new `mcmmultigradienthistoryclass` object)
+     - `log(mcmmultigradienthistoryclass)` to change values in a gradient history object to absolute values (note this returns a new `mcmmultigradienthistoryclass` object)
+     - `log10(mcmmultigradienthistoryclass)` to change values in a gradient history object to absolute values (note this returns a new `mcmmultigradienthistoryclass` object)
+     - `sqrt(mcmmultigradienthistoryclass)` to change values in a gradient history object to absolute values (note this returns a new `mcmmultigradienthistoryclass` object)
+ - Added `gradients` field to `mcmresultclass` which stores an `mcmmultigradienthistoryclass` object
+   - So for example `plot(result$gradient)` will plot all gradient histories
+   - `plot(result$gradient$A)` will plot the gradient history of parameters in the `A` matrix
+ - Changed `MCMfit()` and `.torch_fit()` to store gradient history when requested
+ - The gradient at the last iteration is stored by default. This can be extracted via `result$gradients$A$last_iter`, but for end-users most accessible in `summary(result)`
+ - To enable storing gradient history, set the `monitor_grads` argument to `TRUE`, this will also cause MCMSEM to monitor for NaN gradients and incur an early stop when NaN gradients are detected (though this currently does not work for LBFGS)
+   - These two functions (storing gradient history and monitoring NaN gradients) are included in a single arguments because:  
+       1. The performance impact of both is very similar, and combining them doesn't add much overhead    
+       2. This keeps the amount of arguments required as low as possible
+       3. It seems likely to me that these would be combined anyway
+ - Changed `summary(mcmresultclass)`:
+   - Removed columns `fixed` and `group`
+   - Added column `last_gradient` containing the last gradient for each parameter
+ - Updated `TO DO` list with regard to torch-based jacobian/hessian as (for now) these are not likely to be implemented any time soon.
 ### v0.17.0
  - > :warning: __WARNING__: The name of the `optimizer` argument to `MCMfit()` changed to `optimizers`. Additionally, when `learning_rate` or `optim_iters` are of length 1 they this value will be used for all optimizers. Previously, if the length was 1 this value would only be used for the first optimizer. Please change your code accordingly.
  - > :warning: __WARNING__: Observed and predicted (co-)moment matrices in result objects are moved from `result$history$M#obs` and `result$history$M#pred` to `result$observed$M#` and `result$predicted$M#` respectively, where # is 2, 3 or 4 depending on moments used
@@ -342,17 +392,23 @@ Note that runtime is long, but that this is partly (or mostly, with many variabl
 ### v0.1.0 - Initial commit
  
 ### Things still TODO:
-1. Figure out source of memory error with 30 variables and `low_memory=TRUE` 
-2. Add gradient history to output
-3. Get `monitor_grads` to work in LBFGS
-4. Create/update wiki/manual pages for:
+1. Figure out source of memory error with 30 variables and `low_memory=TRUE`
+2. Get `monitor_grads` to work in LBFGS
+3. Create/update wiki/manual pages for:
    1. MCMdatasummary() - Include recommendation for generating datasummary object of data which will be used in different models
    2. MCMsavesummary()
    3. weighted analysis
    4. MCMcompareloss()
-5. Add Hessian
-6. Find a way to get the full jacobian using torch? (and have it be faster than the default jacobian with the current .jac.fn)
-7. Expand checks in `MCMmodel` 
+   5. Gradient histories/`monitor_grads`
+4. Add Hessian
+5. Expand checks in `MCMmodel` 
+6. Find a way to get the full jacobian and/or hessian using torch, and have it be faster than the default jacobian with the current .jac.fn
+   - This is not feasible in the current implementation as for MCMSEM additional non-variable input arguments to `jacobian`/`hessian` are required (i.e. the fixed format matrices), other behavior-changing arguments like `low_memory` can be worked around by creating different functions for each type, but the matrices cannot be hardcoded. `torch.autograd.functional.jacobian`/`torch.autograd.functional.hessian` (not implemented in R torch but could theoretically be used via TorchScript) does not allow for non-variable (i.e. non-grad) arguments. The solution in Python is to use a class to hold fixed format objects, but custom classes are not available in TorchScript.
+   - Note for future development, this will be possible if/when:
+     1. R torch adds a more flexible version of `torch.autograd.functional.jacobian`/`torch.autograd.functional.hessian` which allows for additional non-variable input arguments, unlikely to happen any time soon though.
+     2. TorchScript is expanded to allow for inclusion of custom classes. This seems even more unlikely than the previous point.
+     3. MCMSEM migrates to a full Python backend (this is up to you)
+     4. We create our own jacobian/hessian function in TorchScript from scratch
 
 ## Citation
 If you use this package please include the following citation:  

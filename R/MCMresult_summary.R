@@ -1,6 +1,6 @@
 summary.mcmresultclass <- function(res) {
-  Pars_reg <- data.frame(matrix(NA, ncol=9, nrow=1))
-  Pars_fact <- data.frame(matrix(NA, ncol=9, nrow=1))
+  Pars_reg <- data.frame(matrix(NA, ncol=8, nrow=1))
+  Pars_fact <- data.frame(matrix(NA, ncol=8, nrow=1))
   for (col in seq_len(ncol(res$model$named_matrices[['A']]))) {
     for (row in seq_len(nrow(res$model$named_matrices[['A']]))) {
       if (is.na(suppressWarnings(as.numeric(res$model$named_matrices[['A']][row, col])))) {
@@ -8,16 +8,15 @@ summary.mcmresultclass <- function(res) {
         parvalue <- res$model$num_matrices[['A']][row, col]
         std <- if ('se' %in% rownames(res$df)) {res$df['se', parname]} else {NA}
         p <- if ('se' %in% rownames(res$df)) {2*pnorm(abs(res$df['est', parname])/res$df['se', parname], lower.tail=FALSE)} else {NA}
-        group <- 1; fixed <- FALSE
         if (xor(row > res$model$meta_data$n_latent, col > res$model$meta_data$n_latent)) {
           if (col <= res$model$meta_data$n_latent) {
             lhs <- res$model$meta_data$latent_names[col]
             rhs <- res$model$meta_data$original_colnames[row - res$model$meta_data$n_latent]
-            Pars_fact <- rbind(Pars_fact, c(parname, lhs, "=~", rhs, parvalue, std, p, group, fixed))
+            Pars_reg <- rbind(Pars_reg, c(parname, lhs, "=~", rhs, parvalue, std, p, as.numeric(res$gradients$A$last_iter[parname])))
           } else {
             lhs <- res$model$meta_data$original_colnames[col - res$model$meta_data$n_latent]
             rhs <- res$model$meta_data$latent_names[row]
-            Pars_reg <- rbind(Pars_fact, c(parname, lhs, "~>", rhs, parvalue, std, p, group, fixed))
+            Pars_reg <- rbind(Pars_reg, c(parname, lhs, "~>", rhs, parvalue, std, p, as.numeric(res$gradients$A$last_iter[parname])))
           }
         } else {
           if (row > res$model$meta_data$n_latent) {
@@ -27,7 +26,7 @@ summary.mcmresultclass <- function(res) {
             lhs <- res$model$meta_data$latent_names[col]
             rhs <- res$model$meta_data$latent_names[row]
           }
-          Pars_reg <- rbind(Pars_reg, c(parname, lhs, "~>", rhs, parvalue, std, p, group, fixed))
+          Pars_reg <- rbind(Pars_reg, c(parname, lhs, "~>", rhs, parvalue, std, p, as.numeric(res$gradients$A$last_iter[parname])))
         }
       }
     }
@@ -36,8 +35,9 @@ summary.mcmresultclass <- function(res) {
   Pars_fact <- Pars_fact[seq_len(nrow(Pars_fact)-1)+1,]
   Pars_reg <- Pars_reg[seq_len(nrow(Pars_reg)-1)+1,]
   Pars <- rbind(Pars_fact, Pars_reg)
-  colnames(Pars) <- c("label", "lhs", "edge", "rhs", "est", "se", "p", "group", "fixed"); rownames(Pars) <- seq_len(nrow(Pars))
-  Vars <- data.frame(matrix(NA, ncol=9, nrow=1))
+  colnames(Pars) <- c("label", "lhs", "edge", "rhs", "est", "se", "p", "last_gradient")
+  rownames(Pars) <- seq_len(nrow(Pars))
+  Vars <- data.frame(matrix(NA, ncol=8, nrow=1))
   for (row in seq_len(nrow(res$model$named_matrices[['S']]))) {
     for (col in seq_len(ncol(res$model$named_matrices[['S']]))) {
       if (is.na(suppressWarnings(as.numeric(res$model$named_matrices[['S']][row, col])))) {
@@ -58,15 +58,15 @@ summary.mcmresultclass <- function(res) {
         est <- parvalue
         std <- if ('se' %in% rownames(res$df)) {res$df['se', parname]} else {NA}
         p <- if ('se' %in% rownames(res$df)) {2*pnorm(abs(res$df['est', parname])/res$df['se', parname], lower.tail=FALSE)} else {NA}
-        group <- 1; fixed <- FALSE
-        Vars <- rbind(Vars, c(label, lhs, edge, rhs, est, std, p, group, fixed))
+        Vars <- rbind(Vars, c(label, lhs, edge, rhs, est, std, p, as.numeric(res$gradients$S$last_iter[parname])))
       }
     }
   }
   Vars <- Vars[2:nrow(Vars), ]
-  colnames(Vars) <- c("label", "lhs", "edge", "rhs", "est", "se", "p", "group", "fixed"); rownames(Vars) <- seq_len(nrow(Vars))
+  colnames(Vars) <- c("label", "lhs", "edge", "rhs", "est", "se", "p", "last_gradient")
+  rownames(Vars) <- seq_len(nrow(Vars))
   if (res$info$use_skewness) {
-    Skews <- data.frame(matrix(NA, ncol=10, nrow=1))
+    Skews <- data.frame(matrix(NA, ncol=9, nrow=1))
     for (row in seq_len(nrow(res$model$named_matrices[['Sk']]))) {
       for (col in seq_len(ncol(res$model$named_matrices[['Sk']]))) {
         if (is.na(suppressWarnings(as.numeric(res$model$named_matrices[['Sk']][row, col])))) {
@@ -81,16 +81,16 @@ summary.mcmresultclass <- function(res) {
           est <- parvalue
           std <- if ('se' %in% rownames(res$df)) {res$df['se', parname]} else {NA}
           p <- if ('se' %in% rownames(res$df)) {2*pnorm(abs(res$df['est', parname])/res$df['se', parname], lower.tail=FALSE)} else {NA}
-          group <- 1; fixed <- FALSE
-          Skews <- rbind(Skews, c(label, edge, v1, v2, v3, est, std, p, group, fixed))
+          Skews <- rbind(Skews, c(label, edge, v1, v2, v3, est, std, p, as.numeric(res$gradients$Sk$last_iter[parname])))
         }
       }
     }
     Skews <- Skews[2:nrow(Skews), ]
-    colnames(Skews) <- c("label", "edge", "v1", "v2", "v3", "est", "se", "p", "group", "fixed"); rownames(Skews) <- seq_len(nrow(Skews))
+    colnames(Skews) <- c("label", "edge", "v1", "v2", "v3", "est", "se", "p", "last_gradient")
+    rownames(Skews) <- seq_len(nrow(Skews))
   }
   if (res$info$use_kurtosis) {
-    Kurts <- data.frame(matrix(NA, ncol=11, nrow=1))
+    Kurts <- data.frame(matrix(NA, ncol=10, nrow=1))
     for (row in seq_len(nrow(res$model$named_matrices[['K']]))) {
       for (col in seq_len(ncol(res$model$named_matrices[['K']]))) {
         if (is.na(suppressWarnings(as.numeric(res$model$named_matrices[['K']][row, col])))) {
@@ -106,13 +106,13 @@ summary.mcmresultclass <- function(res) {
           est <- parvalue
           std <- if ('se' %in% rownames(res$df)) {res$df['se', parname]} else {NA}
           p <- if ('se' %in% rownames(res$df)) {2*pnorm(abs(res$df['est', parname])/res$df['se', parname], lower.tail=FALSE)} else {NA}
-          group <- 1; fixed <- FALSE
-          Kurts <- rbind(Kurts, c(label, edge, v1, v2, v3, v4, est, std, p, group, fixed))
+          Kurts <- rbind(Kurts, c(label, edge, v1, v2, v3, v4, est, std, p, as.numeric(res$gradients$K$last_iter[parname])))
         }
       }
     }
     Kurts <- Kurts[2:nrow(Kurts), ]
-    colnames(Kurts) <- c("label", "edge", "v1", "v2", "v3", "v4", "est", "se", "p", "group", "fixed"); rownames(Kurts) <- seq_len(nrow(Kurts))
+    colnames(Kurts) <- c("label", "edge", "v1", "v2", "v3", "v4", "est", "se", "p", "last_gradient")
+    rownames(Kurts) <- seq_len(nrow(Kurts))
   }
   for (i in c("est", "se", "p")) {
     Pars[, i] <- as.numeric(Pars[, i])
