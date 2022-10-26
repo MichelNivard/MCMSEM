@@ -49,7 +49,7 @@
   }
   if (use_kurtosis) {
     # Rstyle: M4 <- Fm %*% solve(diag(n_p) - A) %*% K %*%  (t(solve(diag(n_p)-A)) %x% t(solve(diag(n_p)-A))  %x%  t(solve(diag(n_p)-A))) %*% (t(Fm) %x% t(Fm) %x% t(Fm))
-    if (low_memory) {
+    if (low_memory > 1) {
       # M4 <- .jit_slownecker$fn(.jit_slownecker$fn(torch_matmul(torch_matmul(Fm, torch_inverse(base_matrices[['diag_n_p']] - A)), K), torch_transpose(torch_inverse(base_matrices[['diag_n_p']] - A), 1, 2)), torch_transpose(Fm, 1, 2))
       fmkronrow <- torch_tensor(.torch_kron(.torch_kron(torch_sum(Fm, dim=1), torch_sum(Fm, dim=1)), torch_sum(Fm, dim=1)), device=Fm$device, dtype=torch_bool())
       M4 <- .jit_slownecker$fn(torch_matmul(torch_matmul(Fm, torch_inverse(base_matrices[['diag_n_p']] - A)), K), torch_transpose(torch_inverse(base_matrices[['diag_n_p']] - A), 1, 2), fmkronrow)
@@ -90,23 +90,24 @@
 
 # Fit wrapper function
 .torch_fit <- function(optimizers, M2.obs, M3.obs, M4.obs, m2v_masks, torch_bounds, torch_masks, torch_maps, base_matrices, .par_list, learning_rate, optim_iters, silent, use_bounds, use_skewness, use_kurtosis, lossfunc, return_history=FALSE, low_memory, outofbounds_penalty, diag_s,debug=FALSE, monitor_grads=FALSE) {
-  loss_hist <- NULL
+  loss_hist <- torch_empty(0, device=.par_list[['A']]$device)
   grad_hist <- list()
   for (i in names(.par_list)) {
     if (.par_list[[i]]$requires_grad) {
       grad_hist[[i]] <- torch_empty(c(0, length(.par_list[[i]])), device=.par_list[[i]]$device)
     }
   }
+  slowneckerfun <- if (low_memory > 2) {'slowernecker'}  else {'slownecker'}
+  .jit_slownecker <- jit_compile(.jit_funcs[[slowneckerfun]])
   for (optimiz in optimizers) {
     if (optimiz != "lbfgs") {
       optim <- .get_optimfunc(optimiz)(.par_list,lr = learning_rate[1])
-      #if (low_memory) {gc(verbose=FALSE, full=TRUE)}  # Superceeded by .jit_slowneckerproduct, turn this back on in case of memory issues
-      .jit_slownecker <- jit_compile(.jit_funcs[['slownecker']])
+      if (low_memory) {cuda_empty_cache()}  # Superceeded by .jit_slowneckerproduct, turn this back on in case of memory issues
       for (i in seq_len(optim_iters[1])) {
         if (debug) {cat(paste0("Optimizer:",i,"\n"))}
         optim$zero_grad()
         loss <- .torch_objective(.par_list, lossfunc, torch_bounds, torch_masks, torch_maps, base_matrices, M2.obs, M3.obs, M4.obs, m2v_masks, use_bounds, use_skewness, use_kurtosis, outofbounds_penalty, diag_s, low_memory, .jit_slownecker)
-        #if (low_memory) {gc(verbose=FALSE, full=TRUE)}  # Superceeded by .jit_slowneckerproduct, turn this back on in case of memory issues
+        if (low_memory) {cuda_empty_cache()}
         loss$backward()
         if (monitor_grads) {
           for (matname in names(.par_list)) {
@@ -123,7 +124,7 @@
             }
           }
         }
-        loss_hist <- c(loss_hist, loss$detach())
+        loss_hist <- torch_hstack(list(loss_hist, loss$detach()))
         optim$step()
         if (!(silent)) cat(paste0("\rloss ", as.numeric(loss), "           "))
       }
@@ -131,7 +132,7 @@
       calc_loss_torchfit <- function() {
       optim$zero_grad()
         loss <- .torch_objective(.par_list, lossfunc, torch_bounds, torch_masks, torch_maps, base_matrices, M2.obs, M3.obs, M4.obs, m2v_masks, use_bounds, use_skewness, use_kurtosis, outofbounds_penalty, diag_s, low_memory, .jit_slownecker)
-        #if (low_memory) {gc(verbose=FALSE, full=TRUE)} # Superceeded by .jit_slowneckerproduct, turn this back on in case of memory issues
+        if (low_memory) {cuda_empty_cache()} # Superceeded by .jit_slowneckerproduct, turn this back on in case of memory issues
         loss$backward()
         if (monitor_grads) {
           for (matname in names(.par_list)) {
@@ -140,7 +141,7 @@
             }
           }
         }
-        loss_hist <<- c(loss_hist, loss$detach())
+        loss_hist <<- torch_hstack(list(loss_hist, loss$detach()))
         if (!(silent)) {cat(paste0("\rloss ", as.numeric(loss), "          "))}
         return(loss)
       }

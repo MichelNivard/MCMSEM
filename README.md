@@ -6,6 +6,29 @@ Note this is the `dev-torch` branch, and **not** intended for end-users. If you 
 As of version 0.4.0 it is possible to run MCMSEM on a GPU, see [MCMSEM on GPU](#mcmsem-on-gpu).
 
 ## Patch notes
+### v0.19.0
+ - > :warning: __WARNING__: Due to the addition of cuda_empty_cache(), MCMSEM now requires torch 0.9.0
+ - Bugfixes to `MCMedit()`
+ - Addes `device_se` argument to `MCMfit` to specify the torch device to be used for calculation of asymptotic SE.
+   - Note the default is now `device` (i.e. the same as optimization) which when `device=torch_device('cuda')` will result in different devices used compared to version 0.18.0
+ - Ported more of the asymptotic SE computation to torch so it now only transforms torch to R objects once per iteration instead of multiple times.
+   - This makes the code much simpler, has no noticeable impact on CPU calculation of SE but significantly improves GPU calculation of SE
+ - Added additional levels of `low_memory` in `MCMfit()`, options for `low_memory` are now as follows:
+   - `0 or FALSE`: no memory saving options, purely optimized for perforance
+   - `1 or TRUE`: `cuda_empty_cache()` at each iteration
+   - `2`: use of `slownecker` instead of `x %*% (y %x% y %x% y)` and `cuda_empty_cache()` at each iteration
+   - `3`: use of `slowernecker` (most iterative version of `slownecker`) and `cuda_empty_cache()` at each iteration
+ - Note the difference between `low_memory=0` and `low_memory=1` is minimal, and will likely only allow you to squeeze one (if any) extra variables into your model. The difference between `low_memory=1` and `low_memory=2`, on the other hand, is very large, both in terms of memory saved and compute time.
+   
+| low_memory  | runtime  |
+|-------------|----------|
+| 0           |  10.3 s  | 
+| 1           |  10.4 s  |
+| 2           | 210.4 s  |
+| 3           | 214.5 s  |
+
+Runtime test of 10 variables, 2 latents: `MCMfit(model, datasummary, use_bounds=FALSE, optimizers='rprop', learning_rate=0.01, optim_iters=100, low_memory=low_memory, device=torch_device('cuda'))`, memory usage tests will follow later.
+
 ### v0.18.0
  - > :warning: __WARNING__: Due to added gradients in MCM result and summary objects this version is incompatible with older MCM result objects. Additionally columns `group` and `fixed` have been removed from MCM result summary objects.
  - Added `mcmgradienthistoryclass`, which stores gradient history of parameters from a single matrix, with the following attributes and `S3` methods
@@ -393,16 +416,17 @@ Note that runtime is long, but that this is partly (or mostly, with many variabl
  
 ### Things still TODO:
 1. Figure out source of memory error with 30 variables and `low_memory=TRUE`
-2. Get `monitor_grads` to work in LBFGS
-3. Create/update wiki/manual pages for:
+2. Test-code for (nearly) all configurations of MCMmodel/fit/etc
+3. Get `monitor_grads` to work in LBFGS
+4. Create/update wiki/manual pages for:
    1. MCMdatasummary() - Include recommendation for generating datasummary object of data which will be used in different models
    2. MCMsavesummary()
    3. weighted analysis
    4. MCMcompareloss()
    5. Gradient histories/`monitor_grads`
-4. Add Hessian
-5. Expand checks in `MCMmodel` 
-6. Find a way to get the full jacobian and/or hessian using torch, and have it be faster than the default jacobian with the current .jac.fn
+5. Add Hessian
+6. Expand checks in `MCMmodel` 
+7. Find a way to get the full jacobian and/or hessian using torch, and have it be faster than the default jacobian with the current .jac.fn
    - This is not feasible in the current implementation as for MCMSEM additional non-variable input arguments to `jacobian`/`hessian` are required (i.e. the fixed format matrices), other behavior-changing arguments like `low_memory` can be worked around by creating different functions for each type, but the matrices cannot be hardcoded. `torch.autograd.functional.jacobian`/`torch.autograd.functional.hessian` (not implemented in R torch but could theoretically be used via TorchScript) does not allow for non-variable (i.e. non-grad) arguments. The solution in Python is to use a class to hold fixed format objects, but custom classes are not available in TorchScript.
    - Note for future development, this will be possible if/when:
      1. R torch adds a more flexible version of `torch.autograd.functional.jacobian`/`torch.autograd.functional.hessian` which allows for additional non-variable input arguments, unlikely to happen any time soon though.

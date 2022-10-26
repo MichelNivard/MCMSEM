@@ -19,41 +19,41 @@
 }
 
 ######## Compute Jacobian:
-.jac.fn_torch <- function(par_vec, .par_list, par_to_list_coords, torch_masks, torch_maps, base_matrices, use_skewness, use_kurtosis, Rm2vmasks, device, diag_s, low_memory, .jit_slownecker) {
+.jac.fn_torch <- function(par_vec, .par_list, par_to_list_coords, torch_masks, torch_maps, base_matrices, use_skewness, use_kurtosis, m2vmasks1d, device, diag_s, low_memory, .jit_slownecker) {
   for (i in names(par_to_list_coords)) {
-    .par_list[[i]] <- torch_tensor(par_vec[par_to_list_coords[[i]]], device=torch_device("cpu"))
+    .par_list[[i]] <- torch_tensor(par_vec[par_to_list_coords[[i]]], device=device)
   }
   pred_matrices <- .get_predicted_matrices(.par_list, torch_masks, torch_maps, base_matrices, use_skewness, use_kurtosis,diag_s, low_memory, .jit_slownecker)
-  pred_matrices[['M2']] <- as.matrix(torch_tensor(pred_matrices[['M2']], device=torch_device("cpu")))
-  if (use_skewness) {
-    pred_matrices[['M3']] <- as.matrix(torch_tensor(pred_matrices[['M3']], device=torch_device("cpu")))
-  }
-  if (use_kurtosis) {
-    pred_matrices[['M4']] <- as.matrix(torch_tensor(pred_matrices[['M4']], device=torch_device("cpu")))
-  }
+
   if (use_skewness & use_kurtosis) {
-    return(c(pred_matrices[['M2']][Rm2vmasks[['m2']]], pred_matrices[['M3']][Rm2vmasks[['m3']]], pred_matrices[['M4']][Rm2vmasks[['m4']]]))
+    return(as.numeric(torch_tensor(torch_hstack(list(torch_flatten(pred_matrices[['M2']])[m2vmasks1d[['m2']]], torch_flatten(pred_matrices[['M3']])[m2vmasks1d[['m3']]], torch_flatten(pred_matrices[['M4']])[m2vmasks1d[['m4']]])), device=torch_device('cpu'))))
   } else if (use_skewness) {
-    return(c(pred_matrices[['M2']][Rm2vmasks[['m2']]], pred_matrices[['M3']][Rm2vmasks[['m3']]]))
+    return(as.numeric(torch_tensor(torch_hstack(list(torch_flatten(pred_matrices[['M2']])[m2vmasks1d[['m2']]], torch_flatten(pred_matrices[['M3']])[m2vmasks1d[['m3']]])), device=torch_device('cpu'))))
   } else if (use_kurtosis) {
-    return(c(pred_matrices[['M2']][Rm2vmasks[['m2']]], pred_matrices[['M4']][Rm2vmasks[['m4']]]))
+    return(as.numeric(torch_tensor(torch_hstack(list(torch_flatten(pred_matrices[['M2']])[m2vmasks1d[['m2']]],  torch_flatten(pred_matrices[['M4']])[m2vmasks1d[['m4']]])), device=torch_device('cpu'))))
   } else {
-    return(as.vector(pred_matrices[['M2']][Rm2vmasks[['m2']]]))
+    return(as.numeric(torch_tensor(torch_flatten(pred_matrices[['M2']])[m2vmasks1d[['m2']]], device=torch_device('cpu'))))
   }
 }
 
 # Jacobian wrapper to force garbage collect after .jac.fn_torch, superceeded by .jit_slowneckerproduct, re-enable this in case of memory issues
-# .jac.fn_torch_lowmem <- function(par_vec, .par_list, par_to_list_coords, torch_masks, torch_maps, base_matrices, use_skewness, use_kurtosis, Rm2vmasks, device, diag_s, low_memory) {val <- .jac.fn_torch(par_vec, .par_list, par_to_list_coords, torch_masks, torch_maps, base_matrices, use_skewness, use_kurtosis, Rm2vmasks, device, diag_s, low_memory); gc(verbose=FALSE, full=TRUE); return(val)}
+.jac.fn_torch_lowmem <- function(par_vec, .par_list, par_to_list_coords, torch_masks, torch_maps, base_matrices, use_skewness, use_kurtosis, m2vmasks1d, device, diag_s, low_memory, .jit_slownecker) {
+  val <- .jac.fn_torch(par_vec, .par_list, par_to_list_coords, torch_masks, torch_maps, base_matrices, use_skewness, use_kurtosis, m2vmasks1d, device, diag_s, low_memory, .jit_slownecker)
+  cuda_empty_cache()
+  return(val)
+}
 
 ### pull it together to make std errors:
 .std.err <- function(data, .par_list, use_skewness, use_kurtosis, torch_masks, torch_maps, base_matrices, m2v_masks, device, low_memory, diag_s, jacobian_method) {
   # Temporary fix to check if forcing CPU leads to more consistency
-  device <- torch_device('cpu')
-  for (i in names(.par_list)) {.par_list[[i]] <- torch_tensor(.par_list[[i]], device=torch_device('cpu'), requires_grad = .par_list[[i]]$requires_grad)}
-  for (i in names(torch_masks)) {torch_masks[[i]] <- torch_tensor(torch_masks[[i]], device=torch_device('cpu'))}
-  for (i in names(torch_maps)) {torch_maps[[i]] <- torch_tensor(torch_maps[[i]], device=torch_device('cpu'))}
-  for (i in names(base_matrices)) {base_matrices[[i]] <- torch_tensor(base_matrices[[i]], device=torch_device('cpu'))}
-  for (i in names(m2v_masks)) {m2v_masks[[i]] <- torch_tensor(m2v_masks[[i]], device=torch_device('cpu'))}
+  if ((device == torch_device('cpu')) & (.par_list[['A']]$is_cuda)) {
+    # If CPU is used for SE but not for optimization, port all matrices to CPU first
+    for (i in names(.par_list)) {.par_list[[i]] <- torch_tensor(.par_list[[i]], device=torch_device('cpu'), requires_grad = .par_list[[i]]$requires_grad)}
+    for (i in names(torch_masks)) {torch_masks[[i]] <- torch_tensor(torch_masks[[i]], device=torch_device('cpu'))}
+    for (i in names(torch_maps)) {torch_maps[[i]] <- torch_tensor(torch_maps[[i]], device=torch_device('cpu'))}
+    for (i in names(base_matrices)) {base_matrices[[i]] <- torch_tensor(base_matrices[[i]], device=torch_device('cpu'))}
+    for (i in names(m2v_masks)) {m2v_masks[[i]] <- torch_tensor(m2v_masks[[i]], device=torch_device('cpu'))}
+  }
 
   # idx is pre-determined in MCMdatasummary() depending on the number of variables
   # Note there is probably a cleaner way to do this as these numbers only depend on number of columns..
@@ -86,18 +86,19 @@
     }
   }
 
-  Rm2vmasks <- list(
-    m2=which(as.logical(as.numeric(torch_tensor(m2v_masks[['m2']], device=torch_device("cpu"))))),
-    m3=which(as.logical(as.numeric(torch_tensor(m2v_masks[['m3']], device=torch_device("cpu"))))),
-    m4=which(as.logical(as.numeric(torch_tensor(m2v_masks[['m4']], device=torch_device("cpu")))))
+  m2vmasks1d <- list(
+    m2=torch_where(torch_flatten(torch_transpose(m2v_masks[['m2']], 1, 2))==1)[[1]] + torch_tensor(1, dtype=torch_long(), device=device),
+    m3=torch_where(torch_flatten(torch_transpose(m2v_masks[['m3']], 1, 2))==1)[[1]] + torch_tensor(1, dtype=torch_long(), device=device),
+    m4=torch_where(torch_flatten(torch_transpose(m2v_masks[['m4']], 1, 2))==1)[[1]] + torch_tensor(1, dtype=torch_long(), device=device)
   )
   # Slownecker function compiled when .std.err is called
-  .jit_slownecker <- jit_compile(.jit_funcs[['slownecker']])
-  # if (low_memory) {func <- .jac.fn_torch_lowmem} else {func <- .jac.fn_torch}  # superceeded by .jit_slowneckerproduct, turn this back on in case of memory issues
-  G <- jacobian(func = .jac.fn_torch,  # If the previous line is re-enabled, replace with: G <- jacobian(func = func,
+  slowneckerfun <- if (low_memory > 2) {'slowernecker'}  else {'slownecker'}
+  .jit_slownecker <- jit_compile(.jit_funcs[[slowneckerfun]])
+  if (low_memory > 1) {func <- .jac.fn_torch_lowmem} else {func <- .jac.fn_torch}  # superceeded by .jit_slowneckerproduct, turn this back on in case of memory issues
+  G <- jacobian(func = func,
                 x = par_vec, method = jacobian_method, .par_list=.par_list, par_to_list_coords=par_to_list_coords, torch_masks=torch_masks,
                 torch_maps=torch_maps, base_matrices=base_matrices, use_skewness=use_skewness, use_kurtosis=use_kurtosis,
-                Rm2vmasks=Rm2vmasks, device=device, diag_s=diag_s, low_memory=low_memory, .jit_slownecker=.jit_slownecker)
+                m2vmasks1d=m2vmasks1d, device=device, diag_s=diag_s, low_memory=low_memory, .jit_slownecker=.jit_slownecker)
   Asycov <- solve(t(G)%*%W%*%G) %*% t(G)%*%W%*%S.m %*%W%*%G %*% solve(t(G)%*%W%*%G)
   se <- sqrt(2)*sqrt(diag(Asycov))
   return(se)

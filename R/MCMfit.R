@@ -3,7 +3,7 @@
 
 # Exported MCMfit function
 MCMfit <- function(mcmmodel, data, weights=NULL, compute_se=TRUE, se_type='asymptotic', optimizers=c("rprop", "lbfgs"), optim_iters=c(50, 12), loss_type='mse', bootstrap_iter=200,bootstrap_chunks=1000,
-                   learning_rate=c(0.02, 1), silent=TRUE, use_bounds=TRUE, use_skewness=TRUE, use_kurtosis=TRUE, device=NULL, low_memory=FALSE, outofbounds_penalty=1, monitor_grads=FALSE, debug=FALSE,
+                   learning_rate=c(0.02, 1), silent=TRUE, use_bounds=TRUE, use_skewness=TRUE, use_kurtosis=TRUE, device=NULL, device_se=NULL, low_memory=FALSE, outofbounds_penalty=1, monitor_grads=FALSE, debug=FALSE,
                    jacobian_method='simple') {
   START_MCMfit <- Sys.time()
   if (debug) {cat("Verifying input...\n")}
@@ -72,6 +72,9 @@ MCMfit <- function(mcmmodel, data, weights=NULL, compute_se=TRUE, se_type='asymp
   model$meta_data$n_obs <- data$meta_data$n # Store the N of the training data, note this may not always be the same as the N the model was initially made with
   if (is.null(device)) {
     device <- torch_device("cpu")
+  }
+  if (is.null(device_se)) {
+    device_se <- device
   }
   if (device == torch_device("cuda")) {
     if (!(silent)) {
@@ -149,7 +152,7 @@ MCMfit <- function(mcmmodel, data, weights=NULL, compute_se=TRUE, se_type='asymp
   if (debug) {cat("Strting fit\n")}
   out <- .torch_fit(optimizers, M2.obs, M3.obs, M4.obs, m2v_masks, torch_bounds, torch_masks, torch_maps, base_matrices, .par_list, learning_rate, optim_iters, silent, use_bounds, use_skewness, use_kurtosis, lossfunc, return_history = TRUE, low_memory=low_memory, outofbounds_penalty=outofbounds_penalty,debug=debug, diag_s=diag_s, monitor_grads=monitor_grads)
   .par_tensor <- out[['par']]
-  loss_hist <- as.numeric(torch_tensor(torch_vstack(out[["loss_hist"]]), device=cpu_device))
+  loss_hist <- as.numeric(torch_tensor(out[["loss_hist"]], device=cpu_device))
   grad_hist <- list()
   for (matname in names(.par_list)) {
     if (.par_list[[matname]]$requires_grad) {
@@ -172,7 +175,7 @@ MCMfit <- function(mcmmodel, data, weights=NULL, compute_se=TRUE, se_type='asymp
   if (compute_se) {
     if(se_type == 'asymptotic'){
       # SEs <- .std.err(data=data,par=as.numeric(torch_tensor(torch_cat(.par), device=cpu_device)), model=model, use_skewness, use_kurtosis)
-      SEs <- .std.err(data, .par_list, use_skewness, use_kurtosis, torch_masks, torch_maps, base_matrices, m2v_masks, device, low_memory, diag_s, jacobian_method)
+      SEs <- .std.err(data, .par_list, use_skewness, use_kurtosis, torch_masks, torch_maps, base_matrices, m2v_masks, device_se, low_memory, diag_s, jacobian_method)
     }
 
     if(se_type != 'asymptotic') {
@@ -311,8 +314,8 @@ MCMfit <- function(mcmmodel, data, weights=NULL, compute_se=TRUE, se_type='asymp
                         info=list(version=MCMSEMversion, compute_se=compute_se, se_type=se_type, optim_iters=optim_iters,
                                   bootstrap_iter=bootstrap_iter,bootstrap_chunks=bootstrap_chunks, learning_rate=learning_rate,
                                   silent=silent, use_bounds=use_bounds, use_skewness=use_skewness, use_kurtosis=use_kurtosis,
-                                  device=device$type, low_memory=low_memory, weighted=data$meta_data$weighted, loss_type=loss_type,
-                                  optimizer=optimizer, n=data$meta_data$n),
+                                  device=device$type, device_se=device_se$type, low_memory=low_memory, weighted=data$meta_data$weighted, loss_type=loss_type,
+                                  optimizers=optimizers, n=data$meta_data$n),
                         observed=observed,
                         predicted=predicted
                       ))

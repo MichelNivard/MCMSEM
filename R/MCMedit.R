@@ -76,18 +76,21 @@ MCMedit <- function(model, pointer, name, value) {
           x$num_matrices[[pointer]][idx] <- value
           x$named_matrices[[pointer]][idx] <- as.character(value)
         }
-      }
-      if (is.character(value)) {
-        x$named_matrices[[pointer]][x$named_matrices[[pointer]] == name] <- value
-      } else if (is.numeric(value)) {
-        x$num_matrices[[pointer]][x$named_matrices[[pointer]] == name] <- value
-        x$named_matrices[[pointer]][x$named_matrices[[pointer]] == name] <- as.character(value)
+      } else {
+        if (is.character(value)) {
+          x$named_matrices[[pointer]][x$named_matrices[[pointer]] == name] <- value
+        } else if (is.numeric(value)) {
+          x$num_matrices[[pointer]][x$named_matrices[[pointer]] == name] <- value
+          x$named_matrices[[pointer]][x$named_matrices[[pointer]] == name] <- as.character(value)
+        }
       }
     }
   } else if (pointer %in% c("bound", "ubound", "lbound")){
     # For modifying bounds
     if (all(name %in% c("a", "b", "s", "sk", "k", "fm"))) {
-      col_to_change <- which(sub("^([[:alpha:]]*).*", "\\1", colnames(x$bounds)) == name)
+      colsub <- sub("^([[:alpha:]]*).*", "\\1", colnames(x$bounds))
+      colsub[startsWith(colnames(x$bounds), "sk")] <- "sk"
+      col_to_change <- which(colsub %in% name)
     } else if (all(name %in% colnames(x$bounds))) {
       col_to_change <- which(colnames(x$bounds) == name)
     }
