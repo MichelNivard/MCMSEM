@@ -85,9 +85,15 @@ MCMdatasummary <- function(data=NULL, path=NULL, weights=NULL, scale_data=TRUE, 
       if (low_memory) {
         if (debug) {cat(" - calculating S.m covariance using lowmem\n")}
         # This currently takes forever
-        #TODO: chunked covariance calculation
-        covlowmem <- jit_compile(.jit_funcs[['covlowmem']])$fn
-        S.m <- covlowmem(S.m) / (n - 1)
+        covchunked <- jit_compile(.jit_funcs[['covchunked']])$fn
+        if (low_memory > 2) {
+          chunksize <- torch_tensor(as.integer(nrow(S.m)/16))  # 256 chunks if low memory is 3
+        } else if (low_memory > 1) {
+          chunksize <- torch_tensor(as.integer(nrow(S.m)/8))  # 64 chunks if low_memory is 2
+        } else {
+          chunksize <- torch_tensor(as.integer(nrow(S.m)/4))  # 16 chunks if low_memory is 1
+        }
+        S.m <- covchunked(S.m, chunksize) / (n - 1)
       } else {
         if (debug) {cat(" - calculating S.m covariance\n")}
         S.m <- torch_subtract(S.m, torch_reshape(torch_mean(S.m, dim=1), c(1, S.m$shape[2])))

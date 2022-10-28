@@ -6,6 +6,14 @@ Note this is the `dev-torch` branch, and **not** intended for end-users. If you 
 As of version 0.4.0 it is possible to run MCMSEM on a GPU, see [MCMSEM on GPU](#mcmsem-on-gpu).
 
 ## Patch notes
+### v0.20.1
+ - Replaced `covlowmem` with `covchunked` internally in `MCMdatasummary`
+ - Number of chunks is automatically determined based on `low_memory` to keep the use of this argument similar to that in `MCMfit`:
+   - `0 or FALSE`: no memory saving options, runs full cov
+   - `1 or TRUE`: calculates covariance in 16 chunks (10 actually calculated, the other 6 are transpose of earlier chunks)
+   - `2`: calculates covariance in 64 chunks (36 actually calculated, the other 28 are transpose of earlier chunks)
+   - `3`: calculates covariance in 256 chunks (136 actually calculated, the other 120 are transpose of earlier chunks)
+ - The settings of these chunk numbers aren't really based on much other than "more chunks == less RAM", might be worth testing some day but very low priority
 ### v0.20.0
  - > :warning: __WARNING__: Due to changes in the layout of MCMdatasummary, data summaries created or stored with previous versions will no longer work with the current version of MCMSEM
  - Bugfixes in `MCMfit`:
