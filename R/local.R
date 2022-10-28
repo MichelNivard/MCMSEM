@@ -1,4 +1,4 @@
-MCMSEMversion <- "0.19.0"
+MCMSEMversion <- "0.20.0"
 
 # Implemented loss functions
 .get_lossfunc <- function(loss_type) {
@@ -75,10 +75,13 @@ MCMSEMversion <- "0.19.0"
 }
 
 # Generate M2, M3, M4 comoment matrices
-.get_comoments <- function(data, weights=NULL) {
+.get_comoments <- function(data, weights=NULL, debug=FALSE) {
   if (is.null(weights)) {
+    if (debug) {cat(" - M2\n")}
     M2 <- cov(data)
+    if (debug) {cat(" - M3\n")}
     M3 <- M3.MM(data)
+    if (debug) {cat(" - M4\n")}
     M4 <- M4.MM(data)
   } else {
     # Custom implementation of weighted M2, M3, and M4 matrices
@@ -87,16 +90,16 @@ MCMSEMversion <- "0.19.0"
 
     weighted_mean <- torch_sum((tens*weights)/torch_sum(weights), dim=1)
     centred_tens <- weights*(tens - torch_reshape(weighted_mean, c(1, ncol(data))))
-
+    if (debug) {cat(" - wM2\n")}
     M2 <- torch_matmul((centred_tens)$t(), centred_tens)/(torch_sum(weights))
-
+    if (debug) {cat(" - wM3\n")}
     M3 <- torch_zeros(c(ncol(data), ncol(data)^2))
     for (i in seq_len(ncol(data))) {
       centred_tens_ <- centred_tens * torch_reshape(centred_tens[, i], c(nrow(data), 1))
       M3[, ((i-1)*ncol(data)+1):(i*ncol(data))] <- torch_matmul(centred_tens_$t(), centred_tens)
     }
     M3 <- M3/torch_sum(weights)
-
+    if (debug) {cat(" - wM4\n")}
     M4 <- torch_zeros(c(ncol(data), ncol(data)^3))
     iter <- 0
     for (i in seq_len(ncol(data))) {

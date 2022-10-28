@@ -53,7 +53,6 @@ def fn(x, y, kronrow):
     return out
 ",
   covlowmem="
-# Currently not used, this is a significantly slower but more memory-efficient covariance function
 def fn(data):
     data = data - torch.mean(data, dim=1, keepdim=True)
     out = torch.zeros((data.shape[0], data.shape[0]), dtype=data.dtype, device=data.device)
@@ -63,9 +62,27 @@ def fn(data):
         out[0:i, i] = cov
     return out / (data.shape[1] - 1)
 ",
+  mattotrilvec="
+def fn(x):
+    # Convert 2-D symmetrical tensor to 1-D tensor of lower triangle values
+    # Note this is nothing special but cannot be so easily achieved with the way R handles multiple indices
+    tril_indices = torch.tril_indices(x.shape[0], x.shape[1])
+    return x[tril_indices[0, :], tril_indices[1, :]]
+",
+  trilvectomat="
+def fn(x):
+    # Convert 1D tensor of lower triangle to 2-D symmetrical tensor
+    # Like mattotrilvec, this is nothing special, just the inverse
+    n = torch.floor(torch.sqrt(len(x)*2))
+    out = torch.empty((n, n))
+    tril_indices = torch.tril_indices(n, n)
+    out[tril_indices[0, :], tril_indices[1, :]] = x
+    out.T[tril_indices[0, :], tril_indices[1, :]] = x
+    return out
+",
   getpredmatrices="
 # Currently not used, as from my testing it is actually slower compared to the current implementation
-# Maybe useful later?
+# Maybe useful later? If nothing else to use an example of more involved TorchScript
 def slownecker(x, y, kronrow):
     out = torch.zeros((x.shape[0], int(torch.sum(kronrow))), device=x.device)
     ncol = 0
@@ -122,5 +139,4 @@ def fn(par_list: Dict[str, Tensor], torch_masks: Dict[str, Tensor], torch_maps: 
         return dict(M2=M2, M4=M4)
     else:
         return dict(M2=M2)
-"
-)
+")

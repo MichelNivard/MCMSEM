@@ -1,4 +1,5 @@
-MCMdatasummary <- function(data=NULL, path=NULL, weights=NULL, scale_data=TRUE, prep_asymptotic_se=TRUE, use_skewness=TRUE, use_kurtosis=TRUE) {
+MCMdatasummary <- function(data=NULL, path=NULL, weights=NULL, scale_data=TRUE, prep_asymptotic_se=TRUE, use_skewness=TRUE,
+                           use_kurtosis=TRUE, debug=FALSE, low_memory=FALSE) {
   if (is.null(data) & is.null(path)) {
     stop("Either argument data (to generate a new summary) or argument path (to load an existing summary) should be provided")
   }
@@ -29,6 +30,7 @@ MCMdatasummary <- function(data=NULL, path=NULL, weights=NULL, scale_data=TRUE, 
 
     # Scale data
     if (scale_data) {
+      if (debug) {cat("MCMdatasummary Scaling data\n")}
       data_was_scaled <- all(round(apply(data, 2, mean), 1) == 0) & all(round(apply(data, 2, sd), 1) == 1)
       if (!(data_was_scaled)) {
         data <- apply(data, 2, scale)
@@ -36,20 +38,25 @@ MCMdatasummary <- function(data=NULL, path=NULL, weights=NULL, scale_data=TRUE, 
     } else {
       data_was_scaled <- TRUE
     }
+    if (debug) {cat("MCMdatasummary Converting to matrix\n")}
     data <- as.matrix(data)
     weighted <- !(is.null(weights))
     if (weighted) {weightsum <- sum(weights)} else {weightsum <- nrow(data)}
-    comoments <- .get_comoments(data, weight=weights)
+    if (debug) {cat("MCMdatasummary calculating comoments:\n")}
+    comoments <- .get_comoments(data, weight=weights, debug=debug)
     n <- nrow(data)
 
     if (prep_asymptotic_se) {
+      if (debug) {cat("MCMdatasummary calculating S.m:\n")}
       # if there is too much data for spoeedly opperation, sample 100000 observations to base this on
       if(n > 100000){
+        if (debug) {cat(" - resampling\n")}
         samp <- sample(1:n,100000,F)
         data <- torch_tensor(data[samp, ])
       } else {
         data <- torch_tensor(data)
       }
+      if (debug) {cat(" - calculating dimlocs\n")}
       # observed cov between pseudo obsertvations ovver n-1 gets us cov betwene moments moments
       dim2locs <- torch_tensor(.dimlocations(ncol(data), dims=2) - 1, dtype=torch_int64())
       dim3locs <- torch_tensor(.dimlocations(ncol(data), dims=3) - 1, dtype=torch_int64())
@@ -61,7 +68,7 @@ MCMdatasummary <- function(data=NULL, path=NULL, weights=NULL, scale_data=TRUE, 
       #return(c(as.vector(t(x2)), as.vector(t(x3)), as.vector(t(x4)))[idx])
       # apply that to scaled data across rows
       # with idx = c(as.numeric(dim2locs), length(as.vector(dim2)) + as.numeric(dim3locs),  length(as.vector(dim2)) + length(as.vector(dim3)) + as.numeric(dim4locs)) + 1
-
+      if (debug) {cat(" - calculating t4crossprod\n")}
       .jit_t4crossprod <- jit_compile(.jit_funcs[['t4crossprod']])
       if (use_kurtosis & use_skewness) {
         S.m <- .jit_t4crossprod$fn(data, dim2locs, dim3locs, dim4locs)
@@ -75,8 +82,18 @@ MCMdatasummary <- function(data=NULL, path=NULL, weights=NULL, scale_data=TRUE, 
 
       # S.m <- cov(t(S.m))/(n-1)
       # Replace this with torch_cov(S.m) / (n - 1)  once that is implemented in torch for R
-      S.m <- torch_subtract(S.m, torch_reshape(torch_mean(S.m, dim=1), c(1, S.m$shape[2])))
-      S.m <- torch_matmul(torch_transpose(S.m, 1, 2), S.m)  / (S.m$shape[1] - 1) / (n - 1)
+      if (low_memory) {
+        if (debug) {cat(" - calculating S.m covariance using lowmem\n")}
+        # This currently takes forever
+        #TODO: chunked covariance calculation
+        covlowmem <- jit_compile(.jit_funcs[['covlowmem']])$fn
+        S.m <- covlowmem(S.m) / (n - 1)
+      } else {
+        if (debug) {cat(" - calculating S.m covariance\n")}
+        S.m <- torch_subtract(S.m, torch_reshape(torch_mean(S.m, dim=1), c(1, S.m$shape[2])))
+        S.m <- torch_matmul(torch_transpose(S.m, 1, 2), S.m)  / (S.m$shape[1] - 1) / (n - 1)
+      }
+      if (debug) {cat(" - assigning S.m indices\n")}
       idx <- list()
       if (use_skewness & use_kurtosis) {
         idx[['idx']] <- 1:ncol(S.m)
@@ -92,9 +109,10 @@ MCMdatasummary <- function(data=NULL, path=NULL, weights=NULL, scale_data=TRUE, 
       } else {
         idx[['idx_nokurt_noskew']] <- 1:length(dim2locs)
       }
+      if (debug) {cat(" - converting S.m to R matrix\n")}
       SE <- list(
         computed=TRUE,
-        S.m=as.matrix(S.m),
+        S.m=S.m,
         idx=idx
       )
     } else {

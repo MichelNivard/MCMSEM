@@ -44,8 +44,9 @@ mcmdataclass$methods(
     file.h5$create_group("SE")
     file.h5[['SE/computed']] <- as.numeric(.self$SE$computed)
     if (.self$SE$computed) {
+      mattotrilvec <- jit_compile(.jit_funcs[['mattotrilvec']])
       #file.h5[['SE/sm']] <- .self$SE$S.m
-      file.h5$create_dataset("sm", robj = .self$SE$S.m, chunk_dims = "auto", gzip_level = 9)
+      file.h5$create_dataset("sm", robj = as.numeric(mattotrilvec$fn(.self$SE$S.m)), chunk_dims = "auto", gzip_level = 9)
       if ("idx" %in% names(.self$SE$idx)) {file.h5[['SE/idx']] <- .self$SE$idx$idx}
       if ("idx_nokurt" %in% names(.self$SE$idx)) {file.h5[['SE/idx_nokurt']] <- .self$SE$idx$idx_nokurt}
       if ("idx_noskew" %in% names(.self$SE$idx)) {file.h5[['SE/idx_noskew']] <- .self$SE$idx$idx_noskew}
@@ -60,9 +61,12 @@ mcmdataclass$methods(
     .self$M4 <- as.matrix(file.h5[["m4"]]$read())
     .self$SE <- list(
       computed=as.logical(file.h5[['SE/computed']]$read()),
-      S.m=file.h5[['sm']]$read(),
       idx=list()
     )
+    trilvectomat <- jit_compile(.jit_funcs[['trilvectomat']])
+    if (.self$SE$computed) {
+      .self$SE[['S.m']] <- trilvectomat$fn(torch_tensor(file.h5[['sm']]$read()))
+    }
     idxnames <- list.datasets(file.h5, path="SE/")
     for (idxname in c("idx", "idx_nokurt", "idx_noskew", "idx_nokurt_noskew")) {
       if (idxname %in% idxnames) {

@@ -99,12 +99,14 @@
   }
   slowneckerfun <- if (low_memory > 2) {'slowernecker'}  else {'slownecker'}
   .jit_slownecker <- jit_compile(.jit_funcs[[slowneckerfun]])
-  for (optimiz in optimizers) {
+  for (noptim in seq_along(optimizers)) {
+    optimiz <- optimizers[noptim]
+    if (debug) {cat(paste0(" - Optimizer=",optimiz,", lr=",learning_rate[noptim],"\n"))}
     if (optimiz != "lbfgs") {
-      optim <- .get_optimfunc(optimiz)(.par_list,lr = learning_rate[1])
+      optim <- .get_optimfunc(optimiz)(.par_list,lr = learning_rate[noptim])
       if (low_memory) {cuda_empty_cache()}  # Superceeded by .jit_slowneckerproduct, turn this back on in case of memory issues
-      for (i in seq_len(optim_iters[1])) {
-        if (debug) {cat(paste0("Optimizer:",i,"\n"))}
+      for (i in seq_len(optim_iters[noptim])) {
+        if (debug) {cat(paste0("  * iter",i,"\n"))}
         optim$zero_grad()
         loss <- .torch_objective(.par_list, lossfunc, torch_bounds, torch_masks, torch_maps, base_matrices, M2.obs, M3.obs, M4.obs, m2v_masks, use_bounds, use_skewness, use_kurtosis, outofbounds_penalty, diag_s, low_memory, .jit_slownecker)
         if (low_memory) {cuda_empty_cache()}
@@ -146,15 +148,16 @@
         return(loss)
       }
       # Use lbfgs to get really close....
-      optim <- optim_lbfgs(.par_list,lr= learning_rate[2])
-      for (i in seq_len(optim_iters[2])) {
-        if (debug) {cat(paste0("Optimizer:",i,"\n"))}
+      optim <- optim_lbfgs(.par_list,lr= learning_rate[noptim])
+      for (i in seq_len(optim_iters[noptim])) {
+        if (debug) {cat(paste0("  * iter",i,"\n"))}
         optim$step(calc_loss_torchfit)
       }
     }
   }
   if (!(silent)) {cat("\n")}
   if (!(monitor_grads)) {
+    if (debug) {cat(paste0(" - Stacking radient history\n"))}
     for (matname in names(.par_list)) {
       if (.par_list[[matname]]$requires_grad) {
         grad_hist[[matname]] <- torch_vstack(list(grad_hist[[matname]], .par_list[[matname]]$grad$detach()))

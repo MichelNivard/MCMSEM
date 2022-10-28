@@ -6,15 +6,28 @@ Note this is the `dev-torch` branch, and **not** intended for end-users. If you 
 As of version 0.4.0 it is possible to run MCMSEM on a GPU, see [MCMSEM on GPU](#mcmsem-on-gpu).
 
 ## Patch notes
+### v0.20.0
+ - > :warning: __WARNING__: Due to changes in the layout of MCMdatasummary, data summaries created or stored with previous versions will no longer work with the current version of MCMSEM
+ - Bugfixes in `MCMfit`:
+   - Learning rate is no longer hard-coded to `lr[2]` for LBFGS and `lr[1]` for any other
+   - N_iterations is no longer hard-coded to `n_iter[2]` for LBFGS and `n_iter[1]` for any other
+ - Added `debug` and `low_memory` arguments to `MCMdatasummary()` which function similar to the ones used for `MCMfit()`
+   - Note: `low_memory` for `MCMdatasummary()` can soon be replaced `nchunks` or something similar once chunked covariance calculation is implemented, but I'm wondering if I should just determine the number of chunks myself to keep the naming for `low_memory` the same across functions...
+ - Expanded `debug` prints in `MCMdatasummary()` and `MCMfit()`
+ - Kept `S.m` matrix in `datasummary` object as a torch tensor, as conversion to R matrix led to memory issues in larger models
+ - Changed save summary to first convert the `S.m` tensor to lower triangle vector, then convert that lower triangle vector to an R object and save that output
+ - Changed load summary to convert the lower triangle R vector back to full symmetrical torch tensor
+ - Changed calculation of standard error to now do all but the `jacobian()` function call itself (see my notes on why) in torch
+ - Note that the `S.m` matrix and everything else in standard error is always a tensor on CPU device, except the function for the jacobian (that depends on `device_se`), this is because these matrices get huge with larger models so would without a doubt lead to CUDA memory errors. Additionally, the computation they are used in is only done once and not very involved.
 ### v0.19.0
  - > :warning: __WARNING__: Due to the addition of cuda_empty_cache(), MCMSEM now requires torch 0.9.0
  - Bugfixes to `MCMedit()`
- - Addes `device_se` argument to `MCMfit` to specify the torch device to be used for calculation of asymptotic SE.
+ - Added `device_se` argument to `MCMfit` to specify the torch device to be used for calculation of asymptotic SE.
    - Note the default is now `device` (i.e. the same as optimization) which when `device=torch_device('cuda')` will result in different devices used compared to version 0.18.0
- - Ported more of the asymptotic SE computation to torch so it now only transforms torch to R objects once per iteration instead of multiple times.
+ - Ported more of the asymptotic SE computation to torch, so it now only transforms torch to R objects once per iteration instead of multiple times.
    - This makes the code much simpler, has no noticeable impact on CPU calculation of SE but significantly improves GPU calculation of SE
  - Added additional levels of `low_memory` in `MCMfit()`, options for `low_memory` are now as follows:
-   - `0 or FALSE`: no memory saving options, purely optimized for perforance
+   - `0 or FALSE`: no memory saving options, purely optimized for performance
    - `1 or TRUE`: `cuda_empty_cache()` at each iteration
    - `2`: use of `slownecker` instead of `x %*% (y %x% y %x% y)` and `cuda_empty_cache()` at each iteration
    - `3`: use of `slowernecker` (most iterative version of `slownecker`) and `cuda_empty_cache()` at each iteration

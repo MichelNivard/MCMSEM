@@ -6,7 +6,7 @@ MCMfit <- function(mcmmodel, data, weights=NULL, compute_se=TRUE, se_type='asymp
                    learning_rate=c(0.02, 1), silent=TRUE, use_bounds=TRUE, use_skewness=TRUE, use_kurtosis=TRUE, device=NULL, device_se=NULL, low_memory=FALSE, outofbounds_penalty=1, monitor_grads=FALSE, debug=FALSE,
                    jacobian_method='simple') {
   START_MCMfit <- Sys.time()
-  if (debug) {cat("Verifying input...\n")}
+  if (debug) {cat("MCMfit verifying input\n")}
   if (class(mcmmodel)[[1]] == "mcmresultclass") {
     cat("Note: Using the old model from the result object provided\n")
     # If a result class is provided, first check if settings are similar enough
@@ -49,7 +49,7 @@ MCMfit <- function(mcmmodel, data, weights=NULL, compute_se=TRUE, se_type='asymp
   }
   if (class(data)[[1]] != "mcmdataclass") {
     data_org <- data
-    if (debug) {cat("Converting data\n")}
+    if (debug) {cat("MCMfit converting data\n")}
     data <- MCMdatasummary(data, scale_data=model$meta_data$scale_data, weights=weights, prep_asymptotic_se=((compute_se) & (se_type == "asymptotic")), use_skewness=use_skewness, use_kurtosis=use_kurtosis)
   } else {
     if (compute_se) {
@@ -127,12 +127,12 @@ MCMfit <- function(mcmmodel, data, weights=NULL, compute_se=TRUE, se_type='asymp
 
   if (compute_se)
     model_copy <- model$copy()
-  if (debug) {cat("Transferring co-moments\n")}
+  if (debug) {cat("MCMfit transferring co-moments\n")}
   # Obtain covariance, coskewness and cokurtosis matrices
   M2.obs <- torch_tensor(data$M2, device=device, dtype=torch_dtype)
   M3.obs <- torch_tensor(data$M3, device=device, dtype=torch_dtype)
   M4.obs <- torch_tensor(data$M4, device=device, dtype=torch_dtype)
-  if (debug) {cat("Generating torch matrices\n")}
+  if (debug) {cat("MCMfit generating torch matrices\n")}
   torch_matrices <- .get_torch_matrices(model, device, M2.obs, M3.obs, M4.obs, torch_dtype)
   param_list <- torch_matrices[['param_list']]
   m2v_masks <- torch_matrices[['m2v_masks']]
@@ -142,15 +142,16 @@ MCMfit <- function(mcmmodel, data, weights=NULL, compute_se=TRUE, se_type='asymp
   base_matrices <- torch_matrices[['base_matrices']]
   .par_list <- torch_matrices[['.par_list']]
   if (low_memory) {
-    if (debug) {cat("Clearing memory\n")}
+    if (debug) {cat("MCMfit clearing memory\n")}
     rm(torch_matrices)
     gc(full=TRUE)
   }
   # Obtain estimates with optimizer
   START_optim <- Sys.time()
   TIME_prep <-  START_optim - START_MCMfit
-  if (debug) {cat("Strting fit\n")}
+  if (debug) {cat("MCMfit starting fit:\n")}
   out <- .torch_fit(optimizers, M2.obs, M3.obs, M4.obs, m2v_masks, torch_bounds, torch_masks, torch_maps, base_matrices, .par_list, learning_rate, optim_iters, silent, use_bounds, use_skewness, use_kurtosis, lossfunc, return_history = TRUE, low_memory=low_memory, outofbounds_penalty=outofbounds_penalty,debug=debug, diag_s=diag_s, monitor_grads=monitor_grads)
+  if (debug) {cat("MCMfit fit output\n")}
   .par_tensor <- out[['par']]
   loss_hist <- as.numeric(torch_tensor(out[["loss_hist"]], device=cpu_device))
   grad_hist <- list()
@@ -173,17 +174,18 @@ MCMfit <- function(mcmmodel, data, weights=NULL, compute_se=TRUE, se_type='asymp
   START_se <- Sys.time()
   TIME_optim <- START_se - START_optim
   if (compute_se) {
+    if (debug) {cat("MCMfit starting SE calculation:\n")}
     if(se_type == 'asymptotic'){
       # SEs <- .std.err(data=data,par=as.numeric(torch_tensor(torch_cat(.par), device=cpu_device)), model=model, use_skewness, use_kurtosis)
-      SEs <- .std.err(data, .par_list, use_skewness, use_kurtosis, torch_masks, torch_maps, base_matrices, m2v_masks, device_se, low_memory, diag_s, jacobian_method)
+      SEs <- .std.err(data, .par_list, use_skewness, use_kurtosis, torch_masks, torch_maps, base_matrices, m2v_masks, device_se, low_memory, diag_s, jacobian_method, debug)
     }
 
     if(se_type != 'asymptotic') {
-    # Matrix where bootstraps will be stored
-    pars.boot <- matrix(NA,bootstrap_iter,length(model$param_values))
-    # Lower and Upper bounds
-    cat("Starting bootstrap MCMSEM\n")
-    pb <- txtProgressBar(0, bootstrap_iter, style = 3, width=min(c(options()$width, 107)))
+      # Matrix where bootstraps will be stored
+      pars.boot <- matrix(NA,bootstrap_iter,length(model$param_values))
+      # Lower and Upper bounds
+      cat("MCMfit starting bootstrap MCMSEM\n")
+      pb <- txtProgressBar(0, bootstrap_iter, style = 3, width=min(c(options()$width, 107)))
       }
     if (se_type == 'one-step') {
       #### BOOT 1:  NORMAL BOOTSTRAP
@@ -216,7 +218,7 @@ MCMfit <- function(mcmmodel, data, weights=NULL, compute_se=TRUE, se_type='asymp
 
         #3. Fit model
         # Estimate parameters with model function specified above
-        .par_tensor <- .torch_fit(optimizers, M2.obs, M3.obs, M4.obs, m2v_masks, torch_bounds, torch_masks, torch_maps, base_matrices, .par_list, learning_rate, optim_iters, silent, use_bounds, use_skewness, use_kurtosis, lossfunc, low_memory=low_memory, outofbounds_penalty=outofbounds_penalty, diag_s=diag_s, monitor_grads=monitor_grads)
+        .par_tensor <- .torch_fit(optimizers, M2.obs, M3.obs, M4.obs, m2v_masks, torch_bounds, torch_masks, torch_maps, base_matrices, .par_list, learning_rate, optim_iters, silent, use_bounds, use_skewness, use_kurtosis, lossfunc, return_history = FALSE, low_memory=low_memory, outofbounds_penalty=outofbounds_penalty,debug=FALSE, diag_s=diag_s, monitor_grads=FALSE)
         .par <- list()
         for (j in names(.par_tensor)) {
           if (length(param_list[[j]]) > 0) {
@@ -269,7 +271,7 @@ MCMfit <- function(mcmmodel, data, weights=NULL, compute_se=TRUE, se_type='asymp
 
         #3. Fit model
         # Estimate parameters with model function specified above
-        .par_tensor <- .torch_fit(optimizers, M2.obs, M3.obs, M4.obs, m2v_masks, torch_bounds, torch_masks, torch_maps, base_matrices, .par_list, learning_rate, optim_iters, silent, use_bounds, use_skewness, use_kurtosis, lossfunc, low_memory=low_memory, outofbounds_penalty=outofbounds_penalty, diag_s=diag_s, monitor_grads=monitor_grads)
+        .par_tensor <- .torch_fit(optimizers, M2.obs, M3.obs, M4.obs, m2v_masks, torch_bounds, torch_masks, torch_maps, base_matrices, .par_list, learning_rate, optim_iters, silent, use_bounds, use_skewness, use_kurtosis, lossfunc, return_history = FALSE, low_memory=low_memory, outofbounds_penalty=outofbounds_penalty,debug=FALSE, diag_s=diag_s, monitor_grads=FALSE)
         .par <- list()
         for (j in names(.par_tensor)) {
           if (length(param_list[[j]]) > 0) {
@@ -285,6 +287,7 @@ MCMfit <- function(mcmmodel, data, weights=NULL, compute_se=TRUE, se_type='asymp
     # Table of point estimates and SE's
     results <- rbind(results, SEs)
   }
+  if (debug) {cat("MCMfit formatting output:\n")}
   # Place resulting parameter estimates back into model matrices
   for (i in seq_along(model$param_coords)) {
     idat <- model$param_coords[[i]]
