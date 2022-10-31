@@ -6,6 +6,12 @@ Note this is the `dev-torch` branch, and **not** intended for end-users. If you 
 As of version 0.4.0 it is possible to run MCMSEM on a GPU, see [MCMSEM on GPU](#mcmsem-on-gpu).
 
 ## Patch notes
+### v0.21.0
+ - > :warning: __WARNING__: Due to changes in the layout of MCMdatasummary starting in v0.20.0 data summaries can no longer be stored via Rs built-in `save()`. You now have to use MCMsavesummary()
+ - The argument `low_memory` in `MCMfit()` is now passed to `MCMdatasummary()` if a `data.frame` or `matrix` object is passed as data
+   - To prevent this, run `MCMdatasummary()` first. Note that it is recommended to do so before `MCMmodel()` anyways.
+ - Slight changes to backend of SE calculation significantly reducing memory footprint with minimal impact on performance.
+   - Specifically, no longer calculates `W` as an intermediate if `use_kurtosis` and `use_skewness` are both TRUE, this prevents creating a second giant (same shape as `S.m`) matrix.
 ### v0.20.1
  - Replaced `covlowmem` with `covchunked` internally in `MCMdatasummary`
  - Number of chunks is automatically determined based on `low_memory` to keep the use of this argument similar to that in `MCMfit`:
@@ -26,7 +32,7 @@ As of version 0.4.0 it is possible to run MCMSEM on a GPU, see [MCMSEM on GPU](#
  - Changed save summary to first convert the `S.m` tensor to lower triangle vector, then convert that lower triangle vector to an R object and save that output
  - Changed load summary to convert the lower triangle R vector back to full symmetrical torch tensor
  - Changed calculation of standard error to now do all but the `jacobian()` function call itself (see my notes on why) in torch
- - Note that the `S.m` matrix and everything else in standard error is always a tensor on CPU device, except the function for the jacobian (that depends on `device_se`), this is because these matrices get huge with larger models so would without a doubt lead to CUDA memory errors. Additionally, the computation they are used in is only done once and not very involved.
+ - Note that the `S.m` matrix and everything else in standard error is always a tensor on CPU device, except the function for the jacobian (that depends on `device_se`), this is because these matrices get huge with larger models (46,345 x 46,345 @ 30 input traits) so would without a doubt lead to CUDA memory errors. Additionally, the computation they are used in is only done once and not very involved.
 ### v0.19.0
  - > :warning: __WARNING__: Due to the addition of cuda_empty_cache(), MCMSEM now requires torch 0.9.0
  - Bugfixes to `MCMedit()`

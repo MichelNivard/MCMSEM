@@ -59,21 +59,7 @@
   # idx is pre-determined in MCMdatasummary() depending on the number of variables
   # Note there is probably a cleaner way to do this as these numbers only depend on number of columns..
   # If you want to be a contributor, here's your chance.
-  if (debug) {cat(" - Extracting S.m from data summary\n")}
-  if (use_kurtosis & use_skewness) {
-    idx <- data$SE$idx$idx
-  } else if (use_skewness) {
-    idx <- data$SE$idx$idx_nokurt
-  } else if (use_kurtosis) {
-    idx <- data$SE$idx$idx_noskew
-  } else {
-    idx <- data$SE$idx$idx_nokurt_noskew
-  }
-  S.m <- data$SE$S.m[idx, idx]  # S.m is pre-computed in MCMdatasummary()
-  # weights matrix is based on diagonal, may be better behaved?
-  # RStyle: W <- solve(diag(nrow(S.m)) * S.m)
-  if (debug) {cat(" - Calculating W matrix\n")}
-  W <- torch_inverse(torch_eye(nrow(S.m)) *S.m)
+
   par_vec <- NULL
   par_to_list_coords <- list()
   coord_start <- 1
@@ -99,16 +85,33 @@
   # Slownecker function compiled when .std.err is called
   slowneckerfun <- if (low_memory > 2) {'slowernecker'}  else {'slownecker'}
   .jit_slownecker <- jit_compile(.jit_funcs[[slowneckerfun]])
-  if (low_memory > 1) {func <- .jac.fn_torch_lowmem} else {func <- .jac.fn_torch}  # superceeded by .jit_slowneckerproduct, turn this back on in case of memory issues
+  if (low_memory > 1) {func <- .jac.fn_torch_lowmem} else {func <- .jac.fn_torch}
   if (debug) {cat(" - Calculating jacobian\n")}
   G <- torch_tensor(jacobian(func = func,
                 x = par_vec, method = jacobian_method, .par_list=.par_list, par_to_list_coords=par_to_list_coords, torch_masks=torch_masks,
                 torch_maps=torch_maps, base_matrices=base_matrices, use_skewness=use_skewness, use_kurtosis=use_kurtosis,
-                m2vmasks1d=m2vmasks1d, device=device, diag_s=diag_s, low_memory=low_memory, .jit_slownecker=.jit_slownecker), device=torch_device('cpu'))
+                m2vmasks1d=m2vmasks1d, device=device, diag_s=diag_s, low_memory=low_memory, .jit_slownecker=.jit_slownecker),
+                    device=torch_device('cpu'))
   # Note all these matrices used for Asycov are on CPU as this operation is only performe once, and the matrices involved are extremely large
+  # weights matrix is based on diagonal, may be better behaved?
+  # RStyle: W <- solve(diag(nrow(S.m)) * S.m)
   # Rstyle: Asycov <- solve(t(G)%*%W%*%G) %*% t(G)%*%W%*%S.m %*%W%*%G %*% solve(t(G)%*%W%*%G)
   if (debug) {cat(" - Calculating Asycov\n")}
-  Asycov <- torch_matmul(torch_matmul(torch_matmul(torch_inverse(torch_matmul(torch_matmul(torch_transpose(G, 1, 2), W), G)), torch_matmul(torch_matmul(torch_transpose(G, 1, 2), W), S.m)), torch_matmul(W, G)), torch_inverse(torch_matmul(torch_matmul(torch_transpose(G, 1, 2), W), G)))
+  if (use_kurtosis & use_skewness) {
+    # W is no longer assigned, and replaced by torch_inverse(torch_eye(nrow(S.m)) *S.m) to prevent unnecessary memory use
+    # Additionally, data$SE$S.m is used to prevent creating a local copy of S.m
+    Asycov <- torch_matmul(torch_matmul(torch_matmul(torch_inverse(torch_matmul(torch_matmul(torch_transpose(G, 1, 2), torch_inverse(torch_eye(nrow(data$SE$S.m))*data$SE$S.m)), G)), torch_matmul(torch_matmul(torch_transpose(G, 1, 2), torch_inverse(torch_eye(nrow(data$SE$S.m))*data$SE$S.m)), data$SE$S.m)), torch_matmul(torch_inverse(torch_eye(nrow(data$SE$S.m))*data$SE$S.m), G)), torch_inverse(torch_matmul(torch_matmul(torch_transpose(G, 1, 2), torch_inverse(torch_eye(nrow(data$SE$S.m))*data$SE$S.m)), G)))
+  } else {
+    if (use_skewness) {
+      idx <- data$SE$idx$idx_nokurt
+    } else if (use_kurtosis) {
+      idx <- data$SE$idx$idx_noskew
+    } else {
+      idx <- data$SE$idx$idx_nokurt_noskew
+    }
+    S.m <- data$SE$S.m[idx, idx]
+    Asycov <- torch_matmul(torch_matmul(torch_matmul(torch_inverse(torch_matmul(torch_matmul(torch_transpose(G, 1, 2), torch_inverse(torch_eye(nrow(S.m)) *S.m)), G)), torch_matmul(torch_matmul(torch_transpose(G, 1, 2), torch_inverse(torch_eye(nrow(S.m)) *S.m)), S.m)), torch_matmul(torch_inverse(torch_eye(nrow(S.m)) *S.m), G)), torch_inverse(torch_matmul(torch_matmul(torch_transpose(G, 1, 2), torch_inverse(torch_eye(nrow(S.m)) *S.m)), G)))
+  }
   se <- torch_sqrt(2)*torch_sqrt(torch_diag(Asycov))
   return(as.numeric(se))
 }

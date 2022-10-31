@@ -50,7 +50,7 @@ MCMfit <- function(mcmmodel, data, weights=NULL, compute_se=TRUE, se_type='asymp
   if (class(data)[[1]] != "mcmdataclass") {
     data_org <- data
     if (debug) {cat("MCMfit converting data\n")}
-    data <- MCMdatasummary(data, scale_data=model$meta_data$scale_data, weights=weights, prep_asymptotic_se=((compute_se) & (se_type == "asymptotic")), use_skewness=use_skewness, use_kurtosis=use_kurtosis)
+    data <- MCMdatasummary(data, scale_data=model$meta_data$scale_data, weights=weights, prep_asymptotic_se=((compute_se) & (se_type == "asymptotic")), use_skewness=use_skewness, use_kurtosis=use_kurtosis, low_memory=low_memory)
   } else {
     if (compute_se) {
       if (se_type %in% c("one-step", 'two-step'))
