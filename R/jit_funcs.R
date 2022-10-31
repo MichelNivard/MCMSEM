@@ -54,25 +54,22 @@ def fn(x, y, kronrow):
 ",
   covchunked="
 def fn(tens, chunkn):
-    # Note this is cov torch-style, so it's effectively a transposed cov,
-    # if you want to use this in the wild:
-    #  covmat <- covchunked(t(data), torch_tensor(4L))
     chunkn = chunkn[0]
-    out = torch.empty((tens.shape[0], tens.shape[0]))
-    tens_scaled = tens - torch.mean(tens, dim=1, keepdim=True)
+    out = torch.empty((tens.shape[1], tens.shape[1]))
+    tens_scaled = tens - torch.mean(tens, dim=0, keepdim=True)
     chunks = []
     i, chunk = 0, 0
-    while i < tens.shape[0]:
-        chunks.append(torch.range(i, min((chunk+1)*chunkn-1, tens.shape[0]-1)).long())
+    while i < tens.shape[1]:
+        chunks.append(torch.range(i, min((chunk+1)*chunkn-1, tens.shape[1]-1)).long())
         i += int(chunkn)
         chunk += 1
     for i in range(len(chunks)):
         for j in range(i, len(chunks)):
-            chunkres = torch.matmul(tens_scaled[chunks[i], :], torch.transpose(tens_scaled[chunks[j], :], 0, 1))
+            chunkres = torch.matmul(torch.transpose(tens_scaled[:, chunks[i]], 0, 1), tens_scaled[:, chunks[j]])
             out[torch.min(chunks[i]):(torch.max(chunks[i])+1), torch.min(chunks[j]):(torch.max(chunks[j])+1)]= chunkres
             if j > i:
                 out[torch.min(chunks[j]):(torch.max(chunks[j])+1), torch.min(chunks[i]):(torch.max(chunks[i])+1)] = torch.transpose(chunkres, 0, 1)
-    return out / (tens.shape[1] - 1)
+    return out / (tens.shape[0] - 1)
 ",
   mattotrilvec="
 def fn(x):

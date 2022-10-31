@@ -87,11 +87,11 @@ MCMdatasummary <- function(data=NULL, path=NULL, weights=NULL, scale_data=TRUE, 
         # This currently takes forever
         covchunked <- jit_compile(.jit_funcs[['covchunked']])$fn
         if (low_memory > 2) {
-          chunksize <- torch_tensor(as.integer(nrow(S.m)/16))  # 256 chunks if low memory is 3
+          chunksize <- torch_tensor(as.integer(max(ncol(S.m)/16, 1)))  # 256 chunks if low memory is 3
         } else if (low_memory > 1) {
-          chunksize <- torch_tensor(as.integer(nrow(S.m)/8))  # 64 chunks if low_memory is 2
+          chunksize <- torch_tensor(as.integer(max(ncol(S.m)/8, 1)))  # 64 chunks if low_memory is 2
         } else {
-          chunksize <- torch_tensor(as.integer(nrow(S.m)/4))  # 16 chunks if low_memory is 1
+          chunksize <- torch_tensor(as.integer(max(ncol(S.m)/4, 1)))  # 16 chunks if low_memory is 1
         }
         S.m <- covchunked(S.m, chunksize) / (n - 1)
       } else {

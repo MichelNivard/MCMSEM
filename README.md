@@ -6,6 +6,8 @@ Note this is the `dev-torch` branch, and **not** intended for end-users. If you 
 As of version 0.4.0 it is possible to run MCMSEM on a GPU, see [MCMSEM on GPU](#mcmsem-on-gpu).
 
 ## Patch notes
+### v0.21.1
+ - Bugfixes in `MCMdatasummary` when `low_memory` is enabled
 ### v0.21.0
  - > :warning: __WARNING__: Due to changes in the layout of MCMdatasummary starting in v0.20.0 data summaries can no longer be stored via Rs built-in `save()`. You now have to use MCMsavesummary()
  - The argument `low_memory` in `MCMfit()` is now passed to `MCMdatasummary()` if a `data.frame` or `matrix` object is passed as data
@@ -442,18 +444,17 @@ Note that runtime is long, but that this is partly (or mostly, with many variabl
 ### v0.1.0 - Initial commit
  
 ### Things still TODO:
-1. Figure out source of memory error with 30 variables and `low_memory=TRUE`
-2. Test-code for (nearly) all configurations of MCMmodel/fit/etc
-3. Get `monitor_grads` to work in LBFGS
-4. Create/update wiki/manual pages for:
+1. Test-code for (nearly) all configurations of MCMmodel/fit/etc
+2. Get `monitor_grads` to work in LBFGS
+3. Create/update wiki/manual pages for:
    1. MCMdatasummary() - Include recommendation for generating datasummary object of data which will be used in different models
    2. MCMsavesummary()
    3. weighted analysis
    4. MCMcompareloss()
    5. Gradient histories/`monitor_grads`
-5. Add Hessian
-6. Expand checks in `MCMmodel` 
-7. Find a way to get the full jacobian and/or hessian using torch, and have it be faster than the default jacobian with the current .jac.fn
+4. Add Hessian
+5. Expand checks in `MCMmodel` 
+6. Find a way to get the full jacobian and/or hessian using torch, and have it be faster than the default jacobian with the current .jac.fn
    - This is not feasible in the current implementation as for MCMSEM additional non-variable input arguments to `jacobian`/`hessian` are required (i.e. the fixed format matrices), other behavior-changing arguments like `low_memory` can be worked around by creating different functions for each type, but the matrices cannot be hardcoded. `torch.autograd.functional.jacobian`/`torch.autograd.functional.hessian` (not implemented in R torch but could theoretically be used via TorchScript) does not allow for non-variable (i.e. non-grad) arguments. The solution in Python is to use a class to hold fixed format objects, but custom classes are not available in TorchScript.
    - Note for future development, this will be possible if/when:
      1. R torch adds a more flexible version of `torch.autograd.functional.jacobian`/`torch.autograd.functional.hessian` which allows for additional non-variable input arguments, unlikely to happen any time soon though.
@@ -468,7 +469,7 @@ Tamimy, Z., van Bergen, E., van der Zee, M. D., Dolan, C. V., & Nivard, M. G. (2
 
 ## Installation
 
-Currently this packge is not listed on CRAN and should therefore be installed from GitHub directly.
+Currently, this package is not listed on CRAN and should therefore be installed from GitHub directly.
 ```
 library(devtools)
 install_github("https://github.com/zenabtamimy/MCMSEM")
