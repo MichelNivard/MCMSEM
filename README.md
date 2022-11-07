@@ -5,7 +5,32 @@ R-package which allows users to run multi co-moment structural equation models.
 Note this is the `dev-torch` branch, and **not** intended for end-users. If you would like to use MCMSEM yourself, please go to the main branch. If you would like to contribute to the code, feel free to check this branch out.  
 As of version 0.4.0 it is possible to run MCMSEM on a GPU, see [MCMSEM on GPU](#mcmsem-on-gpu).
 
+## Test observations
+ - Anything above 25 LBFGS iterations tends to not matter at all
+ - The minimum that is achieved depends far more on the LR and iterations of RPROP
+   - Note however that the number of RPROP iterations quickly increases with larger models (1000-2000ish seemed to work well for 5-6 variables and 1 latent)
+ - Randomly generated a/b matrices used in `simulate_data` is unlikely to be reproduced by `MCMfit()`, my thoughts:
+   - Random generation may be likely to generate completely unrealistic data
+   - May generate data with multiple equally viable solutions
+ - More variables leads to less accurate estimates (makes sense)
+ - Variables with no relation to the others don't seem to have much of an impact (luckily)
+ - Adding additional mutually exclusive latent factors (i.e. `a1_1` `a2_2`) to the 'true' model seems to make estimation significantly harder (especially for `a` parameters)
+   - This may also result in unrealistic data though, I'm not entirely sure...
+ 
 ## Patch notes
+### v0.22.0
+ - Significantly changed `simulate_data` to allow for generation of N variables, in line with what the package is now capable of
+   - Input `a1` changed to `a` which should now be an N_variables * N_latents matrix with `a` parameters
+   - Inputs `b1` and `b2` changed to `b` which should now be an N_variables * N_variables matrix with `b` parameters and diagonal of 1
+   - Added `skew` argument, boolean vector describing which variables should contain skewness
+   - Added `kurt` argument, boolean vector describing which variables should contain kurtosis
+   - `shape` and `df` still function the same, only are now used across all variables with skewness and kurtosis respectively
+   - The default behavior of `simulate_data()` remains functionally the same
+ - Added argument `parameterlegend` to `plot(result$gradients)` to allow for disabling legend, as this can sometimes obscure important details in the graph.
+ - Changes in `MCMdatasummary`:
+   - Changed possible ID column detection error to a warning
+   - Changed `low_memory=0` behavior to use `covchunked` with 16 chunks as test results indicate this is faster with higher memory usage compared to base covariance
+   - Changed the way data summary objects are saved from gzipped strings to H5 floats significantly speeding up the saving process (1.3s instead of 33s at 18 input variables), as well as saving space
 ### v0.21.1
  - Bugfixes in `MCMdatasummary` when `low_memory` is enabled
 ### v0.21.0

@@ -12,7 +12,7 @@ MCMfit <- function(mcmmodel, data, weights=NULL, compute_se=TRUE, se_type='asymp
     # If a result class is provided, first check if settings are similar enough
     if (use_kurtosis & !(mcmmodel$info$use_kurtosis)) {cat("      use_kurtosis reset to FALSE for the current fit, as it was set to FALSE previously. \n"); use_kurtosis <- FALSE}
     if (use_skewness & !(mcmmodel$info$use_skewness)) {cat("      use_skewness reset to FALSE for the current fit, as it was set to FALSE previously. \n"); use_skewness <- FALSE}
-    if (class(data)[[1]] != "mcmdataclass") {cat("      Next time when you intend to fit your model twice, make an MCMdata summary first. That will save you time. \n")}
+    if (class(data)[[1]] != "mcmdataclass") {cat("      Next time when you intend to fit your model multiple times, make an MCMdata summary first. That will save you time. \n")}
     model <- mcmmodel$model$copy()
     model$start_values$set_all(mcmmodel$model$param_values)
   } else {
@@ -99,7 +99,7 @@ MCMfit <- function(mcmmodel, data, weights=NULL, compute_se=TRUE, se_type='asymp
   }
   if (length(learning_rate) != length(optimizers)) {
     if (length(learning_rate) == 1) {
-      learning_rate <- rep(learning_rate, length(optimizers)) # If one value is passed to optim_iters I'm assuming that would be for RPROP
+      learning_rate <- rep(learning_rate, length(optimizers)) # If one value is passed to optim_iters it will be used for all optimizers
     } else {
       stop("length of learning_rate should be equal to length of optimizers")
     }
@@ -110,7 +110,7 @@ MCMfit <- function(mcmmodel, data, weights=NULL, compute_se=TRUE, se_type='asymp
     cat("Setting use_bounds to FALSE as this is more efficient and has the same effect as outofbounds_penalty=0\n")
     use_bounds <- FALSE
   }
-  # This code remains so this can be easily changed in future versions. As of torch 0.8.0 inverse does not work
+  # This code remains so this can be easily changed in future versions. As of torch 0.9.0 inverse does not work
   #  with half precision, so for now this is locked at 32 bit
   torch_precision <- 32
   if (torch_precision == 16) {torch_dtype <- torch_float16()} else if (torch_precision == 32) {torch_dtype <- torch_float32()} else if (torch_precision == 64) {torch_dtype <- torch_float64()} else {stop("Precision not recognized, should be one of (16, 32, 64)")}

@@ -19,9 +19,9 @@ MCMdatasummary <- function(data=NULL, path=NULL, weights=NULL, scale_data=TRUE, 
       stop("At least two columns in data are required.")
     if (any(apply(data, 2, is.character)))
       stop("Numeric column(s) found:",paste0(names(which(apply(data, 2, is.character))), collapse=", "), "\n   Data must only contain numeric columns")
-    if (any(round(rowSums(abs(cor(data))), 1) == 1.0)) {
-      idcol <- which(round(rowSums(abs(cor(data))), 1) == 1.0)
-      stop(paste0("It seems like ",names(idcol), " is an ID column. \n  Consider using ", deparse(substitute(data)), '[,-', unname(idcol),']'))
+    if (any(round(rowSums(abs(cor(data))), 2) == 1.0)) {  # i.e. 0 approx correlation between x and any other variable
+      idcol <- which(round(rowSums(abs(cor(data))), 2) == 1.0)
+      warning(paste0("It seems like ",names(idcol), " may be an ID column. \n  Consider using ", deparse(substitute(data)), '[,-', unname(idcol),']'))
     }
     if (!is.null(weights)) {if (length(weights) != nrow(data)) {stop("Number of weights should be equal to the number of rows in the dataframe")}}
     ncol <- ncol(data)
@@ -82,23 +82,23 @@ MCMdatasummary <- function(data=NULL, path=NULL, weights=NULL, scale_data=TRUE, 
 
       # S.m <- cov(t(S.m))/(n-1)
       # Replace this with torch_cov(S.m) / (n - 1)  once that is implemented in torch for R
-      if (low_memory) {
-        if (debug) {cat(" - calculating S.m covariance using lowmem\n")}
-        # This currently takes forever
-        covchunked <- jit_compile(.jit_funcs[['covchunked']])$fn
-        if (low_memory > 2) {
-          chunksize <- torch_tensor(as.integer(max(ncol(S.m)/16, 1)))  # 256 chunks if low memory is 3
-        } else if (low_memory > 1) {
-          chunksize <- torch_tensor(as.integer(max(ncol(S.m)/8, 1)))  # 64 chunks if low_memory is 2
-        } else {
-          chunksize <- torch_tensor(as.integer(max(ncol(S.m)/4, 1)))  # 16 chunks if low_memory is 1
-        }
-        S.m <- covchunked(S.m, chunksize) / (n - 1)
+      if (debug) {cat(" - calculating S.m covariance\n")}
+      # This currently takes forever
+      covchunked <- jit_compile(.jit_funcs[['covchunked']])$fn
+      if (low_memory > 2) {
+        chunksize <- torch_tensor(as.integer(max(ceiling(ncol(S.m)/32), 1)))  # 1024 chunks if low memory is 3
+      } else if (low_memory > 1) {
+        chunksize <- torch_tensor(as.integer(max(ceiling(ncol(S.m))/16, 1)))  # 256 chunks if low_memory is 2
+      } else if (low_memory) {
+        chunksize <- torch_tensor(as.integer(max(ceiling(ncol(S.m))/8, 1)))  # 64 chunks if low_memory is 1
       } else {
-        if (debug) {cat(" - calculating S.m covariance\n")}
-        S.m <- torch_subtract(S.m, torch_reshape(torch_mean(S.m, dim=1), c(1, S.m$shape[2])))
-        S.m <- torch_matmul(torch_transpose(S.m, 1, 2), S.m)  / (S.m$shape[1] - 1) / (n - 1)
+        # base cov:
+        #S.m <- torch_subtract(S.m, torch_reshape(torch_mean(S.m, dim=1), c(1, S.m$shape[2])))
+        #S.m <- torch_matmul(torch_transpose(S.m, 1, 2), S.m)  / (S.m$shape[1] - 1) / (n - 1)
+        # Turns out covchunked with 16 chunks is actually faster with higher memory usage compared to base cov with more variables
+        chunksize <- torch_tensor(as.integer(max(ceiling(ncol(S.m))/4, 1)))  # 16 chunks if low_memory is 1
       }
+      S.m <- covchunked(S.m, chunksize) / (n - 1)
       if (debug) {cat(" - assigning S.m indices\n")}
       idx <- list()
       if (use_skewness & use_kurtosis) {

@@ -79,7 +79,7 @@ summary.mcmgradienthistoryclass <- function(x) {
   }
 }
 
-plot.mcmgradienthistoryclass <- function(x, xlim='auto', ylim='auto', cols=c("#000000", "#E69F00", "#56B4E9", "#009E73", "#F0E142", "#0072B2", "#D55E00", "#CC79A7"),
+plot.mcmgradienthistoryclass <- function(x, parameterlegend=TRUE, xlim='auto', ylim='auto', cols=c("#000000", "#E69F00", "#56B4E9", "#009E73", "#F0E142", "#0072B2", "#D55E00", "#CC79A7"),
                                          ltys=c("solid", 'dashed', 'dotted', 'dotdash'), main='Gradient history of %s parameters',xlab='iteration', ylab='gradient', legendloc='topright', bty='n', ...) {
   # by default: 8 cols * 4 ltys to allow for 32 unique combinations
   if (x$hasgrads) {
@@ -107,7 +107,9 @@ plot.mcmgradienthistoryclass <- function(x, xlim='auto', ylim='auto', cols=c("#0
       legend_col <- c(legend_col, col)
       legend_lty <- c(legend_lty, lty)
     }
-    legend(legendloc, legend=legend_txt, col=legend_col, lty=legend_lty)
+    if (parameterlegend) {
+      legend(legendloc, legend=legend_txt, col=legend_col, lty=legend_lty)
+    }
   } else {
     plot(-100, -100, xlim=c(0, 1), ylim=c(0, 1), bty='n', xaxt='n', yaxt='n', xlab='', ylab='')
     text(0.5, 0.5, paste0("No parameters that require gradients in ", .self$label))
@@ -249,7 +251,7 @@ summary.mcmmultigradienthistoryclass <- function(x) {
   }
 }
 
-plot.mcmmultigradienthistoryclass <- function(x, layout.matrix='auto', xlim='auto', ylim='auto', cols=c("#000000", "#E69F00", "#56B4E9", "#009E73", "#F0E142", "#0072B2", "#D55E00", "#CC79A7"),
+plot.mcmmultigradienthistoryclass <- function(x, layout.matrix='auto', parameterlegend=TRUE, xlim='auto', ylim='auto', cols=c("#000000", "#E69F00", "#56B4E9", "#009E73", "#F0E142", "#0072B2", "#D55E00", "#CC79A7"),
                                          ltys=c("solid", 'dashed', 'dotted', 'dotdash'), main='Gradient history of %s parameters',xlab='iteration', ylab='gradient', legendloc='topright', bty='n', ...) {
   if (x$hasgrads) {
     pars_to_plot <- c()
@@ -271,7 +273,7 @@ plot.mcmmultigradienthistoryclass <- function(x, layout.matrix='auto', xlim='aut
     }
     layout(layout.matrix)
     for (i in pars_to_plot) {
-      plot(x[[i]], xlim=xlim, ylim=ylim, cols=cols, ltys=ltys, main=main, xlab=xlab, ylab=ylab, legendloc=legendloc, bty=bty)
+      plot(x[[i]], parameterlegend=parameterlegend, xlim=xlim, ylim=ylim, cols=cols, ltys=ltys, main=main, xlab=xlab, ylab=ylab, legendloc=legendloc, bty=bty)
     }
   } else {
     plot(-100, -100, xlim=c(0, 1), ylim=c(0, 1), bty='n', xaxt='n', yaxt='n', xlab='', ylab='')
