@@ -14,9 +14,9 @@ plot(res, layout=NULL, ...)
 }
 
 \examples{
-    mydata <- simulate_data()
-    mymodel <- MCMmodel(data)
-    myresult <- MCMfit(model, data)
+    mysummary <- simulate_data()
+    mymodel <- MCMmodel(mysummary)
+    myresult <- MCMfit(model, mysummary)
 
     plot(myresult)
 }

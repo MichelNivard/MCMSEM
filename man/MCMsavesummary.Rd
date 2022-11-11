@@ -13,10 +13,10 @@ MCMsavesummary(summaryobj, path)
 }
 
 \examples{
-    mydata <- simulate_data()
+    rawdata <- simulate_data(asdataframe=TRUE)
 
     # Create summary
-    mysummary <- MCMdatasummary(data)
+    mysummary <- MCMdatasummary(rawdata)
 
     # Save summary
     MCMsavesummary(mysummary, "path/to/summary")

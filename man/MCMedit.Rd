@@ -18,8 +18,8 @@ MCMedit(model, pointer, name, value)
 }
 
 \examples{
-    mydata <- simulate_data()
-    mymodel <- MCMmodel(data)
+    mysummary <- simulate_data()
+    mymodel <- MCMmodel(mysummary)
 
     # free f1 variance, i.e. make it a parameter rather than hard value
     mymodel <- MCMedit(mymodel, "Fm", c(1, 2), "fm1")

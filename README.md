@@ -18,6 +18,26 @@ As of version 0.4.0 it is possible to run MCMSEM on a GPU, see [MCMSEM on GPU](#
    - This may also result in unrealistic data though, I'm not entirely sure...
  
 ## Patch notes
+### v0.23.0
+ - > :warning: __WARNING__: The default behavior of `simulate_data()` changed such that it now automatically returns an `mcmdatasummaryclass` object. To keep the raw simulated data in line with previous versions please use `simulate_data(asdtaframe=TRUE)`.
+ - Added argument `asdataframe` to `simulate_data()`, and set the default to `FALSE`. this argument does the following:
+   - `TRUE`: Returns the raw simulated data as data frame
+   - `FALSE`: Returns an `mcmdatasummaryclass` object of the generated data
+ - Added argument `...` to `simulate_data()`, used for passing other arguments to `MCMdatasummary()` when `asdataframe` is `FALSE`
+ - Updated manual pages to be fully in line with v0.23.0 conventions for
+   - `MCMcompareloss()`
+   - `MCMdatasummary()`
+   - `MCMedit()`
+   - `MCMfit()`
+   - `MCMmodel()`
+   - `MCMsavesummary()`
+   - `simulate_data()`
+   - `as.data.frame(mcmresultclass)`
+   - `as.data.frame(mcmresultsummaryclass)`
+   - `plot(mcmmodelclass)`
+   - `plot(mcmresultclass)`
+   - `print(mcmmodelclass)`
+   - `summary(mcmresultclass)`
 ### v0.22.0
  - Significantly changed `simulate_data` to allow for generation of N variables, in line with what the package is now capable of
    - Input `a1` changed to `a` which should now be an N_variables * N_latents matrix with `a` parameters
@@ -470,15 +490,15 @@ Note that runtime is long, but that this is partly (or mostly, with many variabl
  
 ### Things still TODO:
 1. Test-code for (nearly) all configurations of MCMmodel/fit/etc
-2. Get `monitor_grads` to work in LBFGS
-3. Create/update wiki/manual pages for:
+2. Create/update wiki pages for:
    1. MCMdatasummary() - Include recommendation for generating datasummary object of data which will be used in different models
    2. MCMsavesummary()
    3. weighted analysis
    4. MCMcompareloss()
    5. Gradient histories/`monitor_grads`
-4. Add Hessian
-5. Expand checks in `MCMmodel` 
+3. Add Hessian
+4. Expand checks in `MCMmodel`
+5. Get `monitor_grads` to work in LBFGS
 6. Find a way to get the full jacobian and/or hessian using torch, and have it be faster than the default jacobian with the current .jac.fn
    - This is not feasible in the current implementation as for MCMSEM additional non-variable input arguments to `jacobian`/`hessian` are required (i.e. the fixed format matrices), other behavior-changing arguments like `low_memory` can be worked around by creating different functions for each type, but the matrices cannot be hardcoded. `torch.autograd.functional.jacobian`/`torch.autograd.functional.hessian` (not implemented in R torch but could theoretically be used via TorchScript) does not allow for non-variable (i.e. non-grad) arguments. The solution in Python is to use a class to hold fixed format objects, but custom classes are not available in TorchScript.
    - Note for future development, this will be possible if/when:

@@ -3,8 +3,9 @@
 ##################################################
 
 simulate_data <- function(n=500000,
-                           a=matrix(c(0.35, 0.35), ncol=1), b=matrix(c(1,-.1, .3,1), 2, 2),
-                           shape=c(4, 0), df=c(0, 10)) {
+                          a=matrix(c(0.35, 0.35), ncol=1), b=matrix(c(1,-.1, .3,1), 2, 2),
+                          shape=c(4, 0), df=c(0, 10),
+                          asdataframe=FALSE, ...) {
   # a is an n_variable * n_latent matrix containing a parameters
   # b is an n_variable * n_variable matrix containing b parameters with 1 on diagonal:
   #  1   b2_1  Where b1_2 is the effect of x1 on x2, and b2_1 the effect of x2 on x1
@@ -46,5 +47,9 @@ simulate_data <- function(n=500000,
   x <- do.call(cbind, x)
 
   # Let them concurrently influence each other
-  return(t(b %*% t(x)))
+  if (asdataframe) {
+    return(t(b %*% t(x)))
+  } else {
+    return(MCMdatasummary(t(b %*% t(x)), ...))
+  }
 }

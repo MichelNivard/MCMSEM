@@ -13,17 +13,17 @@ as.data.frame(summ, estimates='parameters')
 }
 
 \examples{
-    mydata <- simulate_data()
-    mymodel <- MCMmodel(data)
-    my_result <- MCMfit(mymodel, data)
-    summ <- summary(my_result)
+    mysummary <- simulate_data()
+    mymodel <- MCMmodel(mysummary)
+    my_result <- MCMfit(mymodel, mysummary)
+    resultsummary <- summary(my_result)
 
     # Extract regression paramters and factor loadings:
-    pars <- as.data.frame(summ, estimates='parameters')
+    pars <- as.data.frame(resultsummary, estimates='parameters')
     # Extract variances
-    vars <- as.data.frame(summ, estimates='variances')
+    vars <- as.data.frame(resultsummary, estimates='variances')
     # Extract skews
-    skews <- as.data.frame(summ, estimates='skewness')
+    skews <- as.data.frame(resultsummary, estimates='skewness')
     # Extract kurts
-    kurts <- as.data.frame(summ, estimates='kurtosis')
+    kurts <- as.data.frame(resultsummary, estimates='kurtosis')
 }

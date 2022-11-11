@@ -12,8 +12,8 @@ as.data.frame(res)
 }
 
 \examples{
-    mydata <- simulate_data()
-    mymodel <- MCMmodel(data)
-    my_result <- MCMfit(mymodel, data)
+    mysummary <- simulate_data()
+    mymodel <- MCMmodel(mysummary)
+    my_result <- MCMfit(mymodel, mysummary)
     my_result_df <- as.data.frame(my_result)
 }

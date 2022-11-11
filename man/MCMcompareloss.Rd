@@ -19,7 +19,7 @@ MCMcompareloss(results, test_data, weights=NULL, loss_type='auto', extensive_mod
 }
 
 \examples{
-    mydata <- simulate_data()
+    mydata <- simulate_data(asdataframe=TRUE)
 
     # Split data in train and test sample
     split <- sample(c(1,2), nrow(data), prob=c(0.8, 0.2), replace=TRUE)
@@ -27,10 +27,11 @@ MCMcompareloss(results, test_data, weights=NULL, loss_type='auto', extensive_mod
     mydata_test <- mydata[split == 2, ]
 
     # Generate and fit models on trainsample
-    mymodel <- MCMmodel(mydata_train)
-    mymodel2 <- MCMmodel(mydata_train)
-    my_result1 <- MCMfit(mymodel, mydata_train)
-    my_result2 <- MCMfit(mymodel2, mydata_train)
+    mydatasummary_train <- MCMdatasummary(mydata_train)
+    mymodel <- MCMmodel(mydatasummary_train)
+    mymodel2 <- MCMmodel(mydatasummary_train)
+    my_result1 <- MCMfit(mymodel, mydatasummary_train)
+    my_result2 <- MCMfit(mymodel2, mydatasummary_train)
 
     # compare loss in test sample
     MCMcompareloss(list(my_result1, my_result2), mydata_test)
