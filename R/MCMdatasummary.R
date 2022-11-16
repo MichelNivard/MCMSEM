@@ -30,9 +30,9 @@ MCMdatasummary <- function(data=NULL, path=NULL, weights=NULL, scale_data=TRUE, 
 
     # Scale data
     if (scale_data) {
-      if (debug) {cat("MCMdatasummary Scaling data\n")}
-      data_was_scaled <- all(round(apply(data, 2, mean), 1) == 0) & all(round(apply(data, 2, sd), 1) == 1)
+      data_was_scaled <- all(round(apply(data, 2, mean), 2) == 0) & all(round(apply(data, 2, sd), 2) == 1)
       if (!(data_was_scaled)) {
+        if (debug) {cat("MCMdatasummary Scaling data\n")}
         data <- apply(data, 2, scale)
       }
     } else {
@@ -115,7 +115,6 @@ MCMdatasummary <- function(data=NULL, path=NULL, weights=NULL, scale_data=TRUE, 
       } else {
         idx[['idx_nokurt_noskew']] <- 1:length(dim2locs)
       }
-      if (debug) {cat(" - converting S.m to R matrix\n")}
       SE <- list(
         computed=TRUE,
         S.m=S.m,
@@ -130,8 +129,8 @@ MCMdatasummary <- function(data=NULL, path=NULL, weights=NULL, scale_data=TRUE, 
   }
 }
 
-MCMsavesummary <- function(summaryobj, path) {
-  summaryobj$save(path)
+MCMsavesummary <- function(summaryobj, path, debug=FALSE) {
+  summaryobj$save(path, debug=debug)
 }
 
 

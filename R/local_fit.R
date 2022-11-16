@@ -89,7 +89,7 @@
 }
 
 # Fit wrapper function
-.torch_fit <- function(optimizers, M2.obs, M3.obs, M4.obs, m2v_masks, torch_bounds, torch_masks, torch_maps, base_matrices, .par_list, learning_rate, optim_iters, silent, use_bounds, use_skewness, use_kurtosis, lossfunc, return_history=FALSE, low_memory, outofbounds_penalty, diag_s,debug=FALSE, monitor_grads=FALSE) {
+.torch_fit <- function(optimizers, M2.obs, M3.obs, M4.obs, m2v_masks, torch_bounds, torch_masks, torch_maps, base_matrices, .par_list, learning_rate, optim_iters, use_bounds, use_skewness, use_kurtosis, lossfunc, return_history=FALSE, low_memory, outofbounds_penalty, diag_s,debug=FALSE, monitor_grads=FALSE) {
   loss_hist <- torch_empty(0, device=.par_list[['A']]$device)
   grad_hist <- list()
   for (i in names(.par_list)) {
@@ -106,7 +106,6 @@
       optim <- .get_optimfunc(optimiz)(.par_list,lr = learning_rate[noptim])
       if (low_memory) {cuda_empty_cache()}  # Superceeded by .jit_slowneckerproduct, turn this back on in case of memory issues
       for (i in seq_len(optim_iters[noptim])) {
-        if (debug) {cat(paste0("  * iter",i,"\n"))}
         optim$zero_grad()
         loss <- .torch_objective(.par_list, lossfunc, torch_bounds, torch_masks, torch_maps, base_matrices, M2.obs, M3.obs, M4.obs, m2v_masks, use_bounds, use_skewness, use_kurtosis, outofbounds_penalty, diag_s, low_memory, .jit_slownecker)
         if (low_memory) {cuda_empty_cache()}
@@ -128,8 +127,9 @@
         }
         loss_hist <- torch_hstack(list(loss_hist, loss$detach()))
         optim$step()
-        if (!(silent)) cat(paste0("\rloss ", as.numeric(loss), "           "))
+        if (debug) cat(paste0("\r  * iter:",i," - loss: ", as.numeric(torch_tensor(loss, device=torch_device('cpu'))), "           "))
       }
+      if (debug) cat("\n")
     } else {
       calc_loss_torchfit <- function() {
       optim$zero_grad()
@@ -144,18 +144,17 @@
           }
         }
         loss_hist <<- torch_hstack(list(loss_hist, loss$detach()))
-        if (!(silent)) {cat(paste0("\rloss ", as.numeric(loss), "          "))}
+        if (debug) cat(paste0("\r  * iter:",i," - loss: ", as.numeric(torch_tensor(loss, device=torch_device('cpu'))), "           "))
         return(loss)
       }
       # Use lbfgs to get really close....
       optim <- optim_lbfgs(.par_list,lr= learning_rate[noptim])
       for (i in seq_len(optim_iters[noptim])) {
-        if (debug) {cat(paste0("  * iter",i,"\n"))}
         optim$step(calc_loss_torchfit)
       }
+      if (debug) cat("\n")
     }
   }
-  if (!(silent)) {cat("\n")}
   if (!(monitor_grads)) {
     if (debug) {cat(paste0(" - Stacking radient history\n"))}
     for (matname in names(.par_list)) {

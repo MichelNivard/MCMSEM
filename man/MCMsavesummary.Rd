@@ -5,11 +5,12 @@
   Save an MCM data summary disk
 }
 \usage{
-MCMsavesummary(summaryobj, path)
+MCMsavesummary(summaryobj, path, debug=FALSE)
 }
 \arguments{
   \item{summaryobj}{MCM data summary object}
   \item{path}{Path where to store the MCM dat summary (suffix '.mcmdata' is included automatically)}
+  \item{debug}{Print more process information}
 }
 
 \examples{

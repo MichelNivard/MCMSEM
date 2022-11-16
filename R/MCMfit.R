@@ -2,9 +2,10 @@
 # Local functions used in MCMfit moved to local_fit.R
 
 # Exported MCMfit function
-MCMfit <- function(mcmmodel, data, weights=NULL, compute_se=TRUE, se_type='asymptotic', optimizers=c("rprop", "lbfgs"), optim_iters=c(50, 12), loss_type='mse', bootstrap_iter=200,bootstrap_chunks=1000,
-                   learning_rate=c(0.02, 1), silent=TRUE, use_bounds=TRUE, use_skewness=TRUE, use_kurtosis=TRUE, device=NULL, device_se=NULL, low_memory=FALSE, outofbounds_penalty=1, monitor_grads=FALSE, debug=FALSE,
-                   jacobian_method='simple') {
+MCMfit <- function(mcmmodel, data, weights=NULL, compute_se=TRUE, se_type='asymptotic', optimizers=c("rprop", "lbfgs"),
+                   optim_iters=c(50, 12), loss_type='mse', bootstrap_iter=200,bootstrap_chunks=1000, learning_rate=c(0.02, 1),
+                   use_bounds=TRUE, use_skewness=TRUE, use_kurtosis=TRUE, device=NULL, device_se=NULL, low_memory=FALSE,
+                   outofbounds_penalty=1, monitor_grads=FALSE, jacobian_method='simple', debug=FALSE) {
   START_MCMfit <- Sys.time()
   if (debug) {cat("MCMfit verifying input\n")}
   if (class(mcmmodel)[[1]] == "mcmresultclass") {
@@ -69,18 +70,15 @@ MCMfit <- function(mcmmodel, data, weights=NULL, compute_se=TRUE, se_type='asymp
     if (use_kurtosis & !(kurt_se_prepared)) {{stop("Data summary object was prepared with use_kurtosis=FALSE")}}
     if (use_skewness & !(skew_se_prepared)) {{stop("Data summary object was prepared with use_skewness=FALSE")}}
   }
-  model$meta_data$n_obs <- data$meta_data$n # Store the N of the training data, note this may not always be the same as the N the model was initially made with
+  if ((debug) & (device == torch_device("cuda"))) {
+    warning("Debug may significantly impact performance on a CUDA device.")
+  }
+  model$meta_data$n_obs <- data$meta_data$N # Store the N of the training data, note this may not always be the same as the N the model was initially made with
   if (is.null(device)) {
     device <- torch_device("cpu")
   }
   if (is.null(device_se)) {
     device_se <- device
-  }
-  if (device == torch_device("cuda")) {
-    if (!(silent)) {
-      warning("silent was re-enabled as it is incompatible with a CUDA device.")
-      silent <- TRUE
-    }
   }
   if (model$meta_data$weighted & is.null(weights)) {stop("Model was created with weights but no weights are provided")}
   cpu_device <- torch_device("cpu")
@@ -150,7 +148,7 @@ MCMfit <- function(mcmmodel, data, weights=NULL, compute_se=TRUE, se_type='asymp
   START_optim <- Sys.time()
   TIME_prep <-  START_optim - START_MCMfit
   if (debug) {cat("MCMfit starting fit:\n")}
-  out <- .torch_fit(optimizers, M2.obs, M3.obs, M4.obs, m2v_masks, torch_bounds, torch_masks, torch_maps, base_matrices, .par_list, learning_rate, optim_iters, silent, use_bounds, use_skewness, use_kurtosis, lossfunc, return_history = TRUE, low_memory=low_memory, outofbounds_penalty=outofbounds_penalty,debug=debug, diag_s=diag_s, monitor_grads=monitor_grads)
+  out <- .torch_fit(optimizers, M2.obs, M3.obs, M4.obs, m2v_masks, torch_bounds, torch_masks, torch_maps, base_matrices, .par_list, learning_rate, optim_iters, use_bounds, use_skewness, use_kurtosis, lossfunc, return_history = TRUE, low_memory=low_memory, outofbounds_penalty=outofbounds_penalty,debug=debug, diag_s=diag_s, monitor_grads=monitor_grads)
   if (debug) {cat("MCMfit fit output\n")}
   .par_tensor <- out[['par']]
   loss_hist <- as.numeric(torch_tensor(out[["loss_hist"]], device=cpu_device))
@@ -218,7 +216,7 @@ MCMfit <- function(mcmmodel, data, weights=NULL, compute_se=TRUE, se_type='asymp
 
         #3. Fit model
         # Estimate parameters with model function specified above
-        .par_tensor <- .torch_fit(optimizers, M2.obs, M3.obs, M4.obs, m2v_masks, torch_bounds, torch_masks, torch_maps, base_matrices, .par_list, learning_rate, optim_iters, silent, use_bounds, use_skewness, use_kurtosis, lossfunc, return_history = FALSE, low_memory=low_memory, outofbounds_penalty=outofbounds_penalty,debug=FALSE, diag_s=diag_s, monitor_grads=FALSE)
+        .par_tensor <- .torch_fit(optimizers, M2.obs, M3.obs, M4.obs, m2v_masks, torch_bounds, torch_masks, torch_maps, base_matrices, .par_list, learning_rate, optim_iters, use_bounds, use_skewness, use_kurtosis, lossfunc, return_history = FALSE, low_memory=low_memory, outofbounds_penalty=outofbounds_penalty,debug=FALSE, diag_s=diag_s, monitor_grads=FALSE)
         .par <- list()
         for (j in names(.par_tensor)) {
           if (length(param_list[[j]]) > 0) {
@@ -271,7 +269,7 @@ MCMfit <- function(mcmmodel, data, weights=NULL, compute_se=TRUE, se_type='asymp
 
         #3. Fit model
         # Estimate parameters with model function specified above
-        .par_tensor <- .torch_fit(optimizers, M2.obs, M3.obs, M4.obs, m2v_masks, torch_bounds, torch_masks, torch_maps, base_matrices, .par_list, learning_rate, optim_iters, silent, use_bounds, use_skewness, use_kurtosis, lossfunc, return_history = FALSE, low_memory=low_memory, outofbounds_penalty=outofbounds_penalty,debug=FALSE, diag_s=diag_s, monitor_grads=FALSE)
+        .par_tensor <- .torch_fit(optimizers, M2.obs, M3.obs, M4.obs, m2v_masks, torch_bounds, torch_masks, torch_maps, base_matrices, .par_list, learning_rate, optim_iters, use_bounds, use_skewness, use_kurtosis, lossfunc, return_history = FALSE, low_memory=low_memory, outofbounds_penalty=outofbounds_penalty,debug=FALSE, diag_s=diag_s, monitor_grads=FALSE)
         .par <- list()
         for (j in names(.par_tensor)) {
           if (length(param_list[[j]]) > 0) {
@@ -287,7 +285,7 @@ MCMfit <- function(mcmmodel, data, weights=NULL, compute_se=TRUE, se_type='asymp
     # Table of point estimates and SE's
     results <- rbind(results, SEs)
   }
-  if (debug) {cat("MCMfit formatting output:\n")}
+  if (debug) {cat("MCMfit formatting output\n")}
   # Place resulting parameter estimates back into model matrices
   for (i in seq_along(model$param_coords)) {
     idat <- model$param_coords[[i]]
@@ -316,9 +314,9 @@ MCMfit <- function(mcmmodel, data, weights=NULL, compute_se=TRUE, se_type='asymp
                         runtimes=list(Preparation=TIME_prep, Optimizer=TIME_optim, SE=TIME_se, Total=TIME_total),
                         info=list(version=MCMSEMversion, compute_se=compute_se, se_type=se_type, optim_iters=optim_iters,
                                   bootstrap_iter=bootstrap_iter,bootstrap_chunks=bootstrap_chunks, learning_rate=learning_rate,
-                                  silent=silent, use_bounds=use_bounds, use_skewness=use_skewness, use_kurtosis=use_kurtosis,
+                                  use_bounds=use_bounds, use_skewness=use_skewness, use_kurtosis=use_kurtosis, jacobian_method=jacobian_method, debug=debug,
                                   device=device$type, device_se=device_se$type, low_memory=low_memory, weighted=data$meta_data$weighted, loss_type=loss_type,
-                                  optimizers=optimizers, n=data$meta_data$n),
+                                  optimizers=optimizers, n=data$meta_data$N),
                         observed=observed,
                         predicted=predicted
                       ))
