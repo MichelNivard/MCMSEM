@@ -8,7 +8,7 @@
   ldist_sum <- torch_sqrt(torch_sum(lbound_dist * lbound_check)+1e-15)  # Distance multiplied by check: 0 if in bounds
   udist_sum <- torch_sqrt(torch_sum(ubound_dist * ubound_check)+1e-15)  # Distance multiplied by check: 0 if in bounds
   # 1e-15 is added to the lines above to prevent NAN gradients due to sqrt(0) issue
-  pow <- torch_sum(ldist_sum) + torch_sum(udist_sum) * outofbounds_penalty
+  pow <- (torch_sum(ldist_sum) + torch_sum(udist_sum)) * outofbounds_penalty
   return(pow)
 }
 

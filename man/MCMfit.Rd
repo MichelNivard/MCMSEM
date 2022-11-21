@@ -30,7 +30,7 @@ MCMfit(mcmmodel, data, weights=NULL, compute_se=TRUE, se_type='asymptotic', opti
   \item{low_memory}{Forces a more memory-friendly version of the optimization at the cost of runtime (note this cost gets VERY significant with large (>30 variables) models). Only set this option to TRUE when running into CUDA out of Memory errors.}
   \item{outofbounds_penalty}{loss penalty scaling when parameters are out of bounds: loss *  2 ^ (distance_from_bounds * outofbounds_penalty)}
   \item{monitor_grads}{Monitor the gradients during optimization and return gradients at each optimization. This will aditionally cause non-LBFGS optimization to stop early when NaN gradients are encountered, and returns the last non-NaN result instead.}
-  \item{jacobian_method}{Method used for the `jacobian()` function in asymptotic SE calculation}
+  \item{jacobian_method}{Method used for the `numDeriv::jacobian()` function in asymptotic SE calculation}
   \item{debug}{Print more process information, including loss at every iteration}
 }
 \value{

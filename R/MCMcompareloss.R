@@ -116,32 +116,31 @@ MCMcompareloss <- function(results, test_data, weights=NULL, loss_type='auto', e
       out[resname, paste0(loss_type,"_test_bic")] <- data$meta_data$N * out[resname, paste0(loss_type,"_test_loss")] + ncol(results[[resname]]$df) * log(data$meta_data$N)
     }
   }
-  # Store N parameters and optim iters and learning rates for each model
+
+  # Store N parameters loss type, use skew, use kurt
   for (resname in names(results)) {
     out[resname, "N_parameters"] <- ncol(results[[resname]]$df)
-    out[resname, "optim1_iters"] <- results[[resname]]$info$optim_iters[1]
-    out[resname, "optim1_lr"] <- results[[resname]]$info$learning_rate[1]
-    out[resname, "optim2_iters"] <- results[[resname]]$info$optim_iters[2]
-    out[resname, "optim2_lr"] <- results[[resname]]$info$learning_rate[2]
-  }
-  # Store loss type, learning rate, use skew, use kurt
-  for (resname in names(results)) {
     for (i in c("loss_type", "use_skewness", "use_kurtosis")) {
       out[resname, i] <- results[[resname]]$info[[i]]
     }
   }
   if (!extensive_model_info) {
-    # If all optim_iters, learning rates, use skew, use kurt are equal they are not informative so can be removed
-    if ((length(unique(out[, "optim1_iters"]))==1) & (length(unique(out[, "optim2_iters"]))==1)) {out[,c("optim1_iters", "optim2_iters")] <- NULL}
-    if ((length(unique(out[, "optim1_lr"]))==1) & (length(unique(out[, "optim2_lr"]))==1)) {out[,c("optim1_lr", "optim2_lr")] <- NULL}
     for (i in c("loss_type", "use_skewness", "use_kurtosis")) {
       if (length(unique(out[, i]))==1) {out[,i] <- NULL}
     }
   } else {
-    # Store train_n version, use_bounds, optimizer, compute se, se type, silent, device, low memory and runtimes
+    # Store optimizer, optim_iters and learning rates
+    for (resname in names(results)) {
+      for (n in seq_along(results[[resname]]$info$optimizers)) {
+        out[resname, paste0("optim", n, "")] <- results[[resname]]$info$optimizers[n]
+        out[resname, paste0("optim", n, "_iters")] <- results[[resname]]$info$optim_iters[n]
+        out[resname, paste0("optim", n, "_lr")] <- results[[resname]]$info$learning_rate[n]
+      }
+    }
+    # Store train_n version, use_bounds, optimizer, compute se, se type, device, low memory and runtimes
     for (resname in names(results)) {
       out[resname, 'train_n'] <- results[[resname]]$model$meta_data$n_obs
-      for (i in c("version", "use_bounds",  "optimizer", "compute_se", "se_type", "silent", "device", "low_memory")) {
+      for (i in c("version", "use_bounds", "compute_se", "se_type", "device", "low_memory")) {
         out[resname, i] <- results[[resname]]$info[[i]]
       }
       for (i in c("Preparation", "Optimizer", "SE", "Total")) {
