@@ -61,14 +61,14 @@ b <- matrix(c(   1,    .3,   0, .25  ,.25,
                  .35,  .4,   1,  .3,   .2,
                  .15, .05,  .1,   1,  .48,
                  0.2,0.25, 0.25,  0,    1), 5,5,byrow=T)
-# Latent variables don't laod on the indicators:
+# Latent variables don't load on the indicators:
 a <- matrix(c(0, 0, 0, 0, 0,
               0, 0, 0, 0, 0), ncol=2)
 
 # use the MCMSEM internal simuation tool:
 simmdata<- simulate_data(n=25000,a=a,b=b,shape=c(7, 0, 3, 4, 5), df=c(0, 8, 0, 10, 12),asdataframe = T)
 
-#simualte holdout data from the same process!
+#simulate holdout data from the exact same process!
 simdata.holdout <-  simulate_data(n=10000,a=a,b=b,shape=c(7, 0, 3, 4, 5), df=c(0, 8, 0, 10, 12),asdataframe = T)
 cor(simmdata)
 ```
