@@ -25,7 +25,7 @@ MCMfit(mcmmodel, data, weights=NULL, compute_se=TRUE, se_type='asymptotic', opti
   \item{use_bounds}{Use parameter bounds defined in the model, set this to FALSE in larger models to improve compute times}
   \item{use_skewness}{Use skewness and co-skewness to estimate parameters}
   \item{use_kurtosis}{Use kurtosis and co-kurtosis to estimate parameters}
-  \item{device}{torch device object, can be used to run optimization on GPU; device=torch_device('cuda'), see "MCMSEM on GPU" in the README, defaults to using CPU.}
+  \item{device}{torch device object, can be used to run optimization on GPU; device=torch_device('cuda'), see "MCMSEM on GPU" in the README, defaults to using torch_device('cpu').}
   \item{device_se}{torch device object used during calculation of SE (defaults to the same as device). Primarily used for changing device_se to a CPU device.}
   \item{low_memory}{Forces a more memory-friendly version of the optimization at the cost of runtime (note this cost gets VERY significant with large (>30 variables) models). Only set this option to TRUE when running into CUDA out of Memory errors.}
   \item{outofbounds_penalty}{loss penalty scaling when parameters are out of bounds: loss *  2 ^ (distance_from_bounds * outofbounds_penalty)}
