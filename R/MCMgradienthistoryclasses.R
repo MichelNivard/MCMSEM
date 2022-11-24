@@ -135,9 +135,13 @@ mcmmultigradienthistoryclass$methods(
       for (matname in c("A", "Fm", "S", "Sk", "K")) {
         if (matname %in% names(x)) {
           if (nrow(x[[matname]]) > 1) {
-            .self[[matname]] <- mcmgradienthistoryclass(x[[matname]], label=matname, hasgrads=TRUE, last_iter=x[[matname]][nrow(x[[matname]]), ])
+            last_iter <- as.data.frame(x[[matname]][nrow(x[[matname]]), ])
+            colnames(last_iter) <- colnames(x[[matname]])
+            .self[[matname]] <- mcmgradienthistoryclass(x[[matname]], label=matname, hasgrads=TRUE, last_iter=last_iter)
           } else {
-            .self[[matname]] <- mcmgradienthistoryclass(data.frame(NULL), label=matname, hasgrads=FALSE, last_iter=x[[matname]][1, ])
+            last_iter <- as.data.frame(x[[matname]][1, ])
+            colnames(last_iter) <- colnames(x[[matname]])
+            .self[[matname]] <- mcmgradienthistoryclass(data.frame(NULL), label=matname, hasgrads=FALSE, last_iter=last_iter)
           }
         } else {
           .self[[matname]] <- mcmgradienthistoryclass(label=matname, hasgrads=FALSE)

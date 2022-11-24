@@ -1,5 +1,8 @@
 ## Patch notes
 
+### v0.25.1
+ - Fixed an issue causing `MCMfit()` to stop when no `device` argument is provided
+ - Fixed an issue causing causing `invalid assignment for reference class field ‘last_iter’` when `MCMfit()` is called with a single parameter in any matrix
 ### v0.25.0
  - Fixed a bug causing `outofbounds_penalty` to only apply to estimates outside of the upper bound, not the lower bound.
  - Updated `MCMcompareloss()` to comply with new `MCMfit()` standards

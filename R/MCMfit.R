@@ -70,13 +70,13 @@ MCMfit <- function(mcmmodel, data, weights=NULL, compute_se=TRUE, se_type='asymp
     if (use_kurtosis & !(kurt_se_prepared)) {{stop("Data summary object was prepared with use_kurtosis=FALSE")}}
     if (use_skewness & !(skew_se_prepared)) {{stop("Data summary object was prepared with use_skewness=FALSE")}}
   }
+  if (is.null(device)) {
+    device <- torch_device("cpu")
+  }
   if ((debug) & (device == torch_device("cuda"))) {
     warning("Debug may significantly impact performance on a CUDA device.")
   }
   model$meta_data$n_obs <- data$meta_data$N # Store the N of the training data, note this may not always be the same as the N the model was initially made with
-  if (is.null(device)) {
-    device <- torch_device("cpu")
-  }
   if (is.null(device_se)) {
     device_se <- device
   }
