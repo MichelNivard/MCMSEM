@@ -1,7 +1,7 @@
 # MCMSEM
 R-package which allows users to run multi co-moment structural equation models.
 
-## MCMSEM version 0.25.1
+## MCMSEM version 0.26.0
 Welcome to the new and improved MCMSEM. If you want to use the MCMSEM version as it was used in [the original publication](https://doi.org/10.31235/osf.io/ynam2), please go to the [v0.1.1 release](https://github.com/zenabtamimy/MCMSEM/releases/tag/v0.1.1).
 
 This version is considerably more powerful than our previous version. Some highlights:

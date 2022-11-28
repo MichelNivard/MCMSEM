@@ -1,5 +1,17 @@
 ## Patch notes
 
+### v0.26.0
+ - Added function `MCMparseK()` which will return the full product of the K matrix given the model (equivalent to equation 8 in the original publication), visualizing where `s` parameters will end up in the `K` matrix
+ - Added new local functions file `local_string_matmul` containing local functions for matrix-multiplication operations with string parameter matrices
+ - This has been made a separate function for the following reasons:
+   - Including it in the base `print(model, matrix="K")` may give the illusion that parameters in the K matrix can be specified like `MCMedit(model, "K", c(2, 15), "s1")`, which will definitely make things worse, let alone something like `MCMedit(model, "K", c(2, 15), "s1*s2")` which will simply go wrong somewhere (for good reason)
+   - Including it in the base `print(model, matrix="K")` would either lead to extremely poor performance of this print in larger models (2 minutes for 8variables + 1latent, 4 minutes for 9variables + 1latent, 8 minutes for 10variables + 1latent) or inconsistent output between different sized models
+   - If any off-diagonal elements are added to `S` (i.e. covariances), the resulting parsed K matrix will no longer be human-readable (in my opinion at least)
+   - Alternatively, it could be included as an argument in `print`, i.e.: `print(model, matrix="K", parsed=TRUE)` or something... But that effectively does the same thing as the default would become `FALSE` anyways (due to it only doing something for `K`)... So given that I think a separate function makes more sense
+   - Including it in `model$named_matrices$K` somehow would require a custom class just for this single purpose just for the K matrix, and a considerable rewrite of the rest of the code. As an example, loops over all the matrices are common in many functions and are no longer possible should K become a custom class... Plus `print(model, matrix="K")` is the recommended way for users to see the matrix contents regardless.
+ - Updated wiki `2.2 Editing an MCM model` with a note on `K` and what `print(model, matrix="K")` actually means
+ - Added readme page for `MCMparseK()`
+ - Added `M3.MM` and `M4.MM` backups should these functions in `PerformanceAnalytics` ever change
 ### v0.25.1
  - Fixed an issue causing `MCMfit()` to stop when no `device` argument is provided
  - Fixed an issue causing causing `invalid assignment for reference class field ‘last_iter’` when `MCMfit()` is called with a single parameter in any matrix

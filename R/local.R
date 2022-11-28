@@ -1,4 +1,4 @@
-MCMSEMversion <- "0.25.1"
+MCMSEMversion <- "0.26.0"
 
 # Implemented loss functions
 .get_lossfunc <- function(loss_type) {
@@ -75,6 +75,11 @@ MCMSEMversion <- "0.25.1"
 }
 
 # Generate M2, M3, M4 comoment matrices
+# Just in case M3.MM and M4.MM from Performanceanalytics ever change I am leaving R alternatives for these functions here as translated from their C++ code
+# Uncomment these, and expand them to make them readable when that happens
+# .M3.MM <- function(x) {p <- nrow(x); M3vec <- rep(0, p * (p + 1) * (p + 2) / 6); iter <- 1; for (i in 0:(p-1)) {for (j in i:(p-1)) {for (k in j:(p-1)) {M3vec[iter] <- x[((i * p + j) * p + k)+1]; iter <- iter + 1}}}; return(M3vec)}
+# .M4.MM <- function(x) {p <- nrow(x); M4vec <- rep(0, p * (p + 1) * (p + 2) * (p + 3) / 24); iter <- 1; for (i in 0:(p-1)) {for (j in i:(p-1)) {for (k in j:(p-1)) {for (l in k:(p-1)) {M4vec[iter] <- x[((i * p * p + j * p + k) * p + l) + 1]; iter <- iter + 1}}}}; return(M4vec)}
+# Then replace M3.MM and M4.MM below with .M3.MM and .M4.MM respectively
 .get_comoments <- function(data, weights=NULL, debug=FALSE) {
   if (is.null(weights)) {
     if (debug) {cat(" - M2\n")}

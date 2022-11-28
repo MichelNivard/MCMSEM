@@ -125,8 +125,11 @@ print.mcmmodelclass <- function(model, matrix=NULL) {
   if (is.null(matrix)) {
     model$show()
   } else {
-    if (matrix %in% c("A", "Fm", "S", "Sk", "K")) {
+    if (matrix %in% c("A", "Fm", "S", "Sk")) {
       print(model$named_matrices[[matrix]])
+    } else if (matrix == "K") {
+      print(model$named_matrices[[matrix]])
+      warning(paste0("This matrix only contains free K parameters, the K matrix used for optimization is additionally a product of the S matrix. To see this full product, run MCMparseK(",deparse(substitute(model)),")"))
     } else {
       stop('matrix argument should be one of ("A", "Fm", "S", "Sk", "K")')
     }
