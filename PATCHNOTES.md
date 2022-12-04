@@ -1,5 +1,7 @@
 ## Patch notes
-
+### v0.26.1
+ - the se's where the assymptoticl sd of the parameter multiplied by sqrt(2), this doest seem to make sense removed sqrt(2).
+ - 
 ### v0.26.0
  - Added function `MCMparseK()` which will return the full product of the K matrix given the model (equivalent to equation 8 in the original publication), visualizing where `s` parameters will end up in the `K` matrix
  - Added new local functions file `local_string_matmul` containing local functions for matrix-multiplication operations with string parameter matrices
