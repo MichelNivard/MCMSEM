@@ -112,6 +112,6 @@
     S.m <- data$SE$S.m[idx, idx]
     Asycov <- torch_matmul(torch_matmul(torch_matmul(torch_inverse(torch_matmul(torch_matmul(torch_transpose(G, 1, 2), torch_inverse(torch_eye(nrow(S.m)) *S.m)), G)), torch_matmul(torch_matmul(torch_transpose(G, 1, 2), torch_inverse(torch_eye(nrow(S.m)) *S.m)), S.m)), torch_matmul(torch_inverse(torch_eye(nrow(S.m)) *S.m), G)), torch_inverse(torch_matmul(torch_matmul(torch_transpose(G, 1, 2), torch_inverse(torch_eye(nrow(S.m)) *S.m)), G)))
   }
-  se <- torch_sqrt(2)*torch_sqrt(torch_diag(Asycov))
+  se <- torch_sqrt(torch_diag(Asycov))
   return(as.numeric(se))
 }
