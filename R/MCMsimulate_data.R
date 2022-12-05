@@ -3,7 +3,7 @@
 ##################################################
 
 simulate_data <- function(n=500000,
-                          a=matrix(c(0.35, 0.35), ncol=1), b=matrix(c(1,-.1, .3,1), 2, 2),
+                          a=matrix(c(0.35, 0.35), ncol=1), b=matrix(c(0,-.1, .3,0), 2, 2),
                           shape=c(4, 0), df=c(0, 10),
                           asdataframe=FALSE, ...) {
   # a is an n_variable * n_latent matrix containing a parameters
