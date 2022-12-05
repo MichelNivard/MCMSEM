@@ -48,8 +48,8 @@ simulate_data <- function(n=500000,
 
   # Let them concurrently influence each other
   if (asdataframe) {
-    return(t(b %*% t(x)))
+    return(t(solve(diag(ncol(b))-b) %*% t(x)))
   } else {
-    return(MCMdatasummary(t(b %*% t(x)), ...))
+    return(MCMdatasummary(t(solve(diag(ncol(b))-b) %*% t(x))), ...))
   }
 }
