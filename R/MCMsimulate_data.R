@@ -50,6 +50,6 @@ simulate_data <- function(n=500000,
   if (asdataframe) {
     return(t(solve(diag(ncol(b))-b) %*% t(x)))
   } else {
-    return(MCMdatasummary(t(solve(diag(ncol(b))-b) %*% t(x))), ...))
+    return(MCMdatasummary(t(solve(diag(ncol(b))-b) %*% t(x)), ...))
   }
 }
