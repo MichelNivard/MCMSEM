@@ -243,7 +243,7 @@ layout(matrix(c(1,2),1,2))
 # Model
 plot(res.network,layout="circle")
 
-# Simualted Truth:
+# Simulated Truth:
 b2 <- b + res.network$model$num_matrices$S
 qgraph::qgraph(t(b2),layout="circle",diag=T,curveAll=T)
 
