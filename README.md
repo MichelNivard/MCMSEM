@@ -93,7 +93,7 @@ This is a known problem right? the data don't really identify a specific model, 
 ```
 ### Lavaan naiveness:
 # specify a single factor model:
-model <- "F1 =~ V1 + V2+ V3+ V4+ V5" 
+model <- "F1 =~ V1 + V2 + V3 + V4 + V5" 
 
 #Fit a single factor modle to the data:
 single.factor.model <- sem(model,data = simmdata)
