@@ -59,11 +59,11 @@ Given certain assumptions about the confusers hold even causal effects in the pr
 In the simulation we only use direct paths between variables to induce correlations, no latent variables are present.
 
 ```
-b <- matrix(c(   0,    .3,   0, .1  ,.15, 
-                 0,   0,   0,  .1,  .15,
-                 .15,  .2,   0,  .12,   .2,
-                 .15, .15,  .1,   0,  .3,
-                 0.1,0.15, 0.05,  0,    0), 5,5,byrow=T)
+b <- matrix(c( 0,  .3,   0,  .1,  .15, 
+               0,   0,   0,  .1,  .15,
+             .15,  .2,   0, .12,   .2,
+             .15, .15,  .1,   0,   .3,
+              .1, .15, .05,   0,    0), 5,5,byrow=T)
 # Latent variables don't load on the indicators:
 a <- matrix(c(0, 0, 0, 0, 0,
               0, 0, 0, 0, 0), ncol=2)
