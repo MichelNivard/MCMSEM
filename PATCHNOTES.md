@@ -1,7 +1,8 @@
 ## Patch notes
 ### v0.26.1
  - The se's where the assymptoticl sd of the parameter multiplied by sqrt(2), this doest seem to make sense removed sqrt(2).
- - Fixed the data simualtino fuctino to be in line with the way we fit the actual model.
+ - Fixed the data simualtion fuction to be in line with the way we fit the actual model.
+ - Minor bug fix on innitial model specification (failed when N latent more than N obs +1)
 ### v0.26.0
  - Added function `MCMparseK()` which will return the full product of the K matrix given the model (equivalent to equation 8 in the original publication), visualizing where `s` parameters will end up in the `K` matrix
  - Added new local functions file `local_string_matmul` containing local functions for matrix-multiplication operations with string parameter matrices
