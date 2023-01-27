@@ -86,7 +86,7 @@ MCMmodel <- function(data, n_latent=1, constrained_a=TRUE, scale_data=TRUE, weig
   colnames(start_values) <- unlist(par_names)
   rownames(start_values) <- "start"
   if (n_latent > 1) {
-    for (n_fi in seq_len(n_latent-1)) {
+    for (n_fi in seq_len(n_p-1)) {
       num_matrices[["A"]][(n_latent+1):(n_latent+n_fi), n_fi+1] <- 0.0
       named_matrices[["A"]][(n_latent+1):(n_latent+n_fi), n_fi+1] <- "0"
     }
