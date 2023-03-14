@@ -21,13 +21,13 @@
 ######## Compute Jacobian:
 .jac.fn_torch <- function(par_vec, .par_list, par_to_list_coords, torch_masks, torch_maps, base_matrices, use_skewness, use_kurtosis, m2vmasks1d, device, diag_s, low_memory, .jit_slownecker) {
   
-  print(list(torch_flatten(pred_matrices[['M2']]),m2vmasks1d[['m2']]))
+ 
 
   for (i in names(par_to_list_coords)) {
     .par_list[[i]] <- torch_tensor(par_vec[par_to_list_coords[[i]]], device=device)
   }
   pred_matrices <- .get_predicted_matrices(.par_list, torch_masks, torch_maps, base_matrices, use_skewness, use_kurtosis,diag_s, low_memory, .jit_slownecker)
-
+  print(list(torch_flatten(pred_matrices[['M2']]),m2vmasks1d[['m2']]))
   if (use_skewness & use_kurtosis) {
     return(as.numeric(torch_tensor(torch_hstack(list(torch_flatten(pred_matrices[['M2']])[m2vmasks1d[['m2']]], torch_flatten(pred_matrices[['M3']])[m2vmasks1d[['m3']]], torch_flatten(pred_matrices[['M4']])[m2vmasks1d[['m4']]])), device=torch_device('cpu'))))
   } else if (use_skewness) {
