@@ -27,8 +27,8 @@
     .par_list[[i]] <- torch_tensor(par_vec[par_to_list_coords[[i]]], device=device)
   }
   pred_matrices <- .get_predicted_matrices(.par_list, torch_masks, torch_maps, base_matrices, use_skewness, use_kurtosis,diag_s, low_memory, .jit_slownecker)
-  torch_flatten(pred_matrices[['M2']])
-  m2vmasks1d[['m2']]
+  print(torch_flatten(pred_matrices[['M2']]))
+  print(m2vmasks1d[['m2']])
   if (use_skewness & use_kurtosis) {
     return(as.numeric(torch_tensor(torch_hstack(list(torch_flatten(pred_matrices[['M2']])[m2vmasks1d[['m2']]], torch_flatten(pred_matrices[['M3']])[m2vmasks1d[['m3']]], torch_flatten(pred_matrices[['M4']])[m2vmasks1d[['m4']]])), device=torch_device('cpu'))))
   } else if (use_skewness) {
