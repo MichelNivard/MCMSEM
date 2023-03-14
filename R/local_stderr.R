@@ -86,9 +86,9 @@
   }
   if (debug) {cat(" - Reformatting masks for jacobian\n")}
   m2vmasks1d <- list(
-    m2=torch_where(torch_flatten(torch_transpose(m2v_masks[['m2']], 1, 2))==1)[[1]] + torch_tensor(1, dtype=torch_long(), device=device),
-    m3=torch_where(torch_flatten(torch_transpose(m2v_masks[['m3']], 1, 2))==1)[[1]] + torch_tensor(1, dtype=torch_long(), device=device),
-    m4=torch_where(torch_flatten(torch_transpose(m2v_masks[['m4']], 1, 2))==1)[[1]] + torch_tensor(1, dtype=torch_long(), device=device)
+    m2=torch_where(torch_flatten(torch_transpose(m2v_masks[['m2']], 1, 2))==1)[[1]] ,
+    m3=torch_where(torch_flatten(torch_transpose(m2v_masks[['m3']], 1, 2))==1)[[1]] ,
+    m4=torch_where(torch_flatten(torch_transpose(m2v_masks[['m4']], 1, 2))==1)[[1]] 
   )
   
   print(torch_where(torch_flatten(torch_transpose(m2v_masks[['m2']], 1, 2))==1)[[1]]) 
