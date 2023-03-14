@@ -90,7 +90,8 @@
     m3=torch_where(torch_flatten(torch_transpose(m2v_masks[['m3']], 1, 2))==1)[[1]] + torch_tensor(1, dtype=torch_long(), device=device),
     m4=torch_where(torch_flatten(torch_transpose(m2v_masks[['m4']], 1, 2))==1)[[1]] + torch_tensor(1, dtype=torch_long(), device=device)
   )
-  print(m2v_masks[['m2']])
+  print(torch_where(torch_flatten(torch_transpose(m2v_masks[['m2']], 1, 2))==1)[[1]]) )
+  
   # Slownecker function compiled when .std.err is called
   slowneckerfun <- if (low_memory > 2) {'slowernecker'}  else {'slownecker'}
   .jit_slownecker <- jit_compile(.jit_funcs[[slowneckerfun]])
