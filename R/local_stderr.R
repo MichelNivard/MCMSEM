@@ -27,12 +27,7 @@
     .par_list[[i]] <- torch_tensor(par_vec[par_to_list_coords[[i]]], device=device)
   }
   pred_matrices <- .get_predicted_matrices(.par_list, torch_masks, torch_maps, base_matrices, use_skewness, use_kurtosis,diag_s, low_memory, .jit_slownecker)
-  
-  
-  print(torch_flatten(pred_matrices[['M2']]))
-  print(m2vmasks1d[['m2']])
-  print(torch_flatten(pred_matrices[['M2']])[m2vmasks1d[['m2']]])
-  
+
   if (use_skewness & use_kurtosis) {
     return(as.numeric(torch_tensor(torch_hstack(list(torch_flatten(pred_matrices[['M2']])[m2vmasks1d[['m2']]], torch_flatten(pred_matrices[['M3']])[m2vmasks1d[['m3']]], torch_flatten(pred_matrices[['M4']])[m2vmasks1d[['m4']]])), device=torch_device('cpu'))))
   } else if (use_skewness) {
@@ -90,10 +85,7 @@
     m3=torch_where(torch_flatten(torch_transpose(m2v_masks[['m3']], 1, 2))==1)[[1]] ,
     m4=torch_where(torch_flatten(torch_transpose(m2v_masks[['m4']], 1, 2))==1)[[1]] 
   )
-  
-  print(torch_where(torch_flatten(torch_transpose(m2v_masks[['m2']], 1, 2))==1)[[1]]) 
-  print(torch_where(torch_flatten(torch_transpose(m2v_masks[['m2']], 1, 2))==1)[[1]] + torch_tensor(1, dtype=torch_long(), device=device))
-  
+
   # Slownecker function compiled when .std.err is called
   slowneckerfun <- if (low_memory > 2) {'slowernecker'}  else {'slownecker'}
   .jit_slownecker <- jit_compile(.jit_funcs[[slowneckerfun]])
