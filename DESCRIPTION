@@ -1,15 +1,22 @@
 Package: MCMSEM
 Type: Package
 Title: Multi co-moment structural equation models
-Version: 0.1.1
+Version: 0.26.1
 Author: Zenab Tamimy, Elsje van Bergen, Matthijs van der Zee, Conor Dolan, Michel Nivard
 Maintainer: Zenab Tamimy <z.tamimy@vu.nl>
 Description: This package provides a new approach to causal modeling based on cross-sectional data of non-normally distributed variables.
     This method goes beyond traditional covariance structural equation modeling (SEM) by including multivariate higher order moments (MCM), i.e., co-skewnesses and co-kurtoses, which inform the causal direction of relation between variables.
-License: GNU-GPL v3
+License: GPL-3 | file LICENCE
 Encoding: UTF-8
 LazyData: true
-Imports: utils,MASS,PerformanceAnalytics,numDeriv
+Imports:
+    utils,
+    MASS,
+    PerformanceAnalytics,
+    numDeriv,
+    torch,
+    qgraph,
+    hdf5r
 Suggests: 
     testthat (>= 3.0.0)
 Config/testthat/edition: 3

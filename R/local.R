@@ -1,72 +1,151 @@
-.m3m2v <- utils::getFromNamespace("M3.mat2vec","PerformanceAnalytics")
-.m4m2v <- utils::getFromNamespace("M4.mat2vec","PerformanceAnalytics")
-.m2m2v <- function(x){c(x[lower.tri(x,diag=T)])}
-# Just in case M3.mat2vec and M4.mat2vec from Performanceanalytics ever changes I am leaving R alternatives for these functions here as translated from their C++ code
-# Uncomment these, and expand them to make them readable when that happens
-# .m3m2v <- function(x) {p <- nrow(x); M3vec <- rep(0, p * (p + 1) * (p + 2) / 6); iter <- 1; for (i in 0:(p-1)) {for (j in i:(p-1)) {for (k in j:(p-1)) {M3vec[iter] <- x[((i * p + j) * p + k)+1]; iter <- iter + 1}}}; return(M3vec)}
-# .m4m2v <- function(x) {p <- nrow(x); M4vec <- rep(0, p * (p + 1) * (p + 2) * (p + 3) / 24); iter <- 1; for (i in 0:(p-1)) {for (j in i:(p-1)) {for (k in j:(p-1)) {for (l in k:(p-1)) {M4vec[iter] <- x[((i * p * p + j * p + k) * p + l) + 1]; iter <- iter + 1}}}}; return(M4vec)}
+MCMSEMversion <- "0.26.1"
 
-.fn <- function(par,M2.obs,M3.obs,M4.obs,confounding){
-  # Model function
-  ### Assign the parameters
-  a1  <- par[1]
-  b1  <- par[2]
-  b2  <- par[3]
-  s1  <- par[4]
-  s2  <- par[5]
-  sk1 <- par[6]
-  sk2 <- par[7]
-  k1  <- par[8]
-  k2  <- par[9]
-
-  ####### Specify model matrices ##########################################
-  ############### For explanation of each matrix, see section 2.2 of paper
-
-  ###  A matrix (positive and negative conounder; turn-on only 1 !!)
-  if (confounding == 'positive') {
-  # positive
-    A <- matrix(c(0,  0,  0,
-                  a1, 0, b2,
-                  a1, b1, 0), 3,3,byrow = T)
-  } else if (confounding == 'negative') {
-    A <- matrix(c(0,  0,  0,
-                  -a1, 0, b2,
-                  a1, b1, 0), 3,3,byrow = T)
+# Implemented loss functions
+.get_lossfunc <- function(loss_type) {
+  # For future reference, should we/someone ever want to create a custom loss function...
+  # Note that this function returns a function!, which takes as input 2 tensors and calculates a 0D tensor contining the loss from those...
+  #  in short:
+  # x <- .get_lossfunc("customloss")
+  # loss <- x(t1, t2)
+  lossfuncs <- list(
+    mse=nn_mse_loss(reduction='sum'),
+    smooth_l1=nn_smooth_l1_loss(reduction='sum'),
+    l1=nn_l1_loss(reduction='sum')
+  )
+  if (!(loss_type %in% names(lossfuncs))) {
+    stop("loss_type should be one of c('mse', 'smooth_l1')")
   }
+  return(lossfuncs[[loss_type]])
+}
 
-  ### F matrix
-  Fm <- matrix(c(0, 1, 0,
-                 0, 0, 1),  2,3,byrow = T)
+# Implemented optimizers for optimizer 1
+.get_optimfunc <- function(optimizer) {
+  # For future reference, should we/someone ever want to create a custom optimizer...
+  # Similar to .get_lossfunc, this function returns a function, though a more complicated one, see https://torch.mlverse.org/docs/reference/optimizer.html
+  # From that example, at the time of writing, the object optim_sgd2 would have to be returned from .get_optimfunc, i.e.
+  # x <- .get_optimfunc("sgd2")
+  # opt <- x(params, learning_rate=0.1)
+  optimfuncs <- list(
+    rprop=optim_rprop,
+    sgd=optim_sgd,
+    rmsprop=optim_rmsprop,
+    asgd=optim_asgd,
+    adam=optim_adam,
+    adagrad=optim_adagrad,
+    adadelta=optim_adadelta
+  )
+  if (!(optimizer %in% names(optimfuncs))) {
+    stop("optimizer should be one of c(",paste0("'", names(optimfuncs), "'", collapse=", "),")")
+  }
+  return(optimfuncs[[optimizer]])
+}
 
-  ###  S2 matrix (here S):
-  S <- matrix(c(1, 0,  0,
-                0, s1, 0,
-                0, 0,  s2), 3,3,byrow = T)
+# wrapper function to make the code more R-like
+.torch_kron <- function(a, b) {
+  return(a$kron(b))
+}
 
-  ###  S3 matrix (here Sk)
-  Sk <- matrix(0,3,9)
-  Sk[2,5] <- sk1
-  Sk[3,9] <- sk2
+# Turn 1D index into 2D index
+.r_1to2d_idx <- function(x, nrows) {
+  row <- (x-1) %% nrows + 1
+  col <- floor((x-1) / nrows) +1
+  return(c(row, col))
+}
 
-  ###  S4 matrix (here K)
-  K <- matrix(0,3,27)
-  # there are some non 0 entries in S4
-  K[ round(M4.MM(cbind(rnorm(2000), rnorm(2000), rnorm(2000)))) != 0] <- 1
-  # these are function of S2 matrix
-  K <- sqrt(S) %*% K %*% (sqrt(S) %x% sqrt(S) %x% sqrt(S))
-  K[1,1] <- 3
-  K[2,14] <- k1
-  K[3,27] <- k2
+# Turn ND (>=2D) index into 2D index for use with M3 and M4
+.nd_to_2d_idx <- function(nrows, x, y, ...) {
+  # nrow must be provided as that determines stepsizes
+  # x: first dim idx (i.e. row); y = second dim idx (i.e. col), ... = additional dim(s) idx(s)
+  dim_idx <- list(...)
+  for (i in seq_along(dim_idx)) {
+    y <- y + (nrows^(i))*(dim_idx[[i]]-1)
+  }
+  return(list(x=x, y=y))
+}
 
+# The inverse of .nd_to_2d_idx
+.twod_to_nd_idx <- function(nrows, x, y, ndims) {
+  nd_coords <- list()
+  nd_coords[[1]] <- x
+  for (i in ndims:2) {
+    nd_coords[[i]] <- floor((y - 1) / nrows^(i-2)) + 1
+    y <- ((y - 1) %% nrows^(i-2)) + 1
+  }
+  return(nd_coords)
+}
 
-  ###### Compute the observed cov, cosk, and cokurt matrices #################
-  ############################################### (see section 2.2 paper) ####
+# Generate M2, M3, M4 comoment matrices
+# Just in case M3.MM and M4.MM from Performanceanalytics ever change I am leaving R alternatives for these functions here as translated from their C++ code
+# Uncomment these, and expand them to make them readable when that happens
+# .M3.MM <- function(x) {p <- nrow(x); M3vec <- rep(0, p * (p + 1) * (p + 2) / 6); iter <- 1; for (i in 0:(p-1)) {for (j in i:(p-1)) {for (k in j:(p-1)) {M3vec[iter] <- x[((i * p + j) * p + k)+1]; iter <- iter + 1}}}; return(M3vec)}
+# .M4.MM <- function(x) {p <- nrow(x); M4vec <- rep(0, p * (p + 1) * (p + 2) * (p + 3) / 24); iter <- 1; for (i in 0:(p-1)) {for (j in i:(p-1)) {for (k in j:(p-1)) {for (l in k:(p-1)) {M4vec[iter] <- x[((i * p * p + j * p + k) * p + l) + 1]; iter <- iter + 1}}}}; return(M4vec)}
+# Then replace M3.MM and M4.MM below with .M3.MM and .M4.MM respectively
+.get_comoments <- function(data, weights=NULL, debug=FALSE) {
+  if (is.null(weights)) {
+    if (debug) {cat(" - M2\n")}
+    M2 <- cov(data)
+    if (debug) {cat(" - M3\n")}
+    M3 <- M3.MM(data)
+    if (debug) {cat(" - M4\n")}
+    M4 <- M4.MM(data)
+  } else {
+    # Custom implementation of weighted M2, M3, and M4 matrices
+    weights <- torch_reshape(torch_tensor(weights), c(nrow(data),1))
+    tens <- torch_tensor(data)
 
-  M2 <- Fm %*% solve(diag(3) - A) %*% S %*%  t(solve(diag(3)-A))  %*% t(Fm)
-  M3 <- Fm %*% solve(diag(3) - A) %*% Sk %*% (t(solve(diag(3)-A)) %x% t(solve(diag(3)-A))) %*% (t(Fm) %x% t(Fm))
-  M4 <- Fm %*% solve(diag(3) - A) %*% K %*%  (t(solve(diag(3)-A)) %x% t(solve(diag(3)-A))  %x%  t(solve(diag(3)-A))) %*% (t(Fm) %x% t(Fm) %x% t(Fm))
+    weighted_mean <- torch_sum((tens*weights)/torch_sum(weights), dim=1)
+    centred_tens <- weights*(tens - torch_reshape(weighted_mean, c(1, ncol(data))))
+    if (debug) {cat(" - wM2\n")}
+    M2 <- torch_matmul((centred_tens)$t(), centred_tens)/(torch_sum(weights))
+    if (debug) {cat(" - wM3\n")}
+    M3 <- torch_zeros(c(ncol(data), ncol(data)^2))
+    for (i in seq_len(ncol(data))) {
+      centred_tens_ <- centred_tens * torch_reshape(centred_tens[, i], c(nrow(data), 1))
+      M3[, ((i-1)*ncol(data)+1):(i*ncol(data))] <- torch_matmul(centred_tens_$t(), centred_tens)
+    }
+    M3 <- M3/torch_sum(weights)
+    if (debug) {cat(" - wM4\n")}
+    M4 <- torch_zeros(c(ncol(data), ncol(data)^3))
+    iter <- 0
+    for (i in seq_len(ncol(data))) {
+      for (j in seq_len(ncol(data))) {
+        iter <- iter + 1
+        centred_tens_ <- centred_tens * torch_reshape(centred_tens[, i], c(nrow(data), 1)) * torch_reshape(centred_tens[, j], c(nrow(data), 1))
+        M4[, ((iter-1)*ncol(data)+1):(iter*ncol(data))] <- torch_matmul(centred_tens_$t(), centred_tens)
+      }
+    }
+    M4 <- M4/torch_sum(weights)
+  }
+  return(list(M2=M2, M3=M3, M4=M4))
+}
 
-  ### Loss function
-  value <- sum((.m2m2v(M2.obs) - .m2m2v(M2))^2) + sum((.m3m2v(M3.obs) - .m3m2v(M3))^2) + sum((.m4m2v(M4.obs)- .m4m2v(M4))^2)
+.twod_to_nd_idx <- function(nrows, x, y, ndims) {
+  nd_coords <- list()
+  nd_coords[[1]] <- x
+  for (i in ndims:2) {
+    nd_coords[[i]] <- floor((y - 1) / nrows^(i-2)) + 1
+    y <- ((y - 1) %% nrows^(i-2)) + 1
+  }
+  return(nd_coords)
+}
 
+.torch_slowneckerproduct <- function(x, y, kronrow) {
+  # This function is superceeded by .jit_slownecker$fn, but I'm leaving this here so you can read what happens in R language (note it is conensed, so copy-paste somewhere else and use newlines to make it more readable) should anything ever need changing and the person changing it is not comfortable in PyTorch
+  device <- x$device
+  out <- torch_tensor(matrix(0, nrow=nrow(x), ncol=sum(kronrow)), device=device)
+  firstprod <- .torch_kron(y, y) # In case of memory issues: drop this line
+  ncol <- 1
+  for (j in seq_len(ncol(y)^3)) {
+    if (kronrow[j]) {
+      idx1 <- (j-1) %% ncol(y) + 1
+      idx2 <- (floor((j-1)/ ncol(y)) %% ncol(y)) + 1
+      idx3 <- (floor((j-1)/ ncol(y)^2) %% ncol(y)) + 1
+      kroncol <- .torch_kron(firstprod[,idx1+idx2*ncol(y)], y[,idx3]) # In case of memory issues replace with: kroncol <- .torch_kron(.torch_kron(y[, idx1], y[, idx2]), y[, idx3])
+      for (i in seq_len(nrow(out))) {
+        out[i, ncol] <- torch_matmul(kroncol, x[i, ])
+      }
+      ncol <- ncol + 1
+    }
+  }
+  return(out, device=device)
 }
