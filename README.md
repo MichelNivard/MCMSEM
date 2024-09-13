@@ -24,7 +24,7 @@ Tamimy, Z., van Bergen, E., van der Zee, M. D., Dolan, C. V., & Nivard, M. G. (2
 Currently, this package is not listed on CRAN and should therefore be installed from GitHub directly.
 ```
 library(devtools)
-install_github("https://github.com/zenabtamimy/MCMSEM")
+install_github("https://github.com/MichelNivard/MCMSEM")
 ```
 
 See the wiki `Installing MCMSEM` for more details.
