@@ -1,5 +1,5 @@
 plot.mcmmodelclass <- function(model,layout = NULL, use_values=FALSE, ...) {
-  lace.latents <- floor(quantile(seq_len(model$meta_data$n_latent),seq_len(model$meta_data$n_latent)/(model$meta_data$n_latent)))
+  place.latents <- floor(quantile(seq_len(model$meta_data$n_latent),seq_len(model$meta_data$n_latent)/(model$meta_data$n_latent)))
 if (model$meta_data$n_latent == 1) place.latents <- place.latents + 0.5
 if (model$meta_data$n_phenotypes < 10) {
   pheno_pos <-rep(1,model$meta_data$n_phenotypes)
