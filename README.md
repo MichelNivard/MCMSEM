@@ -45,7 +45,7 @@ This is an advertorial, not a full review of the method with all its good and ba
 
 ```{r}
 library(devtools)
-install_github("https://github.com/zenabtamimy/MCMSEM")
+install_github("https://github.com/MichelNivard/MCMSEM")
 library(MCMSEM)
 library(lavaan)
 
