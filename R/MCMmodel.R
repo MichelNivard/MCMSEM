@@ -135,7 +135,7 @@ MCMmodel <- function(data, n_latent=1, constrained_a=TRUE, scale_data=TRUE, weig
     paramnames <- NULL
     for (i in seq_len(n_latent)) {
       edit_coords[[1]] <- c(edit_coords[[1]], i)
-      edit_coords[[2]] <- c(edit_coords[[2]], j)
+      edit_coords[[2]] <- c(edit_coords[[2]], i)
       paramnames <- c(paramnames, paste0("sl",i))
     }
     edit_coords[[1]] <- edit_coords[[1]][2:length(edit_coords[[1]])]; edit_coords[[2]] <- edit_coords[[2]][2:length(edit_coords[[2]])]
