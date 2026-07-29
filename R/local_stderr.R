@@ -93,9 +93,10 @@
 }
 
 ### pull it together to make std errors:
-.std.err <- function(data, .par_list, use_skewness, use_kurtosis, torch_masks, torch_maps, base_matrices, m2v_masks, device, low_memory, diag_s, jacobian_method, debug) {
+.std.err <- function(data, .par_list, use_skewness, use_kurtosis, torch_masks, torch_maps, base_matrices, m2v_masks, device, low_memory, diag_s, jacobian_method, debug, return_vcov=FALSE) {
   # Temporary fix to check if forcing CPU leads to more consistency
-  if ((device == torch_device('cpu')) & (.par_list[['A']]$is_cuda)) {
+  first_parameter_tensor <- .par_list[[1L]]
+  if ((device == torch_device('cpu')) & isTRUE(first_parameter_tensor$is_cuda)) {
     if (debug) {cat(" - Reassigning tensors to CPU device\n")}
     # If CPU is used for SE but not for optimization, port all matrices to CPU first
     for (i in names(.par_list)) {.par_list[[i]] <- torch_tensor(.par_list[[i]], device=torch_device('cpu'), requires_grad = .par_list[[i]]$requires_grad)}
@@ -163,5 +164,12 @@
     Asycov <- torch_matmul(torch_matmul(torch_matmul(torch_inverse(torch_matmul(torch_matmul(torch_transpose(G, 1, 2), torch_inverse(torch_eye(nrow(S.m)) *S.m)), G)), torch_matmul(torch_matmul(torch_transpose(G, 1, 2), torch_inverse(torch_eye(nrow(S.m)) *S.m)), S.m)), torch_matmul(torch_inverse(torch_eye(nrow(S.m)) *S.m), G)), torch_inverse(torch_matmul(torch_matmul(torch_transpose(G, 1, 2), torch_inverse(torch_eye(nrow(S.m)) *S.m)), G)))
   }
   se <- torch_sqrt(torch_diag(Asycov))
+  if (isTRUE(return_vcov)) {
+    return(list(
+      se = as.numeric(se),
+      vcov = as.matrix(torch_tensor(Asycov, device = torch_device("cpu"))),
+      jacobian = as.matrix(torch_tensor(G, device = torch_device("cpu")))
+    ))
+  }
   return(as.numeric(se))
 }

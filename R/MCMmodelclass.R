@@ -52,13 +52,18 @@ mcmmodelclass <- setRefClass("mcmmodelclass",
                                meta_data="list",
                                param_values="vector",
                                param_names="vector",
-                               param_coords="list"
+                               param_coords="list",
+                               free_param_names="vector",
+                               parameter_table="data.frame",
+                               parameter_expressions="list"
                              ))
 
 # Define MCM model class methods
 mcmmodelclass$methods(
     initialize=function(named_matrices=NULL, num_matrices=NULL, start_values=mcmstartvaluesclass(), bounds=NULL, meta_data=NULL,
-                        param_values=c(0), param_names=c(""), param_coords=list()){
+                        param_values=c(0), param_names=c(""), param_coords=list(),
+                        free_param_names=c(""), parameter_table=data.frame(),
+                        parameter_expressions=list()){
       if (!(is.null(named_matrices))) {
         # This is executed upon initialization, required to force parse upon initialization of class instance
         .self$named_matrices <- named_matrices
@@ -69,6 +74,9 @@ mcmmodelclass$methods(
         .self$param_values <- param_values
         .self$param_names <- param_names
         .self$param_coords <- param_coords
+        .self$free_param_names <- free_param_names
+        .self$parameter_table <- parameter_table
+        .self$parameter_expressions <- parameter_expressions
         if (all(param_names == c(""))) {
           # When a new class is made: parse, if a copy is made parsing is not necessary
           .self$parse()
@@ -92,67 +100,21 @@ mcmmodelclass$methods(
   },
   copy=function() {
     # Create a deepcopy of the model instance
+    field_or <- function(name, default) {
+      tryCatch(.self[[name]], error = function(e) default)
+    }
     return(mcmmodelclass(named_matrices=.self$named_matrices, num_matrices=.self$num_matrices, start_values=.self$start_values$copy(),
                          bounds=.self$bounds, meta_data=.self$meta_data, param_values=.self$param_values, param_names=.self$param_names,
-                         param_coords=.self$param_coords))
+                         param_coords=.self$param_coords,
+                         free_param_names=field_or("free_param_names", .self$param_names),
+                         parameter_table=.parameter_table_copy(field_or("parameter_table", data.frame())),
+                         parameter_expressions=field_or("parameter_expressions", list())))
   },
   parse=function() {
-    # Parse named matrices to param_values, param_coords and bounds (to make it easy to access these during optimization)
-    # Update param_values and param_coords
-    .self$param_values <- c(0)  # vector cannot be empty due to it being set as vector in class fields
-    .self$param_names <- c("")
-    .self$param_coords <- list()
-    for (mat in names(.self$named_matrices)) {
-      # Ensure paramters starting with - are not recognized as unique parameter and store in vector for easier indexing
-      neg_indices <- startsWith(as.vector(.self$named_matrices[[mat]]), "-") # Which parameter are labeled -
-      non_neg_vec <- gsub("-", "", as.vector(.self$named_matrices[[mat]]))  # Vectorized named matrix without "-"labels
-      unique_params <- unique(non_neg_vec)
-      unique_params <- unique_params[is.na(suppressWarnings(as.numeric(unique_params)))]
-      for (param in unique_params) {
-        current_coords <- which(non_neg_vec == param)
-        # neg_indices[current_coords]*-2+1 produces multipliers for parameters labeled -, e.g. "-a1":
-        #  if the matrix contains "-a1, a1" in whatever place, neg_indices will be TRUE FALSE there respectively
-        #  c(1, 0) * -2 + 1 produces (-1, 1), i.e. multipliers for these paramter values.
-        .self$param_coords <- append(.self$param_coords, list(list(mat, current_coords, neg_indices[current_coords]*-2+1)))
-        .self$param_names <- c(.self$param_names, param)
-        .self$param_values <- c(.self$param_values, .self$num_matrices[[mat]][current_coords][1])
-      }
-    }
-    .self$param_names <- .self$param_names[2:length(.self$param_names)]
-    .self$param_values <- .self$param_values[2:length(.self$param_values)]
-    # Update bounds
-    for (param in .self$param_names) {
-      if (!(param %in% colnames(.self$bounds))) {
-        default <- .model_default_bounds(.self, param)
-        new_col <- data.frame(rbind(default[["L"]], default[["U"]]))
-        colnames(new_col) <- param
-        .self$bounds <- cbind(.self$bounds, new_col)
-      }
-    }
-    for (col in colnames(.self$bounds)) {
-      if (!(col %in% .self$param_names)) {
-        .self$bounds[, col] <- NULL
-      } else {
-        if (any(is.na(.self$bounds[, col]))) {
-          for (row in rownames(.self$bounds)[which(is.na(.self$bounds[, col]))]) {
-            .self$bounds[row, col] <- .model_default_bounds(.self, col)[[row]]
-          }
-        }
-      }
-    }
-    starts <- as.data.frame(t(.self$param_values))
-    colnames(starts) <- .self$param_names
-    rownames(starts) <- "start"
-    .self$start_values <- mcmstartvaluesclass(starts)
-    .self$bounds <- .self$bounds[.self$param_names]
+    .parameter_graph_rebuild(.self)
   },
   inverse_parse=function() {
-    for (n_par in seq_along(.self$param_names)) {
-      par_name <- .self$param_names[n_par]
-      for (mat in names(.self$named_matrices)) {
-        .self$num_matrices[[mat]][.self$named_matrices[[mat]] == par_name] <- .self$param_values[n_par]
-      }
-    }
+    .parameter_graph_apply_to_model(.self)
   }
 )
 
@@ -181,6 +143,10 @@ summary.mcmmodelclass <- function(object, ...) {
   object$show()
   dof <- MCMdegreesoffreedom(object)
   cat("Free parameters: ", dof$n_parameters, "\n", sep = "")
+  if (dof$n_fixed_parameters || dof$n_derived_parameters) {
+    cat("Fixed parameters: ", dof$n_fixed_parameters, "\n", sep = "")
+    cat("Derived parameters: ", dof$n_derived_parameters, "\n", sep = "")
+  }
   cat("Unique moments: ", dof$n_moments, "\n", sep = "")
   cat("Nominal degrees of freedom: ", dof$df, "\n", sep = "")
   invisible(object)

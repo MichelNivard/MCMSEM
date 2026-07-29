@@ -1,5 +1,9 @@
 # Function to quadratically scale loss if estimates are out of bounds
 .loss_power_bounds <- function(par, torch_bounds, outofbounds_penalty) {
+  if (!any(vapply(par, function(x) isTRUE(x$requires_grad), logical(1)))) {
+    reference <- par[[1L]]
+    return(torch_tensor(0, device = reference$device, dtype = reference$dtype))
+  }
   # Does not work for some reason, loss does not change, then jumps to NA
   lbound_check <- torch_less_equal(torch_cat(par), torch_bounds[["L"]])  # 0 if parameter is in bounds, 1 if parameter is out of bounds
   ubound_check <- torch_greater_equal(torch_cat(par), torch_bounds[["U"]])  # 0 if parameter is in bounds, 1 if parameter is out of bounds
@@ -19,11 +23,22 @@
   #           I know this makes it a pain to modify antyhing, and I'm sorry for that, but it is something we have to deal with for now :(
   #           Then why not make the whole thing one line you ask? Well I tried that, and oddly enough that actually takes up even more memory...
   #           Don't ask me why but the current balance between storing intermediates and one-lining seems ideal.
-  A <- torch_add(base_matrices[['A']], torch_sum(torch_mul(torch_maps[['A']], .par_list[['A']]), dim=3))
-  Fm <- torch_add(base_matrices[['Fm']], torch_sum(torch_mul(torch_maps[['Fm']], .par_list[['Fm']]), dim=3))
-  S <- torch_add(base_matrices[['S']], torch_sum(torch_mul(torch_maps[['S']], .par_list[['S']]), dim=3))
-
-  if (use_skewness) {Sk <- torch_add(base_matrices[['Sk']], torch_sum(torch_mul(torch_maps[['Sk']], .par_list[['Sk']]), dim=3))}
+  parameter_graph <- attr(base_matrices, "parameter_graph")
+  if (!is.null(parameter_graph)) {
+    graph_model <- parameter_graph$model
+    values <- .parameter_values_torch(graph_model, .par_list$graph)
+    A <- .parameter_torch_matrix(graph_model, values, "A", .par_list$graph)
+    Fm <- .parameter_torch_matrix(graph_model, values, "Fm", .par_list$graph)
+    S <- .parameter_torch_matrix(graph_model, values, "S", .par_list$graph) + 1e-16
+    if (use_skewness) {
+      Sk <- .parameter_torch_matrix(graph_model, values, "Sk", .par_list$graph)
+    }
+  } else {
+    A <- torch_add(base_matrices[['A']], torch_sum(torch_mul(torch_maps[['A']], .par_list[['A']]), dim=3))
+    Fm <- torch_add(base_matrices[['Fm']], torch_sum(torch_mul(torch_maps[['Fm']], .par_list[['Fm']]), dim=3))
+    S <- torch_add(base_matrices[['S']], torch_sum(torch_mul(torch_maps[['S']], .par_list[['S']]), dim=3))
+    if (use_skewness) {Sk <- torch_add(base_matrices[['Sk']], torch_sum(torch_mul(torch_maps[['Sk']], .par_list[['Sk']]), dim=3))}
+  }
   if (use_kurtosis) {
     # Rstyle:
     # (sqrt(S) %*% base_matrices[['K']] %*%  (sqrt(S) %o% torch_sqrt(S) %o% sqrt(S))) * base_matrices[['K2']] * torch_masks[['K']] + sum(torch_maps[['K']] * .par_list[['K']], dim=3)
@@ -33,11 +48,19 @@
     sqrts <- torch_sign(S) * torch_sqrt(torch_abs(S))
     if (diag_s) {
       skron <- .torch_kron(torch_diag(sqrts), .torch_kron(torch_diag(sqrts), torch_diag(sqrts)))
-      K <- torch_add(torch_mul(torch_mul(torch_mul(torch_matmul(sqrts, base_matrices[['K']]), skron), base_matrices[['K2']]), torch_masks[['K']]), torch_sum(torch_mul(torch_maps[['K']], .par_list[['K']]), dim=3))
+      K_base <- torch_mul(torch_mul(torch_mul(torch_matmul(sqrts, base_matrices[['K']]), skron), base_matrices[['K2']]), torch_masks[['K']])
     } else {
       # This is the 'true' version of K but is significantly more memory intensive
-      K <- torch_add(torch_mul(torch_mul(torch_matmul(torch_matmul(sqrts, base_matrices[['K']]), .torch_kron(sqrts, .torch_kron(sqrts, sqrts))), base_matrices[['K2']]), torch_masks[['K']]), torch_sum(torch_mul(torch_maps[['K']], .par_list[['K']]), dim=3))
+      K_base <- torch_mul(torch_mul(torch_matmul(torch_matmul(sqrts, base_matrices[['K']]), .torch_kron(sqrts, .torch_kron(sqrts, sqrts))), base_matrices[['K2']]), torch_masks[['K']])
     }
+    K_parameters <- if (!is.null(parameter_graph)) {
+      .parameter_torch_matrix(
+        graph_model, values, "K", .par_list$graph, named_only = TRUE
+      )
+    } else {
+      torch_sum(torch_mul(torch_maps[['K']], .par_list[['K']]), dim=3)
+    }
+    K <- torch_add(K_base, K_parameters)
   }
 
   # Rstyle: M2 <- Fm %*% solve(diag(n_p) - A) %*% S %*%  t(solve(diag(n_p)-A))  %*% t(Fm)
@@ -89,7 +112,7 @@
 
 # Fit wrapper function
 .torch_fit <- function(optimizers, M2.obs, M3.obs, M4.obs, m2v_masks, torch_bounds, torch_masks, torch_maps, base_matrices, .par_list, learning_rate, optim_iters, use_bounds, use_skewness, use_kurtosis, lossfunc, return_history=FALSE, low_memory, outofbounds_penalty, diag_s,debug=FALSE, monitor_grads=FALSE) {
-  loss_hist <- torch_empty(0, device=.par_list[['A']]$device)
+  loss_hist <- torch_empty(0, device=.par_list[[1L]]$device)
   grad_hist <- list()
   for (i in names(.par_list)) {
     if (.par_list[[i]]$requires_grad) {
@@ -98,7 +121,10 @@
   }
   slowneckerfun <- if (low_memory > 2) {'slowernecker'}  else {'slownecker'}
   .jit_slownecker <- jit_compile(.jit_funcs[[slowneckerfun]])
-  for (noptim in seq_along(optimizers)) {
+  has_free_parameters <- any(vapply(
+    .par_list, function(x) isTRUE(x$requires_grad), logical(1)
+  ))
+  if (has_free_parameters) for (noptim in seq_along(optimizers)) {
     optimiz <- optimizers[noptim]
     if (debug) {cat(paste0(" - Optimizer=",optimiz,", lr=",learning_rate[noptim],"\n"))}
     if (optimiz != "lbfgs") {

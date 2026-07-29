@@ -61,7 +61,11 @@ MCMfit(mcmmodel, data, weights=NULL, compute_se=TRUE,
   when forming WLS weights and solving the information matrix.}
 }
 \value{
-  MCMresult object. This can be converted to a dataframe with as.data.frame(result)
+  An MCM result object. For constrained models, \code{df} and
+  \code{parameter_table} report free, fixed, and derived estimates;
+  \code{parameter_vcov} retains their joint reporting-scale covariance and
+  \code{free_parameter_vcov} its independent-free-parameter block. The object
+  can be converted to a data frame with \code{as.data.frame(result)}.
 }
 \details{
 Dynamic models require skewness and kurtosis. Their asymptotic calculations use
@@ -72,6 +76,18 @@ inverse-information covariance. Gaussian covariance SEs are delta-method
 transformations of the Cholesky parameters. Analysis weights are not yet
 supported for dynamic WLS or SEs. Dynamic results retain all-start diagnostics
 and the best finite, in-bounds stationary solution.
+
+Only independent free parameters enter either optimizer. Positive and bounded
+free parameters are optimized on unconstrained internal coordinates and
+reported on their natural scale. Estimator covariance is first computed in
+those coordinates, then transformed to natural free and derived parameters by
+the delta method. Fixed-parameter SEs are zero when covariance is available.
+For dynamic results, \code{dynamic$asymptotic$vcov_robust} and
+\code{vcov_model_based} are reporting-scale matrices; the corresponding
+\code{vcov_optimizer_robust} and \code{vcov_optimizer_model_based} fields retain
+the internal-coordinate versions.
+Contemporaneous one- and two-step bootstraps transform every replicate before
+calculating reported SEs and covariances.
 }
 
 \examples{

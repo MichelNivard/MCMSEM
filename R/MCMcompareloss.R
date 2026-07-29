@@ -76,7 +76,8 @@ MCMcompareloss <- function(results, test_data, weights=NULL, loss_type='auto', e
   for (resname in names(results)) {
     out[resname, paste0(results[[resname]]$info$loss_type, "_train_loss")] <- results[[resname]]$loss
     out[resname, "train_chisq"] <- results[[resname]]$model$meta_data$n_obs * results[[resname]]$loss
-    out[resname, "train_bic"] <- results[[resname]]$model$meta_data$n_obs * results[[resname]]$loss + ncol(results[[resname]]$df) * log(results[[resname]]$model$meta_data$n_obs)
+    n_parameters <- MCMdegreesoffreedom(results[[resname]])$n_parameters
+    out[resname, "train_bic"] <- results[[resname]]$model$meta_data$n_obs * results[[resname]]$loss + n_parameters * log(results[[resname]]$model$meta_data$n_obs)
   }
 
   # Determine loss for each model, and difference with model1 loss for models 2-N
@@ -113,13 +114,14 @@ MCMcompareloss <- function(results, test_data, weights=NULL, loss_type='auto', e
   for (loss_type in losses) {
     for (resname in names(results)) {
       out[resname, paste0(loss_type,"_test_chisq")] <- data$meta_data$N * out[resname, paste0(loss_type,"_test_loss")]
-      out[resname, paste0(loss_type,"_test_bic")] <- data$meta_data$N * out[resname, paste0(loss_type,"_test_loss")] + ncol(results[[resname]]$df) * log(data$meta_data$N)
+      n_parameters <- MCMdegreesoffreedom(results[[resname]])$n_parameters
+      out[resname, paste0(loss_type,"_test_bic")] <- data$meta_data$N * out[resname, paste0(loss_type,"_test_loss")] + n_parameters * log(data$meta_data$N)
     }
   }
 
   # Store N parameters loss type, use skew, use kurt
   for (resname in names(results)) {
-    out[resname, "N_parameters"] <- ncol(results[[resname]]$df)
+    out[resname, "N_parameters"] <- MCMdegreesoffreedom(results[[resname]])$n_parameters
     out[resname, "kernel"] <- .model_kernel(results[[resname]]$model)
     for (i in c("loss_type", "use_skewness", "use_kurtosis")) {
       out[resname, i] <- results[[resname]]$info[[i]]

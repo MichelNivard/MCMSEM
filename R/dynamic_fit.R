@@ -62,10 +62,19 @@
     B <- matrix(0, p, p)
     diag(B) <- stats::runif(p, 0.05, 0.70)
     B[row(B) != col(B)] <- stats::runif(p * (p - 1L), -0.30, 0.30)
-    for (i in seq_along(B_names)) start[[B_names[i]]] <- B[i]
-    start[tau_names] <- start[tau_names] + stats::rnorm(p, 0, 0.5)
-    start[kappa_names] <- start[kappa_names] + stats::rnorm(p, 0, 1)
+    for (i in seq_along(B_names)) {
+      if (B_names[i] %in% names(start)) start[[B_names[i]]] <- B[i]
+    }
+    free_tau <- intersect(tau_names, names(start))
+    free_kappa <- intersect(kappa_names, names(start))
+    if (length(free_tau)) {
+      start[free_tau] <- start[free_tau] + stats::rnorm(length(free_tau), 0, 0.5)
+    }
+    if (length(free_kappa)) {
+      start[free_kappa] <- start[free_kappa] + stats::rnorm(length(free_kappa), 0, 1)
+    }
     if (length(L_names) > 0L) {
+      L_names <- intersect(L_names, names(start))
       diagonal_L <- grep("^log_sd_G_", L_names, value = TRUE)
       off_diagonal_L <- setdiff(L_names, diagonal_L)
       start[diagonal_L] <- start[diagonal_L] + stats::rnorm(length(diagonal_L), 0, 0.5)
@@ -372,8 +381,8 @@
   }
   se_finished <- Sys.time()
   parameter_se <- if (is.null(asymptotic)) {
-    stats::setNames(rep(NA_real_, length(fitted_model$param_names)),
-                    fitted_model$param_names)
+    stats::setNames(rep(NA_real_, nrow(fitted_model$parameter_table)),
+                    fitted_model$parameter_table$name)
   } else {
     asymptotic$se
   }
@@ -385,8 +394,12 @@
     third_cumulant = tau,
     fourth_cumulant = kappa,
     raw_fourth = kappa + 3,
-    third_se = unname(parameter_se[paste0("tau_", variables)]),
-    fourth_se = unname(parameter_se[paste0("kappa_", variables)]),
+    third_se = unname(parameter_se[
+      .parameter_label_parts(as.vector(fitted_model$named_matrices$Tau))$name
+    ]),
+    fourth_se = unname(parameter_se[
+      .parameter_label_parts(as.vector(fitted_model$named_matrices$Kappa))$name
+    ]),
     row.names = NULL,
     check.names = FALSE
   )
@@ -402,15 +415,18 @@
     )
   }
   dof <- MCMdegreesoffreedom(fitted_model, TRUE, TRUE)
+  reported_values <- .parameter_values_base(fitted_model, best$parameters)
   result_values <- if (isTRUE(compute_se)) {
-    rbind(est = best$parameters, se = unname(parameter_se))
+    rbind(est = unname(reported_values),
+          se = unname(parameter_se[names(reported_values)]))
   } else {
-    matrix(best$parameters, nrow = 1, dimnames = list("est", NULL))
+    matrix(unname(reported_values), nrow = 1, dimnames = list("est", NULL))
   }
   result_df <- as.data.frame(result_values, check.names = FALSE)
-  colnames(result_df) <- fitted_model$param_names
+  colnames(result_df) <- names(reported_values)
   fitted_model$param_values <- best$parameters
   fitted_model$start_values$set_all(best$parameters)
+  fitted_model$inverse_parse()
 
   gradient_frame <- .dynamic_gradient_history_frame(best$gradient_history)
   convergence <- list(
@@ -508,7 +524,10 @@
       moment_weight = weight_spec$W,
       moment_vcov = weight_spec$omega,
       asymptotic = asymptotic
-    )
+    ),
+    parameter_table = .parameter_result_table(fitted_model, parameter_se),
+    parameter_vcov = if (is.null(asymptotic)) matrix() else asymptotic$vcov,
+    free_parameter_vcov = if (is.null(asymptotic)) matrix() else asymptotic$vcov_free
   )
 }
 

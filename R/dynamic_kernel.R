@@ -445,10 +445,14 @@ MCMdegreesoffreedom <- function(object, use_skewness = TRUE,
   }
   counts <- MCMmomentcount(model, use_skewness, use_kurtosis)
   n_parameters <- length(model$param_values)
+  .ensure_parameter_graph(model)
   list(
     moments_by_order = counts[c("covariance", "third", "fourth")],
     n_moments = unname(counts[["total"]]),
     n_parameters = n_parameters,
+    n_reported_parameters = nrow(model$parameter_table),
+    n_fixed_parameters = sum(model$parameter_table$type == "fixed"),
+    n_derived_parameters = sum(model$parameter_table$type == "derived"),
     df = unname(counts[["total"]]) - n_parameters
   )
 }
@@ -461,26 +465,62 @@ MCMdiagnostics <- function(object, jacobian = FALSE,
   }
   out <- MCMdegreesoffreedom(object)
   out$kernel <- .model_kernel(model)
+  out$observed_moment_count <- out$n_moments
+  out$independent_free_parameter_count <- out$n_parameters
+  out$nominal_df <- out$df
+  derived <- model$parameter_table$type == "derived"
+  out$derived_constraints <- model$parameter_table[
+    derived, c("name", "expression"), drop = FALSE
+  ]
   if (identical(out$kernel, "dynamic")) {
     implied <- .dynamic_implied_moments_base(model)
     out$spectral_radius <- implied$spectral_radius
     out$stationary <- implied$stationary
-    if (isTRUE(jacobian)) {
-      map <- function(par) {
-        x <- .dynamic_implied_moments_base(model, par)
-        c(
-          .dynamic_unique_moments(x$M2, 2L),
-          .dynamic_unique_moments(x$M3, 3L),
-          .dynamic_unique_moments(x$M4, 4L)
-        )
-      }
-      J <- numDeriv::jacobian(map, model$param_values)
-      out$jacobian_rank <- qr(J, tol = tolerance)$rank
-      out$locally_full_column_rank <- out$jacobian_rank == length(model$param_values)
-      singular_values <- svd(J, nu = 0, nv = 0)$d
-      out$jacobian_singular_values <- singular_values
-      out$jacobian_condition <- max(singular_values) / min(singular_values)
+  }
+  if (isTRUE(jacobian)) {
+    optimizer_coordinates <- .parameter_optimizer_coordinates(model)
+    map <- function(par) {
+      x <- MCMimpliedmoments(
+        model, par, parameter_scale = "optimizer",
+        use_skewness = if (inherits(object, "mcmresultclass")) {
+          isTRUE(object$info$use_skewness)
+        } else TRUE,
+        use_kurtosis = if (inherits(object, "mcmresultclass")) {
+          isTRUE(object$info$use_kurtosis)
+        } else TRUE
+      )
+      c(
+        .dynamic_unique_moments(x$M2, 2L),
+        if (!is.null(x$M3)) .dynamic_unique_moments(x$M3, 3L) else numeric(),
+        if (!is.null(x$M4)) .dynamic_unique_moments(x$M4, 4L) else numeric()
+      )
     }
+    J <- if (length(optimizer_coordinates)) {
+      numDeriv::jacobian(map, optimizer_coordinates)
+    } else {
+      matrix(numeric(), length(map(optimizer_coordinates)), 0L)
+    }
+    colnames(J) <- model$param_names
+    decomposition <- if (ncol(J)) svd(J) else NULL
+    singular_values <- if (is.null(decomposition)) numeric() else decomposition$d
+    out$jacobian <- J
+    out$jacobian_rank <- qr(J, tol = tolerance)$rank
+    out$locally_full_column_rank <- out$jacobian_rank == length(model$param_values)
+    out$jacobian_singular_values <- singular_values
+    out$jacobian_condition <- if (!ncol(J)) {
+      NA_real_
+    } else if (length(singular_values) && min(singular_values) > 0) {
+      max(singular_values) / min(singular_values)
+    } else Inf
+    threshold <- tolerance * if (length(singular_values)) max(singular_values) else 0
+    near <- which(singular_values <= threshold)
+    out$near_null_directions <- if (length(near)) {
+      directions <- decomposition$v[, near, drop = FALSE]
+      rownames(directions) <- model$param_names
+      colnames(directions) <- paste0("direction_", seq_len(ncol(directions)))
+      directions
+    } else matrix(numeric(), nrow = length(model$param_names), ncol = 0L,
+                  dimnames = list(model$param_names, character()))
   }
   out
 }

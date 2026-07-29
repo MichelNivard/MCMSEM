@@ -46,6 +46,9 @@ MCMfit <- function(mcmmodel, data, weights=NULL, compute_se=TRUE, se_type='asymp
   } else {
     model <- mcmmodel$copy()  # Model is changed if either use_skewness or use_kurtosis is set to FALSE, so I make a local copy here to ensure the original object stays intact
     if (!(use_kurtosis)) {
+      if (.parameter_graph_active(model)) {
+        .parameter_disable_matrix(model, "K")
+      } else {
       kurt_par_idx <- which(startsWith(model$param_names, "k"))
       model$start_values$drop(kurt_par_idx)
       model$param_names <- model$param_names[-kurt_par_idx]
@@ -59,7 +62,11 @@ MCMfit <- function(mcmmodel, data, weights=NULL, compute_se=TRUE, se_type='asymp
         }
       }
       model$param_coords <- new_coords
+      }
     } else if (!(use_skewness)) {
+      if (.parameter_graph_active(model)) {
+        .parameter_disable_matrix(model, "Sk")
+      } else {
       skew_par_idx <- which(startsWith(model$param_names, "sk"))
       model$start_values$drop(skew_par_idx)
       model$param_names <- model$param_names[-skew_par_idx]
@@ -73,9 +80,11 @@ MCMfit <- function(mcmmodel, data, weights=NULL, compute_se=TRUE, se_type='asymp
         }
       }
       model$param_coords <- new_coords
+      }
     }
   }
   model$meta_data$kernel <- "contemporaneous"
+  graph_active <- .parameter_graph_active(model)
   if (class(data)[[1]] != "mcmdataclass") {
     data_org <- data
     if (debug) {cat("MCMfit converting data\n")}
@@ -198,19 +207,57 @@ MCMfit <- function(mcmmodel, data, weights=NULL, compute_se=TRUE, se_type='asymp
       .par[[i]] <- .par_tensor[[i]]  # Only include parameters that were actually estimated (requires_grad=TRUE)
     }
   }
-  results <-  as.data.frame(matrix(as.numeric(torch_tensor(torch_cat(.par), device=cpu_device)), nrow = 1))
+  optimizer_estimates <- if (length(.par)) {
+    as.numeric(torch_tensor(torch_cat(.par), device=cpu_device))
+  } else numeric()
+  if (graph_active) {
+    reported_estimates <- .parameter_values_base(
+      model, optimizer_estimates, optimizer_scale = TRUE
+    )
+    results <- as.data.frame(matrix(
+      unname(reported_estimates), nrow = 1,
+      dimnames = list(NULL, names(reported_estimates))
+    ), check.names = FALSE)
+  } else {
+    results <- as.data.frame(matrix(optimizer_estimates, nrow = 1))
+  }
   START_se <- Sys.time()
   TIME_optim <- START_se - START_optim
   if (compute_se) {
     if (debug) {cat("MCMfit starting SE calculation:\n")}
     if(se_type == 'asymptotic'){
       # SEs <- .std.err(data=data,par=as.numeric(torch_tensor(torch_cat(.par), device=cpu_device)), model=model, use_skewness, use_kurtosis)
-      SEs <- .std.err(data, .par_list, use_skewness, use_kurtosis, torch_masks, torch_maps, base_matrices, m2v_masks, device_se, low_memory, diag_s, jacobian_method, debug)
+      if (graph_active && length(optimizer_estimates) == 0L) {
+        coordinate_vcov <- matrix(numeric(), 0L, 0L,
+                                  dimnames = list(character(), character()))
+        parameter_covariance <- .parameter_covariance_from_optimizer(
+          model, coordinate_vcov, optimizer_estimates,
+          method = jacobian_method
+        )
+        SEs <- unname(parameter_covariance$se[names(reported_estimates)])
+      } else if (graph_active) {
+        se_details <- .std.err(
+          data, .par_list, use_skewness, use_kurtosis, torch_masks,
+          torch_maps, base_matrices, m2v_masks, device_se, low_memory,
+          diag_s, jacobian_method, debug, return_vcov = TRUE
+        )
+        dimnames(se_details$vcov) <- list(model$param_names, model$param_names)
+        parameter_covariance <- .parameter_covariance_from_optimizer(
+          model, se_details$vcov, optimizer_estimates,
+          method = jacobian_method
+        )
+        SEs <- unname(parameter_covariance$se[names(reported_estimates)])
+      } else {
+        SEs <- .std.err(data, .par_list, use_skewness, use_kurtosis, torch_masks, torch_maps, base_matrices, m2v_masks, device_se, low_memory, diag_s, jacobian_method, debug)
+      }
     }
 
     if(se_type != 'asymptotic') {
       # Matrix where bootstraps will be stored
-      pars.boot <- matrix(NA,bootstrap_iter,length(model$param_values))
+      pars.boot <- matrix(
+        NA, bootstrap_iter,
+        if (graph_active) nrow(model$parameter_table) else length(model$param_values)
+      )
       # Lower and Upper bounds
       cat("MCMfit starting bootstrap MCMSEM\n")
       pb <- txtProgressBar(0, bootstrap_iter, style = 3, width=min(c(options()$width, 107)))
@@ -226,7 +273,7 @@ MCMfit <- function(mcmmodel, data, weights=NULL, compute_se=TRUE, se_type='asymp
         model2 <- model_copy$copy()  # Create new empty model
         #1. Sample from data with replacement
         boot <-   sample(seq_len(nrow(data_org)), nrow(data_org), T)
-        sample <- data_org[boot,]
+        sample <- as.matrix(data_org[boot, , drop = FALSE])
 
         #2. Get covariance, coskewness and cokurtosis matrices
         M2.obs <- torch_tensor(cov(sample), device=device, dtype=torch_dtype)
@@ -254,7 +301,12 @@ MCMfit <- function(mcmmodel, data, weights=NULL, compute_se=TRUE, se_type='asymp
           }
         }
         # Store point estimates of bootstraps
-        pars.boot[i,] <- as.numeric(torch_tensor(torch_cat(.par), device=cpu_device))
+        boot_coordinates <- if (length(.par)) {
+          as.numeric(torch_tensor(torch_cat(.par), device=cpu_device))
+        } else numeric()
+        pars.boot[i,] <- if (graph_active) {
+          unname(.parameter_values_base(model2, boot_coordinates, optimizer_scale = TRUE))
+        } else boot_coordinates
 
       }
       close(pb)
@@ -273,7 +325,10 @@ MCMfit <- function(mcmmodel, data, weights=NULL, compute_se=TRUE, se_type='asymp
       sample.cov  <- aggregate(seq_len(nrow(step1)), by=list(step1$group), function(s) cov(step1[s, colnames(data_org)]))
       sample.cosk <- aggregate(seq_len(nrow(step1)), by=list(step1$group), function(s) M3.MM(as.matrix(step1[s, colnames(data_org)])))
       sample.cokr <- aggregate(seq_len(nrow(step1)), by=list(step1$group), function(s) M4.MM(as.matrix(step1[s, colnames(data_org)])))
-      pars.boot2 <- matrix(NA,nrow=bootstrap_iter,ncol=length(model$param_values))
+      pars.boot2 <- matrix(
+        NA, nrow = bootstrap_iter,
+        ncol = if (graph_active) nrow(model$parameter_table) else length(model$param_values)
+      )
 
       ### STEP 2
       for (i in seq_len(bootstrap_iter)) {
@@ -307,7 +362,12 @@ MCMfit <- function(mcmmodel, data, weights=NULL, compute_se=TRUE, se_type='asymp
           }
         }
         # Store point estimates of bootstraps
-        pars.boot2[i,] <- as.numeric(torch_tensor(torch_cat(.par), device=cpu_device))
+        boot_coordinates <- if (length(.par)) {
+          as.numeric(torch_tensor(torch_cat(.par), device=cpu_device))
+        } else numeric()
+        pars.boot2[i,] <- if (graph_active) {
+          unname(.parameter_values_base(model2, boot_coordinates, optimizer_scale = TRUE))
+        } else boot_coordinates
       }
       close(pb)
       SEs <- apply(pars.boot2, 2, sd)
@@ -317,28 +377,61 @@ MCMfit <- function(mcmmodel, data, weights=NULL, compute_se=TRUE, se_type='asymp
   }
   if (debug) {cat("MCMfit formatting output\n")}
   # Place resulting parameter estimates back into model matrices
-  for (i in seq_along(model$param_coords)) {
-    idat <- model$param_coords[[i]]
-    model$num_matrices[[idat[[1]]]][idat[[2]]] <- as.numeric(results[1, i])
-    # Currently, if there is a parameter like "-a1", this will still return the base a1 value.
-    # If we want to change that so that the returned estimate is also flipped, use this
-    # model$num_matrices[[idat[[1]]]][idat[[2]]] <- as.numeric(results[1, i]) * idat[[3]]
+  if (graph_active) {
+    model$param_values <- unname(as.numeric(results[1, model$param_names, drop = TRUE]))
+    model$start_values$set_all(model$param_values)
+    model$inverse_parse()
+    colnames(results) <- model$parameter_table$name
+  } else {
+    for (i in seq_along(model$param_coords)) {
+      idat <- model$param_coords[[i]]
+      model$num_matrices[[idat[[1]]]][idat[[2]]] <- as.numeric(results[1, i])
+      # Currently, if there is a parameter like "-a1", this will still return the base a1 value.
+      # If we want to change that so that the returned estimate is also flipped, use this
+      # model$num_matrices[[idat[[1]]]][idat[[2]]] <- as.numeric(results[1, i]) * idat[[3]]
+    }
+    model$param_values <- as.numeric(results[1, ])
+    colnames(results) <- model$param_names
   }
-
-  model$param_values <- as.numeric(results[1, ])
-  colnames(results) <- model$param_names
   rownames(results) <- if(compute_se) c("est", "se") else "est"
   STOP <- Sys.time()
   TIME_se <- STOP - START_se
   TIME_total <- STOP - START_MCMfit
   history <- list(loss=loss_hist)
+  if ("graph" %in% names(grad_hist)) {
+    grad_hist$Graph <- grad_hist$graph
+    grad_hist$graph <- NULL
+  }
   grad_hist <- mcmmultigradienthistoryclass(x=grad_hist, hasgrads=monitor_grads)
   loss <- .calc_loss(lossfunc, pred_matrices, m2v_masks, M2.obs, M3.obs, M4.obs, use_skewness, use_kurtosis)
   observed <- list(M2=as.matrix(torch_tensor(M2.obs, device=cpu_device)))
   predicted <- list(M2=as.matrix(torch_tensor(pred_matrices$M2, device=cpu_device)))
   if (use_skewness) {predicted[['M3']] <- as.matrix(torch_tensor(pred_matrices$M3, device=cpu_device)); observed[['M3']] <- as.matrix(torch_tensor(M3.obs, device=cpu_device))}
   if (use_kurtosis) {predicted[['M4']] <- as.matrix(torch_tensor(pred_matrices$M4, device=cpu_device)); observed[['M4']] <- as.matrix(torch_tensor(M4.obs, device=cpu_device))}
-                               
+  reported_se <- if ("se" %in% rownames(results)) {
+    stats::setNames(as.numeric(results["se", ]), colnames(results))
+  } else {
+    stats::setNames(rep(NA_real_, ncol(results)), colnames(results))
+  }
+  result_parameter_table <- .parameter_result_table(model, reported_se)
+  if (graph_active && isTRUE(compute_se)) {
+    if (identical(se_type, "asymptotic")) {
+      result_parameter_vcov <- parameter_covariance$vcov
+      result_free_vcov <- parameter_covariance$free_vcov
+    } else {
+      bootstrap_values <- if (identical(se_type, "one-step")) pars.boot else pars.boot2
+      result_parameter_vcov <- stats::cov(bootstrap_values, use = "pairwise.complete.obs")
+      dimnames(result_parameter_vcov) <- list(colnames(results), colnames(results))
+      result_free_vcov <- result_parameter_vcov[
+        model$param_names, model$param_names, drop = FALSE
+      ]
+    }
+  } else {
+    result_parameter_vcov <- matrix()
+    result_free_vcov <- matrix()
+  }
+  dof <- MCMdegreesoffreedom(model, use_skewness, use_kurtosis)
+
   return(mcmresultclass(df=results, loss=as.numeric(torch_tensor(loss, device=cpu_device)),
                         gradients=grad_hist, model=model$copy(), history=history,
                         runtimes=list(Preparation=TIME_prep, Optimizer=TIME_optim, SE=TIME_se, Total=TIME_total),
@@ -346,9 +439,17 @@ MCMfit <- function(mcmmodel, data, weights=NULL, compute_se=TRUE, se_type='asymp
                                   bootstrap_iter=bootstrap_iter,bootstrap_chunks=bootstrap_chunks, learning_rate=learning_rate,
                                   use_bounds=use_bounds, use_skewness=use_skewness, use_kurtosis=use_kurtosis, jacobian_method=jacobian_method, debug=debug,
                                   device=device$type, device_se=device_se$type, low_memory=low_memory, weighted=data$meta_data$weighted, loss_type=loss_type,
-                                  optimizers=optimizers, n=data$meta_data$N),
+                                  optimizers=optimizers, n=data$meta_data$N,
+                                  degrees_of_freedom=dof,
+                                  free_parameter_count=dof$n_parameters,
+                                  fixed_parameter_se="zero when covariance is available"),
                         observed=observed,
                         predicted=predicted,
-                        kernel="contemporaneous"
+                        kernel="contemporaneous",
+                        degrees_of_freedom=dof$df,
+                        n_moments=dof$n_moments,
+                        parameter_table=result_parameter_table,
+                        parameter_vcov=result_parameter_vcov,
+                        free_parameter_vcov=result_free_vcov
                       ))
 }

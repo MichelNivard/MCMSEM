@@ -35,6 +35,69 @@
 }
 
 .get_torch_matrices <- function(model, device, M2.obs, M3.obs, M4.obs, torch_dtype) {
+  if (.parameter_graph_active(model)) {
+    coordinates <- .parameter_optimizer_coordinates(model)
+    coordinate_tensor <- torch_tensor(
+      unname(coordinates), requires_grad = length(coordinates) > 0L,
+      device = device, dtype = torch_dtype
+    )
+    optimizer_bounds <- .parameter_optimizer_bounds(model)
+    n_p <- model$meta_data$n_phenotypes + model$meta_data$n_latent
+    K_reference <- torch_tensor(
+      model$num_matrices[["K1_ref"]] + 1 - 1,
+      device = device, dtype = torch_dtype
+    )
+    K_mask <- torch_ones_like(K_reference, device = device, dtype = torch_dtype)
+    K_locations <- do.call(rbind, lapply(model$parameter_table$matrix_locations,
+                                         function(x) {
+      if (is.data.frame(x) && nrow(x)) x[x$matrix == "K", , drop = FALSE]
+      else data.frame()
+    }))
+    if (!is.null(K_locations) && nrow(K_locations)) {
+      for (i in seq_len(nrow(K_locations))) {
+        K_mask[K_locations$row[i], K_locations$col[i]] <- 0
+      }
+    }
+    K2 <- torch_ones_like(K_reference, device = device, dtype = torch_dtype)
+    for (i in seq_len(n_p)) {
+      coords <- .nd_to_2d_idx(n_p, i, i, i, i)
+      if (model$named_matrices$K[coords$x, coords$y] != "0") {
+        K2[coords$x, coords$y] <- 3.0
+      }
+    }
+    base_matrices <- list(
+      A = torch_tensor(model$num_matrices$A, device = device, dtype = torch_dtype),
+      Fm = torch_tensor(model$num_matrices$Fm, device = device, dtype = torch_dtype),
+      S = torch_tensor(model$num_matrices$S, device = device, dtype = torch_dtype),
+      Sk = torch_tensor(model$num_matrices$Sk, device = device, dtype = torch_dtype),
+      K = K_reference, K2 = K2,
+      diag_n_p = torch_tensor(torch_diagflat(rep(1, n_p)),
+                              device = device, dtype = torch_dtype)
+    )
+    attr(base_matrices, "parameter_graph") <- list(model = model$copy())
+    dummy_maps <- list(
+      A = torch_zeros_like(base_matrices$A),
+      Fm = torch_zeros_like(base_matrices$Fm),
+      S = torch_zeros_like(base_matrices$S),
+      Sk = torch_zeros_like(base_matrices$Sk),
+      K = torch_zeros_like(base_matrices$K)
+    )
+    return(list(
+      m2v_masks = list(
+        m2 = .torch_m2m2v_mask(M2.obs, device = device, dtype = torch_dtype),
+        m3 = .torch_m3m2v_mask(M3.obs, device = device, dtype = torch_dtype),
+        m4 = .torch_m4m2v_mask(M4.obs, device = device, dtype = torch_dtype)
+      ),
+      param_list = list(graph = model$param_names),
+      torch_bounds = list(
+        L = torch_tensor(unname(optimizer_bounds$L), device = device, dtype = torch_dtype),
+        U = torch_tensor(unname(optimizer_bounds$U), device = device, dtype = torch_dtype)
+      ),
+      torch_masks = list(K = K_mask), torch_maps = dummy_maps,
+      base_matrices = base_matrices,
+      .par_list = list(graph = coordinate_tensor)
+    ))
+  }
   # Data types for torch matrices
   dtypes <- list(
     A=torch_dtype,

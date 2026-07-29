@@ -24,7 +24,10 @@ mcmresultclass <- setRefClass("mcmresultclass",
                                n_moments="numeric",
                                start_diagnostics="data.frame",
                                residuals="list",
-                               dynamic="list"
+                               dynamic="list",
+                               parameter_table="data.frame",
+                               parameter_vcov="matrix",
+                               free_parameter_vcov="matrix"
                              ))
 
 mcmresultclass$methods(
@@ -36,7 +39,9 @@ mcmresultclass$methods(
                       spectral_radius=as.numeric(NA), stationary=FALSE,
                       convergence=list(), degrees_of_freedom=as.numeric(NA),
                       n_moments=as.numeric(NA), start_diagnostics=data.frame(),
-                      residuals=list(), dynamic=list()) {
+                      residuals=list(), dynamic=list(),
+                      parameter_table=data.frame(), parameter_vcov=matrix(),
+                      free_parameter_vcov=matrix()) {
     .self$df <- df
     .self$model <- model
     .self$loss <- loss
@@ -61,6 +66,9 @@ mcmresultclass$methods(
     .self$start_diagnostics <- start_diagnostics
     .self$residuals <- residuals
     .self$dynamic <- dynamic
+    .self$parameter_table <- parameter_table
+    .self$parameter_vcov <- parameter_vcov
+    .self$free_parameter_vcov <- free_parameter_vcov
   },
   show=function(){
     cat("  MCM model Result\n")
@@ -85,7 +93,10 @@ mcmresultclass$methods(
       field_or("degrees_of_freedom", as.numeric(NA)),
       field_or("n_moments", as.numeric(NA)),
       field_or("start_diagnostics", data.frame()),
-      field_or("residuals", list()), field_or("dynamic", list())
+      field_or("residuals", list()), field_or("dynamic", list()),
+      field_or("parameter_table", data.frame()),
+      field_or("parameter_vcov", matrix()),
+      field_or("free_parameter_vcov", matrix())
     ))
   }
 )
@@ -108,12 +119,13 @@ mcmresultsummaryclass <- setRefClass("mcmresultsummaryclass",
                                n_obs="numeric",
                                chisq="numeric",
                                bic="numeric",
-                               result="mcmresultclass"
+                               result="mcmresultclass",
+                               parameter_table="data.frame"
                              ))
 
 
 mcmresultsummaryclass$methods(
-  initialize=function(parameters, variances, skewness, kurtosis, loss, n_par, n_obs, chisq, bic, result) {
+  initialize=function(parameters, variances, skewness, kurtosis, loss, n_par, n_obs, chisq, bic, result, parameter_table=data.frame()) {
     .self$parameters <- parameters
     .self$variances <- variances
     .self$skewness <- skewness
@@ -124,6 +136,7 @@ mcmresultsummaryclass$methods(
     .self$chisq <- chisq
     .self$bic <- bic
     .self$result <- result
+    .self$parameter_table <- parameter_table
   },
   show=function(){
     cat("|--------------------------------------|\n")
@@ -158,6 +171,11 @@ mcmresultsummaryclass$methods(
     cat(paste0("loss  : ", .self$loss, "\n"))
     cat(paste0("chisq : ", .self$chisq, "\n"))
     cat(paste0("BIC   : ", .self$bic, "\n"))
+    if (nrow(.self$parameter_table) > 0L &&
+        any(.self$parameter_table$type != "free")) {
+      cat("\nParameter graph\n")
+      print(.self$parameter_table)
+    }
     for (summ in c("parameters", "variances", "skewness", "kurtosis")) {
       if (nrow(.self[[summ]]) > 0) {
         cat("\n")
@@ -175,7 +193,7 @@ mcmresultsummaryclass$methods(
     return(mcmresultsummaryclass(
       .self$parameters, .self$variances, .self$skewness,
       .self$kurtosis, .self$loss, .self$n_par, .self$n_obs,
-      .self$chisq, .self$bic, .self$result$copy()
+      .self$chisq, .self$bic, .self$result$copy(), .self$parameter_table
     ))
   }
 )
@@ -183,9 +201,9 @@ mcmresultsummaryclass$methods(
 as.data.frame.mcmresultsummaryclass <- function(x, row.names = NULL,
                                                 optional = FALSE, ...,
                                                 estimates="parameters") {
-  if (estimates %in% c("parameters", "variances", "skewness", "kurtosis")) {
+  if (estimates %in% c("parameters", "variances", "skewness", "kurtosis", "parameter_table")) {
     return(x[[estimates]])
   } else {
-    stop('estimates argument should be one of ("parameters", "variances", "skewness", "kurtosis")')
+    stop('estimates argument should be one of ("parameters", "variances", "skewness", "kurtosis", "parameter_table")')
   }
 }
