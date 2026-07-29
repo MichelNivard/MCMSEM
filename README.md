@@ -43,48 +43,6 @@ An example of a dynamic process can be found in markets (econ) or emotions (psyc
 
 MCMSEM an now model cross sectional data as if its a part of a dynamic system (under assumtions like stationaiity, and non-gaussian disturbances, and all confounders being gausian.).
 
-## Free, fixed, and derived parameters
-
-`MCMparameter()` adds auxiliary parameters or converts an existing matrix label.
-Only free parameters are optimized; fixed and derived parameters do not consume
-degrees of freedom. This signed-gamma constraint uses one positive shape per
-innovation instead of separate skewness and excess-kurtosis parameters:
-
-```r
-model <- MCMmodel(ds, kernel = "dynamic")
-model <- MCMparameter(
-  model, "shape_Earnings", "free", start = 4, transform = "positive"
-)
-model <- MCMparameter(
-  model, "sign_Earnings", "fixed", value = -1
-)
-model <- MCMparameter(
-  model, "tau_Earnings", "derived",
-  expression = ~ sign_Earnings * 2 / sqrt(shape_Earnings)
-)
-model <- MCMparameter(
-  model, "kappa_Earnings", "derived",
-  expression = ~ 6 / shape_Earnings
-)
-
-MCMparameters(model)
-MCMdegreesoffreedom(model)
-```
-
-Expressions use a small validated language rather than arbitrary R evaluation.
-Supported operations are `+`, `-`, `*`, `/`, `^`, `sqrt()`, `exp()`, `log()`,
-`softplus()`, and `logistic()`. Free starts and fitted estimates are reported on
-their natural scale; positive and bounded parameters use unconstrained internal
-optimizer coordinates. Summaries report each parameter's type and expression,
-derived SEs use the delta method, and fixed SEs are zero when covariance is
-available.
-
-The same API works for contemporaneous models. There, diagonal `K` entries are
-raw standardized fourth moments, so the signed-gamma expression is
-`~ 3 + 6 / shape`; dynamic `Kappa` entries are fourth cumulants and use
-`~ 6 / shape`.
-
-
 ### Contemporaneous Structural MCMSEM
 
 Contemporaneous structural MCMSEM assumes that the measured variables can be represented by a set of structural equations at one conceptual occasion, such as $Y=\beta X+\varepsilon_Y$. Choosing this model means treating the causal relation as meaningful without explicitly modelling the time over which it unfolds. The coefficient $\beta$ is interpreted through an intervention: replacing the equation for $X$ by $X=x$ changes the value generated for $Y$. Any prior history, adaptation, feedback, or equilibrium process is absorbed into the variables and disturbances rather than represented explicitly. Higher-order-moment identification also requires strong disturbance assumptions: the relevant structural errors must be sufficiently non-Gaussian, their dependence structure must be correctly specified, and omitted common causes must either be absent or explicitly modelled. This model is most defensible when the variables are naturally contemporaneous constructs, when one variable plausibly acts effectively before the other within the measurement window, or when the coefficient is understood as an equilibrium or total same-occasion response. It matters greatly if reciprocal processes operate within that window: a static directional path may then summarize an integrated equilibrium relationship rather than a single mechanistic transition.
@@ -142,8 +100,7 @@ Consequently, the stationary cumulant of order $r$ is the accumulated contributi
 
 $$
 C_r = \sum_{h=0}^{\infty}
-(B^{\otimes r})^hD_r
-=
+(B^{\otimes r})^hD_r =
 (I-B^{\otimes r})^{-1}D_r.
 $$
 
@@ -160,13 +117,40 @@ $$
 The parameters in $B$ are therefore identified by the pattern produced when independent non-Gaussian innovations repeatedly propagate through the system. If correlated Gaussian residual or random-intercept components are included, their covariance $\Psi_G$ is added to $C_2$, while $C_3$ and $K_4$ remain unchanged; raw $M_4$ is then reconstructed using the total covariance $C_2+\Psi_G$.
 
 
+## Free, fixed, and derived parameters
 
-The current dynamic release supports observed states with at least two
-variables, a VAR(1) transition, fixed unit innovation variances, diagonal
-innovation third and fourth cumulants, and an optional full Gaussian residual
-covariance. It provides identity, diagonal, and full WLS moment weights plus
-asymptotic robust or efficient SEs. Latent measurement models, VAR(q), and
-combined contemporaneous-plus-lagged paths are not yet supported. 
+`MCMparameter()` adds auxiliary parameters or converts an existing matrix label. This can help users define parameteric constraints consitent with specific distributions (a gamma distribution for example). Only free parameters are optimized; fixed and derived parameters do not consume degrees of freedom. This signed-gamma constraint uses one positive shape per innovation instead of separate skewness and excess-kurtosis parameters:
+
+```r
+model <- MCMmodel(ds, kernel = "dynamic")
+model <- MCMparameter(
+  model, "shape_Earnings", "free", start = 4, transform = "positive"
+)
+model <- MCMparameter(
+  model, "sign_Earnings", "fixed", value = -1
+)
+model <- MCMparameter(
+  model, "tau_Earnings", "derived",
+  expression = ~ sign_Earnings * 2 / sqrt(shape_Earnings)
+)
+model <- MCMparameter(
+  model, "kappa_Earnings", "derived",
+  expression = ~ 6 / shape_Earnings
+)
+
+MCMparameters(model)
+MCMdegreesoffreedom(model)
+```
+
+Expressions use a small validated language rather than arbitrary R evaluation. Supported operations are `+`, `-`, `*`, `/`, `^`, `sqrt()`, `exp()`, `log()`, `softplus()`, and `logistic()`. Free starts and fitted estimates are reported on their natural scale; positive and bounded parameters use unconstrained internal optimizer coordinates. Summaries report each parameter's type and expression, derived SEs use the delta method, and fixed SEs are zero when covariance is available.
+
+The same API works for contemporaneous models. There, diagonal `K` entries are raw standardized fourth moments, so the signed-gamma expression is
+`~ 3 + 6 / shape`; dynamic `Kappa` entries are fourth cumulants and use
+`~ 6 / shape`.
+
+
+The current dynamic release supports observed states with at least two variables, a VAR(1) transition, fixed unit innovation variances, diagonal innovation third and fourth cumulants, and an optional full Gaussian residual covariance, or via the newly added constraints other parametric residuals. It provides identity, diagonal, and full WLS moment weights plus asymptotic robust or efficient SEs. Latent measurement models, VAR(q), and combined contemporaneous-plus-lagged paths are not yet supported.
+
 
 See
 [Choosing between contemporaneous and dynamic kernels](wiki/2.3%20Choosing%20a%20kernel.md)
