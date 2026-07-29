@@ -146,57 +146,6 @@ Discrete Lyapunov Models*](https://arxiv.org/abs/2601.21818), arXiv preprint
 arXiv:2601.21818.
 
 
-
-
-### Dynamic example
-
-```r
-library(MCMSEM)
-
-ds <- MCMdatasummary(
-  dat[, c("X", "Y")],
-  scale_data = FALSE,
-  use_skewness = TRUE,
-  use_kurtosis = TRUE
-)
-
-model <- MCMmodel(ds, kernel = "dynamic")
-
-# B[row, column] maps a lagged column variable to a current row variable.
-model <- MCMedit(model, "B", c(1, 1), "phi_X")
-model <- MCMedit(model, "B", c(1, 2), "Y_lag_to_X")
-model <- MCMedit(model, "B", c(2, 1), "X_lag_to_Y")
-model <- MCMedit(model, "B", c(2, 2), "phi_Y")
-
-model <- MCMedit(model, "lbound", "phi_X", 0)
-model <- MCMedit(model, "lbound", "phi_Y", 0)
-
-fit <- MCMfit(
-  model, ds,
-  compute_se = TRUE,
-  moment_weighting = "diagonal", # robust sandwich SEs
-  n_starts = 5,
-  seed = 2026
-)
-summary(fit)
-MCMdiagnostics(fit, jacobian = TRUE)
-```
-
-With fixed unit innovation variances, `scale_data = FALSE` keeps parameters on
-the data's stated measurement scale. Scaling is allowed, but changes the scale
-and therefore the target transition parameterization. Dynamic results include
-`B`, `Psi_G`, innovation cumulants, spectral radius, stationarity, unique-moment
-counts, nominal degrees of freedom, all-start diagnostics, implied `M2`, `M3`,
-`K4`, raw `M4`, residuals by moment order, the moment Jacobian and covariance,
-parameter covariance, and delta-method SEs for `Psi_G`.
-
-`MCMdatasummary(..., prep_asymptotic_se = TRUE)` estimates the sampling
-covariance of the raw central-moment vector with influence functions that
-account for estimating the means. `moment_weighting = "full"` uses its
-regularized inverse and defaults to efficient information-matrix SEs.
-`"diagonal"` and `"identity"` default to robust sandwich SEs. Analysis weights
-are not yet supported for dynamic WLS/SE calculations.
-
 ## Citation
 
 If you use this package please include the following citation:  
@@ -231,7 +180,7 @@ Below you will find a short rationale with usage examples of MCMSEM. For more de
 ### A rationale for MCMSEM: this is BIG, you should care!
 
 Let's get going, in this very short pre-tutorial I'll convince you why you should read the entire tutorial, the paper(s) and consider MCMSEM for your projects. 
-This is an advertorial, not a full review of the method with all its good and bad, that's left for the paper and the rest of this wiki.
+This is an advertorial, not a full review of the method with all its good and bad, that's left for the paper and the rest of this wiki. This is an example of the static or contemoraneous kernel:
 
 ```{r}
 library(devtools)
@@ -457,6 +406,60 @@ model2   0.0003538882    106.1665    547.5703    0.01523786 0.4219467       2285
 So in the training data (data you used to fit the model) the loss of the network model is way lower than that of the factor model, so are the chi-square statistics, the BIC. In the test data we still have a lower loss for the network model, and a lower chi-square and BIC as well. The network model does have more parameters (complexity): 20 directed edges, 5 skewness parameters, 5 variances, and 5 kurtosis parameters. The added complexity outweighs the cost because the model does (way) better in new data. 
 
 This was the advertorial, there are practical theoretical and methodological nuances and limitations, but I bet you are motivated to learn about these now!
+
+
+
+
+
+### Dynamic example
+
+```r
+library(MCMSEM)
+
+ds <- MCMdatasummary(
+  dat[, c("X", "Y")],
+  scale_data = FALSE,
+  use_skewness = TRUE,
+  use_kurtosis = TRUE
+)
+
+model <- MCMmodel(ds, kernel = "dynamic")
+
+# B[row, column] maps a lagged column variable to a current row variable.
+model <- MCMedit(model, "B", c(1, 1), "phi_X")
+model <- MCMedit(model, "B", c(1, 2), "Y_lag_to_X")
+model <- MCMedit(model, "B", c(2, 1), "X_lag_to_Y")
+model <- MCMedit(model, "B", c(2, 2), "phi_Y")
+
+model <- MCMedit(model, "lbound", "phi_X", 0)
+model <- MCMedit(model, "lbound", "phi_Y", 0)
+
+fit <- MCMfit(
+  model, ds,
+  compute_se = TRUE,
+  moment_weighting = "diagonal", # robust sandwich SEs
+  n_starts = 5,
+  seed = 2026
+)
+summary(fit)
+MCMdiagnostics(fit, jacobian = TRUE)
+```
+
+With fixed unit innovation variances, `scale_data = FALSE` keeps parameters on
+the data's stated measurement scale. Scaling is allowed, but changes the scale
+and therefore the target transition parameterization. Dynamic results include
+`B`, `Psi_G`, innovation cumulants, spectral radius, stationarity, unique-moment
+counts, nominal degrees of freedom, all-start diagnostics, implied `M2`, `M3`,
+`K4`, raw `M4`, residuals by moment order, the moment Jacobian and covariance,
+parameter covariance, and delta-method SEs for `Psi_G`.
+
+`MCMdatasummary(..., prep_asymptotic_se = TRUE)` estimates the sampling
+covariance of the raw central-moment vector with influence functions that
+account for estimating the means. `moment_weighting = "full"` uses its
+regularized inverse and defaults to efficient information-matrix SEs.
+`"diagonal"` and `"identity"` default to robust sandwich SEs. Analysis weights
+are not yet supported for dynamic WLS/SE calculations.
+
 
 ### More information
 
