@@ -99,8 +99,6 @@ $$
 Consequently, the stationary cumulant of order $r$ is the accumulated contribution of innovations from all previous times:
 
 $$
-C_r = \sum_{h=0}^{\infty}
-(B^{\otimes r})^hD_r =
 (I-B^{\otimes r})^{-1}D_r.
 $$
 
