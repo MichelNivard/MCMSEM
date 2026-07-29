@@ -38,7 +38,9 @@ Which kernel you pick, essentially the choice you make with respect to how to mo
 
 An example of a dynamic process can be found in markets (econ) or emotions (psychology), for example:
 
-> if I dont sleep well tonight (day = t-2), il be tired tomorrow (day = t), if I then do sleep well (day = t), ill not be tired the day after tomorrow (day = t). MCMSEM an now model cross secitonal data as if its a part of a dynamic system (under assum[tions like stationaiity, and non-gaussian disturbances, and all confounders being gausian.).
+> if I dont sleep well tonight (day = t-2), il be tired tomorrow (day = t), if I then do sleep well (day = t), ill not be tired the day after tomorrow (day = t).
+
+MCMSEM an now model cross sectional data as if its a part of a dynamic system (under assumtions like stationaiity, and non-gaussian disturbances, and all confounders being gausian.).
 
 
 ### Contemporaneous Structural MCMSEM
