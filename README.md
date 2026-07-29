@@ -48,7 +48,6 @@ MCMSEM an now model cross sectional data as if its a part of a dynamic system (u
 
 Contemporaneous structural MCMSEM assumes that the measured variables can be represented by a set of structural equations at one conceptual occasion, such as $Y=\beta X+\varepsilon_Y$. Choosing this model means treating the causal relation as meaningful without explicitly modelling the time over which it unfolds. The coefficient $\beta$ is interpreted through an intervention: replacing the equation for $X$ by $X=x$ changes the value generated for $Y$. Any prior history, adaptation, feedback, or equilibrium process is absorbed into the variables and disturbances rather than represented explicitly. Higher-order-moment identification also requires strong disturbance assumptions: the relevant structural errors must be sufficiently non-Gaussian, their dependence structure must be correctly specified, and omitted common causes must either be absent or explicitly modelled. This model is most defensible when the variables are naturally contemporaneous constructs, when one variable plausibly acts effectively before the other within the measurement window, or when the coefficient is understood as an equilibrium or total same-occasion response. It matters greatly if reciprocal processes operate within that window: a static directional path may then summarize an integrated equilibrium relationship rather than a single mechanistic transition.
 
-### Contemporaneous Structural MCMSEM — moment equations
 
 The contemporaneous kernel uses the existing **Reticular Action Model (RAM)** specification. Here, $F$ maps the complete set of observed and latent variables onto the observed variables, $I$ is the identity matrix, $A$ contains the directed structural paths, and $S_2$, $S_3$, and $S_4$ contain the freely specified second-, third-, and fourth-order disturbance co-moments. The expected co-moment matrices are
 
@@ -125,18 +124,29 @@ variables, a VAR(1) transition, fixed unit innovation variances, diagonal
 innovation third and fourth cumulants, and an optional full Gaussian residual
 covariance. It provides identity, diagonal, and full WLS moment weights plus
 asymptotic robust or efficient SEs. Latent measurement models, VAR(q), and
-combined contemporaneous-plus-lagged paths are not yet supported. See
+combined contemporaneous-plus-lagged paths are not yet supported. 
+
+See
 [Choosing between contemporaneous and dynamic kernels](wiki/2.3%20Choosing%20a%20kernel.md)
 for the conceptual assumptions, identification conditions, continuous-time
-connection, and limitations. The original MCM-SEM framework is described by
+connection, and limitations. 
+
+The original MCM-SEM framework is described by
 Tamimy et al. (2022), [*Multi Co-Moment Structural Equation Models: Discovering
 Direction of Causality in the Presence of
-Confounding*](https://doi.org/10.31235/osf.io/ynam2). The cumulant-identification
+Confounding*](https://doi.org/10.31235/osf.io/ynam2). 
+
+The RAM specification for higher order moments was developed by: Boudt, K., Cornilly, D., & Verdonck, T. (2020). Nearest comoment estimation with unobserved factors. Journal of Econometrics, 217(2), 381–397. https://doi.org/10.1016/j.jeconom.2019.12.009
+
+The cumulant-identification
 framework and discrete Lyapunov formulation underlying the dynamic kernel build
 on Cecilie Olesen Recke, Sarah Lumpp, Nataliia Kushnerchuk, Janike Oldekop,
 Jiayi Li, Jane Ivy Coons, and Elina Robeva (2026), [*Identifiability in Graphical
 Discrete Lyapunov Models*](https://arxiv.org/abs/2601.21818), arXiv preprint
 arXiv:2601.21818.
+
+
+
 
 ### Dynamic example
 
