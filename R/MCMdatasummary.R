@@ -43,7 +43,7 @@ MCMdatasummary <- function(data=NULL, path=NULL, weights=NULL, scale_data=TRUE, 
     weighted <- !(is.null(weights))
     if (weighted) {weightsum <- sum(weights)} else {weightsum <- nrow(data)}
     if (debug) {cat("MCMdatasummary calculating comoments:\n")}
-    comoments <- .get_comoments(data, weight=weights, debug=debug)
+    comoments <- .get_comoments(data, weights=weights, debug=debug)
     n <- nrow(data)
 
     if (prep_asymptotic_se) {
@@ -78,6 +78,19 @@ MCMdatasummary <- function(data=NULL, path=NULL, weights=NULL, scale_data=TRUE, 
         S.m <- .jit_t4crossprod$fn(data, dim2locs, dim3locs, torch_tensor(0))
       } else {
         S.m <- .jit_t4crossprod$fn(data, dim2locs, torch_tensor(0), torch_tensor(0))
+      }
+
+      # Convert casewise products to influence functions for central moments.
+      # This accounts for estimation of the sample mean. For example, the
+      # third-moment influence function subtracts x_i M2_jk + x_j M2_ik +
+      # x_k M2_ij. Covariance of these influence functions divided by N is the
+      # asymptotic covariance of the raw central-moment vector used by MCMSEM.
+      if (!weighted) {
+        S.m <- .central_moment_influence_values(
+          S.m, data, comoments$M2, comoments$M3,
+          use_skewness = use_skewness,
+          use_kurtosis = use_kurtosis
+        )
       }
 
       # S.m <- cov(t(S.m))/(n-1)
@@ -118,7 +131,11 @@ MCMdatasummary <- function(data=NULL, path=NULL, weights=NULL, scale_data=TRUE, 
       SE <- list(
         computed=TRUE,
         S.m=S.m,
-        idx=idx
+        idx=idx,
+        representation=if (weighted) "legacy_weighted_moment_products" else
+          "raw_central_moments",
+        influence_function_corrected=!weighted,
+        covariance_scale="Var(sample moment vector)"
       )
     } else {
       SE <- list(computed=FALSE, S.m=NULL, idx=NULL)
@@ -132,7 +149,4 @@ MCMdatasummary <- function(data=NULL, path=NULL, weights=NULL, scale_data=TRUE, 
 MCMsavesummary <- function(summaryobj, path, debug=FALSE) {
   summaryobj$save(path, debug=debug)
 }
-
-
-
 

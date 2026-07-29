@@ -18,6 +18,52 @@
   return(vect)
 }
 
+.central_moment_influence_values <- function(values, data, M2, M3,
+                                             use_skewness = TRUE,
+                                             use_kurtosis = TRUE) {
+  p <- ncol(data)
+  centered <- data - torch_reshape(torch_mean(data, dim = 1), c(1, p))
+  dtype <- data$dtype
+  device <- data$device
+  M2 <- torch_tensor(M2, dtype = dtype, device = device)
+  M3 <- torch_tensor(M3, dtype = dtype, device = device)
+  offset <- choose(p + 1L, 2L)
+
+  if (isTRUE(use_skewness)) {
+    grid3 <- .dynamic_unique_indices(p, 3L)
+    for (column in seq_len(nrow(grid3))) {
+      i <- grid3[column, 1]
+      j <- grid3[column, 2]
+      k <- grid3[column, 3]
+      correction <- centered[, i] * M2[j, k] +
+        centered[, j] * M2[i, k] +
+        centered[, k] * M2[i, j]
+      values[, offset + column] <- values[, offset + column] - correction
+    }
+    offset <- offset + nrow(grid3)
+  }
+
+  if (isTRUE(use_kurtosis)) {
+    grid4 <- .dynamic_unique_indices(p, 4L)
+    for (column in seq_len(nrow(grid4))) {
+      i <- grid4[column, 1]
+      j <- grid4[column, 2]
+      k <- grid4[column, 3]
+      l <- grid4[column, 4]
+      m3 <- function(a, b, c) {
+        idx <- .nd_to_2d_idx(p, a, b, c)
+        M3[idx$x, idx$y]
+      }
+      correction <- centered[, i] * m3(j, k, l) +
+        centered[, j] * m3(i, k, l) +
+        centered[, k] * m3(i, j, l) +
+        centered[, l] * m3(i, j, k)
+      values[, offset + column] <- values[, offset + column] - correction
+    }
+  }
+  values
+}
+
 ######## Compute Jacobian:
 .jac.fn_torch <- function(par_vec, .par_list, par_to_list_coords, torch_masks, torch_maps, base_matrices, use_skewness, use_kurtosis, m2vmasks1d, device, diag_s, low_memory, .jit_slownecker) {
   

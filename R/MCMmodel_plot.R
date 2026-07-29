@@ -1,4 +1,17 @@
-plot.mcmmodelclass <- function(model,layout = NULL, use_values=FALSE, ...) {
+plot.mcmmodelclass <- function(x, layout = NULL, use_values=FALSE, ...) {
+  model <- x
+if (identical(.model_kernel(model), "dynamic")) {
+  B <- model$num_matrices$B
+  rownames(B) <- colnames(B) <- model$meta_data$original_colnames
+  if (is.null(layout)) layout <- "circle"
+  if (use_values) {
+    return(qgraph(t(B), layout=layout, diag=TRUE, ...))
+  }
+  structure_only <- B
+  structure_only[,] <- as.numeric(model$named_matrices$B != "0")
+  return(qgraph(t(structure_only), layout=layout, diag=TRUE,
+                mode="direct", weighted=FALSE, ...))
+}
   place.latents <- floor(quantile(seq_len(model$meta_data$n_latent),seq_len(model$meta_data$n_latent)/(model$meta_data$n_latent)))
 if (model$meta_data$n_latent == 1) place.latents <- place.latents + 0.5
 if (model$meta_data$n_phenotypes < 10) {

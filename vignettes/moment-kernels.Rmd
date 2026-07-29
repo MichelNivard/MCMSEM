@@ -1,0 +1,190 @@
+---
+title: "Contemporaneous and Stationary Dynamic MCMSEM"
+author: "MCMSEM developers"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Contemporaneous and Stationary Dynamic MCMSEM}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(collapse = TRUE, comment = "#>", eval = FALSE)
+```
+
+MCMSEM 0.27.0 exposes the model's time assumption through `kernel`:
+
+```{r}
+MCMmodel(ds, kernel = "contemporaneous") # default
+MCMmodel(ds, kernel = "dynamic")
+```
+
+`kernel = "static"` is a supported, silent alias for `"contemporaneous"`.
+Legacy summaries and models without kernel metadata are treated as
+contemporaneous. Partial matching is not accepted.
+
+## Contemporaneous Structural MCMSEM
+
+The contemporaneous kernel represents structural equations at one conceptual
+occasion, such as (Y = \beta X + \epsilon_Y). Replacing the equation for (X)
+changes the value generated for (Y), but the model has no explicit transition
+from (t) to (t+1). History, adaptation, feedback, and equilibrium are
+absorbed into variables, disturbances, or the path's interpretation. Higher
+moments can identify a direction within the assumed structure; they do not add
+a temporal order absent from the model.
+
+This kernel is appropriate when a same-occasion intervention is meaningful at
+the measurement scale, when one variable plausibly acts before another inside
+the measurement window, or when a path is explicitly interpreted as an
+integrated or equilibrium response. The existing propagation is unchanged:
+
+\[
+M_2 = F_m(I-A)^{-1}S(I-A)^{-T}F_m^T.
+\]
+
+## Stationary Dynamic MCMSEM
+
+The dynamic kernel represents repeated, time-homogeneous transitions:
+
+\[
+z_t = Bz_{t-1} + \varepsilon_t.
+\]
+
+Even when only one stationary cross-section is fitted, the model retains time:
+
+\[
+z_t = \varepsilon_t + B\varepsilon_{t-1} + B^2\varepsilon_{t-2} + \cdots.
+\]
+
+For order (r), MCMSEM solves
+
+\[
+C_r = (I-B^{\otimes r})^{-1}D_r
+\]
+
+for orders two, three, and four. Linear solves are used instead of explicit
+inverses. Innovation covariance is fixed to (D_2=I). Only diagonal entries of
+(D_3) and (D_4) are free, expressing mutually independent innovations with
+fixed scale. Stationarity is enforced through \(\rho(B)<1\); autoregressions
+default to nonnegative lower bounds while cross-lagged paths remain signed.
+
+The lag interval is substantive. A daily transition and an annual transition
+are different parameters. This model is more explicit about dynamics, but also
+requires stable repeated transitions, serially independent innovations,
+stationarity, and an adequate chosen lag.
+
+## Gaussian residual covariance and fourth moments
+
+The observed cross-section may include an independent Gaussian component,
+(y_t=z_t+G), with (G\sim N(0,\Psi_G)). A Cholesky parameterization guarantees
+that \(\Psi_G\) is positive semidefinite throughout optimization. It changes
+covariance but not third or fourth cumulants. Raw fourth moments use the total
+covariance \(\Sigma_y=C_2+\Psi_G\):
+
+\[
+M_{4,ijkl}=K_{4,ijkl}+\Sigma_{ij}\Sigma_{kl}
+ +\Sigma_{ik}\Sigma_{jl}+\Sigma_{il}\Sigma_{jk}.
+\]
+
+## WLS weighting and asymptotic standard errors
+
+Let \(s\) contain the unique raw central moments and let
+\(\sigma(\theta)\) contain their dynamic model predictions. The quadratic
+criterion is
+
+\[
+F(\theta)=(s-\sigma(\theta))^T W(s-\sigma(\theta)).
+\]
+
+`MCMdatasummary(..., prep_asymptotic_se = TRUE)` estimates
+\(\Omega=\operatorname{Var}(s)\). Its casewise influence functions account for
+estimating the sample means in third- and fourth-order central moments. Dynamic
+fits support identity weights, inverse marginal variances (`"diagonal"`), or a
+regularized \(\Omega^{-1}\) (`"full"`).
+
+For \(\Delta=\partial\sigma(\theta)/\partial\theta^T\), identity and diagonal
+weights default to the robust sandwich covariance
+
+\[
+(\Delta^T W\Delta)^{-1}\Delta^T W\Omega W\Delta
+(\Delta^T W\Delta)^{-1}.
+\]
+
+Full WLS defaults to \((\Delta^T\Omega^{-1}\Delta)^{-1}\). The result stores
+both robust and model-based matrices; `se_correction` selects which is reported.
+SEs for the Cholesky-parameterized \(\Psi_G\) are computed with the delta
+method. Because \(\Omega\) here is already the sampling covariance of \(s\), it
+already contains the \(1/N\) scale and is not divided by \(N\) again.
+
+Wald SEs are a local, unconstrained approximation. Rank alone is insufficient:
+inspect the reported information condition number, and be cautious when a fit
+is nearly saturated or a bound/stationarity constraint is active. The bundled
+50-replication calibration records good first-order agreement in an
+eight-parameter overidentified model and severe conservatism in the weakly
+identified 11-parameter bivariate Gaussian-residual model; see
+`inst/validation/README.md`.
+
+## Identification
+
+Two variables provide 3 covariance, 4 third-order, and 5 fourth-order unique
+moments. The full bivariate dynamic model has 4 transitions, 2 third cumulants,
+2 fourth cumulants, and 3 Gaussian covariance parameters: 11 parameters and one
+nominal degree of freedom. This count does not prove global identification.
+Identification depends on informative and distinct non-Gaussian cumulant
+profiles, innovation independence, fixed scale, stationarity, and no omitted
+non-Gaussian confounding. Similar or nearly Gaussian innovations can create weak
+identification and multiple low-loss states.
+
+The original MCM-SEM framework is described by Zenab Tamimy, Elsje van Bergen,
+Matthijs D. van der Zee, Conor V. Dolan, and Michel G. Nivard (2022),
+[*Multi Co-Moment Structural Equation Models: Discovering Direction of
+Causality in the Presence of
+Confounding*](https://doi.org/10.31235/osf.io/ynam2), SocArXiv. The
+cumulant-identification framework and discrete Lyapunov formulation underlying
+the dynamic kernel build on Cecilie Olesen Recke, Sarah Lumpp, Nataliia
+Kushnerchuk, Janike Oldekop, Jiayi Li, Jane Ivy Coons, and Elina Robeva (2026),
+[*Identifiability in Graphical Discrete Lyapunov
+Models*](https://arxiv.org/abs/2601.21818), arXiv preprint arXiv:2601.21818.
+
+## Workflow
+
+```{r}
+ds <- MCMdatasummary(
+  dat[, c("X", "Y")],
+  scale_data = FALSE,
+  use_skewness = TRUE,
+  use_kurtosis = TRUE
+)
+model <- MCMmodel(ds, kernel = "dynamic")
+model <- MCMedit(model, "B", c(1, 1), "phi_X")
+model <- MCMedit(model, "B", c(1, 2), "Y_lag_to_X")
+model <- MCMedit(model, "B", c(2, 1), "X_lag_to_Y")
+model <- MCMedit(model, "B", c(2, 2), "phi_Y")
+model <- MCMedit(model, "lbound", "phi_X", 0)
+model <- MCMedit(model, "lbound", "phi_Y", 0)
+fit <- MCMfit(
+  model, ds, compute_se = TRUE,
+  moment_weighting = "diagonal", n_starts = 5, seed = 2026
+)
+summary(fit)
+MCMdiagnostics(fit, jacobian = TRUE)
+```
+
+Use `scale_data = FALSE` when the fixed unit-innovation scale should refer to the
+data's stated measurement units. Scaling is allowed, but changes the target
+parameterization.
+
+## Scope and future work
+
+This release supports observed-state VAR(1) models with at least two variables,
+independent unit-variance innovations, diagonal higher cumulants, optional full
+Gaussian residual covariance, moments through order four, WLS weighting, and
+asymptotic SEs. Latent measurement models are not yet supported. Dynamic WLS
+and SE calculations currently exclude analysis weights and require summaries
+prepared by MCMSEM 0.27.0 or later.
+
+A continuous-time analogue is (dz(t)=A z(t)dt+dL(t)), with
+(B(\Delta)=\exp(A\Delta)). Future work may add continuous-time cumulants,
+VAR(q), combined contemporaneous and lagged paths, nonlinear or regime-switching
+dynamics, nonstationarity, latent measurement models, non-Gaussian confounders,
+and trajectory-level interventions.

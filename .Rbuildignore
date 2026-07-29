@@ -1,4 +1,11 @@
 ^.*\.Rproj$
 ^\.Rproj\.user$
 ^\.idea$
+^validation-output$
+^wiki$
+^imgs$
+^PATCHNOTES\.md$
+^MCMSEM_.*\.tar\.gz$
+^MCMSEM\.Rcheck$
+^Rplots\.pdf$
 .Rhistory

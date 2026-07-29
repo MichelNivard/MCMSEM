@@ -14,14 +14,16 @@ MCMsavesummary(summaryobj, path, debug=FALSE)
 }
 
 \examples{
-    rawdata <- simulate_data(asdataframe=TRUE)
+    rawdata <- simulate_data(n=1000, asdataframe=TRUE)
 
     # Create summary
-    mysummary <- MCMdatasummary(rawdata)
+    mysummary <- MCMdatasummary(rawdata, prep_asymptotic_se=FALSE)
 
     # Save summary
-    MCMsavesummary(mysummary, "path/to/summary")
+    path <- tempfile()
+    MCMsavesummary(mysummary, path)
 
     # Load summary
-    my_other_summary <- MCMdatasummary(path="path/to/summary.mcmdata")
+    my_other_summary <- MCMdatasummary(path=paste0(path, ".mcmdata"))
+    unlink(paste0(path, ".mcmdata"))
 }

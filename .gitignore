@@ -4,3 +4,7 @@
 .Rproj.user
 .Rhistory
 test-simulations/
+validation-output/
+MCMSEM_*.tar.gz
+MCMSEM.Rcheck/
+Rplots.pdf
