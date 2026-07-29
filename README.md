@@ -17,7 +17,7 @@ If you are new to this version of MCMSEM we highly recommend reading our Wiki be
 
 ## Choosing a moment kernel
 
-MCMSEM now makes the scientific time assumption explicit:
+MCMSEM now makes the scientific assumptions about whether to consider, or include, time in the model as a variable explicit:
 
 ```r
 # Existing behavior and the default
@@ -29,26 +29,72 @@ dynamic_model <- MCMmodel(ds, kernel = "dynamic")
 
 `kernel = "static"` is a supported, silent alias for `"contemporaneous"`.
 Legacy summary and model objects without kernel metadata are also treated as
-contemporaneous. The two kernels answer different questions.
+contemporaneous. The two kernels let the user specify slighlty different types of models and help answer different slightly questions.
+
+Why would we care about this kind of nuance? We (the developers) envision people will use MCMSEM alongside other estimation methods, as the assumptions about moments are novel to many users and people would want some external validaiton. One of the methods we could see people using  MCMSEM alongside in psychology would be (random intercept) cross lagged panel models, across 3+ waves of data. Those models define "causal" paths from variabe y on x across time, where y at t-1 influences x at t, as in MCMSEM you'd model the distubances as non-guasian, we'd need a way to model the disturbance of y at t, which hasn't influences x contemoreneously at t yet. This means that to get the same estimate/estimnd out of MCMSEm as you'd get out of a stationary R(RI)CLPM, you have to model explict disturbances at each time point t. This requires the new "dynamic" kernel.
+
 
 ### Contemporaneous Structural MCMSEM
 
-The contemporaneous kernel models structural relations at one conceptual
-occasion. A path such as `Y ~ X` says that replacing the structural equation for
-`X` changes the value generated for `Y`; it does not add an explicit transition
-from one time point to the next. Higher-order moments may help identify a
-direction within this model, but do not create temporal order that the model
-does not contain.
+Contemporaneous structural MCMSEM assumes that the measured variables can be represented by a set of structural equations at one conceptual occasion, such as $Y=\beta X+\varepsilon_Y$. Choosing this model means treating the causal relation as meaningful without explicitly modelling the time over which it unfolds. The coefficient $\beta$ is interpreted through an intervention: replacing the equation for $X$ by $X=x$ changes the value generated for $Y$. Any prior history, adaptation, feedback, or equilibrium process is absorbed into the variables and disturbances rather than represented explicitly. Higher-order-moment identification also requires strong disturbance assumptions: the relevant structural errors must be sufficiently non-Gaussian, their dependence structure must be correctly specified, and omitted common causes must either be absent or explicitly modelled. This model is most defensible when the variables are naturally contemporaneous constructs, when one variable plausibly acts effectively before the other within the measurement window, or when the coefficient is understood as an equilibrium or total same-occasion response. It matters greatly if reciprocal processes operate within that window: a static directional path may then summarize an integrated equilibrium relationship rather than a single mechanistic transition.
+
+In the contemporaneous kernel, the structural equations can be written as $z=Az+\varepsilon$, so that $z=(I-A)^{-1}\varepsilon$. If $F_m$ maps the full structural system onto the observed variables, define $L=F_m(I-A)^{-1}$. The model-implied covariance is then
+
+$$
+M_2 = LSL^T,
+$$
+
+where $S$ is the disturbance covariance matrix. The same transformation propagates the non-Gaussian disturbance cumulants into the observed co-skewness and co-kurtosis:
+
+$$
+C_3 = L^{\otimes 3}D_3,
+\qquad
+K_4 = L^{\otimes 4}D_4.
+$$
+
+Here $D_3$ and $D_4$ contain the third- and fourth-order disturbance cumulants. Thus, the paths in $A$ are identified by how a single contemporaneous structural transformation mixes the disturbance covariance, skewness and kurtosis. When MCMSEM compares raw fourth moments rather than fourth cumulants, $K_4$ is converted back to $M_4$ by adding the covariance-pairing terms implied by $M_2$.
+
 
 ### Stationary Dynamic MCMSEM
 
-The dynamic kernel models repeated, time-homogeneous transitions
-`z[t] = B z[t-1] + epsilon[t]`. It can be fitted to the stationary moments of a
-single cross-section because prior shocks accumulate as
-`epsilon[t] + B epsilon[t-1] + B^2 epsilon[t-2] + ...`. Entries of `B` therefore
-refer to the chosen lag interval. The assumptions are stronger: innovations are
-serially independent and mutually independent, the transition is stable and
-time-homogeneous, and the process has reached stationarity.
+Stationary dynamic MCMSEM assumes instead that the world evolves through repeated, time-homogeneous transitions, $z_t=Bz_{t-1}+\varepsilon_t$. Selecting it commits you to a particular temporal resolution: the effects in $B$ occur over one chosen lag, the same transition matrix operates at every wave, the innovation distribution is stable over time, and the process has reached stationarity. It also assumes that innovations are independent across time and, for the identifying higher-order-moment argument, that the non-Gaussian innovation components have the specified independence structure. Stable Gaussian confounding may be represented separately through a residual covariance matrix. The cross-sectional distribution is then interpreted as the accumulated result of infinitely many past shocks, not as a timeless structural relation. This matters because changing the measurement interval changes the meaning and usually the numerical value of $B$: a one-day cross-lag is not the same parameter as a one-year cross-lag. The dynamic model is therefore mechanistically clearer, but it buys that clarity by imposing stronger assumptions about stationarity, lag structure, and the absence of unmodelled intermediate dynamics.
+
+
+In the dynamic kernel, the matrix $B$ does not transform the innovations only once. Each past innovation has passed through the transition matrix a different number of times:
+
+$$
+z_t
+===
+
+\varepsilon_t+B\varepsilon_{t-1}+B^2\varepsilon_{t-2}+\cdots.
+$$
+
+Consequently, the stationary cumulant of order $r$ is the accumulated contribution of innovations from all previous times:
+
+$$
+C_r
+===
+
+\sum_{h=0}^{\infty}
+(B^{\otimes r})^hD_r
+====================
+
+(I-B^{\otimes r})^{-1}D_r.
+$$
+
+In particular,
+
+$$
+C_2=(I-B^{\otimes2})^{-1}D_2,
+\qquad
+C_3=(I-B^{\otimes3})^{-1}D_3,
+\qquad
+K_4=(I-B^{\otimes4})^{-1}D_4.
+$$
+
+The parameters in $B$ are therefore identified by the pattern produced when independent non-Gaussian innovations repeatedly propagate through the system. If correlated Gaussian residual or random-intercept components are included, their covariance $\Psi_G$ is added to $C_2$, while $C_3$ and $K_4$ remain unchanged; raw $M_4$ is then reconstructed using the total covariance $C_2+\Psi_G$.
+
+
 
 The current dynamic release supports observed states with at least two
 variables, a VAR(1) transition, fixed unit innovation variances, diagonal
