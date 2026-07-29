@@ -5,9 +5,11 @@
   Generate an MCMmodelclass object from the shape of observed data
 }
 \usage{
-MCMmodel(data, n_latent=1, constrained_a=TRUE, scale_data=TRUE, weights=NULL, latent_names=NULL,
+MCMmodel(data, n_latent=1, constrained_a=TRUE, scale_data=TRUE,
+         weights=NULL, latent_names=NULL,
          causal_observed=TRUE, var_observed=TRUE, skew_observed=TRUE, kurt_observed=TRUE,
-         causal_latent=FALSE, var_latent=FALSE, skew_latent=FALSE, kurt_latent=FALSE)
+         causal_latent=FALSE, var_latent=FALSE, skew_latent=FALSE, kurt_latent=FALSE,
+         kernel="contemporaneous", gaussian_residual=TRUE)
 }
 \arguments{
   \item{data}{Either an MCM data summary object, or a matrix or dataframe for which the model will be built}
@@ -24,12 +26,20 @@ MCMmodel(data, n_latent=1, constrained_a=TRUE, scale_data=TRUE, weights=NULL, la
   \item{var_latent}{Adds free parameters for variances of latent factors}
   \item{skew_latent}{Adds free parameters for skewness of latent factors}
   \item{kurt_latent}{Adds free parameters for kurtosis of latent factors}
+  \item{kernel}{Exact kernel name: \code{"contemporaneous"} (the default) or
+  \code{"dynamic"}. The deprecated alias \code{"static"} warns and maps to
+  \code{"contemporaneous"}.}
+  \item{gaussian_residual}{For a dynamic model, estimate a full Gaussian
+  residual/random-intercept covariance using a Cholesky parameterization.}
 }
 \value{
   Returns an MCMmodelclass object
 }
 
 \examples{
-    mysummary <- simulate_data()
+    mysummary <- simulate_data(n=1000, prep_asymptotic_se=FALSE)
     mymodel <- MCMmodel(mysummary)
+
+    # The dynamic kernel currently supports observed states only.
+    dynamic_model <- MCMmodel(mysummary, kernel="dynamic")
 }

@@ -5,9 +5,9 @@
   Simulates data for a multi co-moment structural equation model
 }
 \usage{
-simulate_data <- function(n=500000, a=matrix(c(0.35, 0.35), ncol=1), b=matrix(c(1,-.1, .3,1), 2, 2),
-                          shape=c(4, 0), df=c(0, 10),
-                          asdataframe=FALSE, ...)
+simulate_data(n=500000, a=matrix(c(0.35, 0.35), ncol=1),
+              b=matrix(c(0,-.1, .3,0), 2, 2), shape=c(4, 0),
+              df=c(0, 10), asdataframe=FALSE, ...)
 }
 \arguments{
   \item{n}{Sample size}
@@ -23,5 +23,5 @@ simulate_data <- function(n=500000, a=matrix(c(0.35, 0.35), ncol=1), b=matrix(c(
 }
 
 \examples{
-  simulate_data()
+  simulate_data(n=1000, prep_asymptotic_se=FALSE)
 }

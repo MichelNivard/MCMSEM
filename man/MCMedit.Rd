@@ -9,7 +9,9 @@ MCMedit(model, pointer, name, value)
 }
 \arguments{
   \item{model}{Existing MCMmodelclass object}
-  \item{pointer}{Pointer to the location of the value(s) that should be changed. Either label of a matrix or one of c('bound', 'ubound', 'lbound', 'start').}
+  \item{pointer}{Pointer to the location of the value(s) that should be changed.
+  Either a matrix label or one of c('bound', 'ubound', 'lbound', 'start').
+  Dynamic matrices are \code{B}, \code{Tau}, \code{Kappa}, and \code{L_G}.}
   \item{name}{Name (or location) of the parameter(s) that should be changed.}
   \item{value}{New value, this can be a string (to create a new parameter), or a number, to change specific values.}
 }
@@ -18,32 +20,11 @@ MCMedit(model, pointer, name, value)
 }
 
 \examples{
-    mysummary <- simulate_data()
-    mymodel <- MCMmodel(mysummary)
+    mysummary <- simulate_data(n=1000, prep_asymptotic_se=FALSE)
+    mymodel <- MCMmodel(mysummary, kernel="dynamic")
 
-    # free f1 variance, i.e. make it a parameter rather than hard value
-    mymodel <- MCMedit(mymodel, "Fm", c(1, 2), "fm1")
-
-    # Constrain b1_1 to zero
-    mymodel <- MCMedit(mymodel, "A", "b1_1", 0)
-
-    # Change lower bound of a1 to -.5
-    mymodel <- MCMedit(mymodel, "lbound", "a1", -.5)
-
-    # Change the upper bound of a1 to 2
-    mymodel <- MCMedit(mymodel, "ubound", "a1", 2)
-
-    # Set lower and upper bounds of a1 to c(-1, 1)
-    mymodel <- MCMedit(mymodel, "bound", "a1", c(-1, 1))
-
-    # Set lower and upper bounds of all b parameters to -1, 1
-    mymodel <- MCMedit(mymodel, "bound", "b", c(-1, 1))
-
-    # Set upper bound of all k parameters to 200
-    mymodel <- MCMedit(mymodel, "ubound", "k", 200)
-
-    # Set the starting value of b2 to 1.5
-    mymodel <- MCMedit(mymodel, "start", "b2", 1.5)
-    # Set the starting value of all a parameters to 1.0
-    mymodel <- MCMedit(mymodel, "start", "a", 1.0)
+    # Rename a cross-lagged transition and edit its start and bounds.
+    mymodel <- MCMedit(mymodel, "B", c(1, 2), "Y_lag_to_X")
+    mymodel <- MCMedit(mymodel, "start", "Y_lag_to_X", 0.1)
+    mymodel <- MCMedit(mymodel, "bound", "Y_lag_to_X", c(-0.8, 0.8))
 }

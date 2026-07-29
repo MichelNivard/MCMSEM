@@ -5,7 +5,8 @@
   Compare loss of fitted MCM modelds given a specific dataset
 }
 \usage{
-MCMcompareloss(results, test_data, weights=NULL, loss_type='auto', extensive_model_info=FALSE)
+MCMcompareloss(results, test_data, weights=NULL, loss_type='auto',
+               extensive_model_info=FALSE)
 }
 \arguments{
   \item{results}{list of MCM result objects. Names of list will be used as rownames of the output dataframe. If no names are provided they will be named model1, model2, ... etc}
@@ -19,19 +20,27 @@ MCMcompareloss(results, test_data, weights=NULL, loss_type='auto', extensive_mod
 }
 
 \examples{
-    mydata <- simulate_data(asdataframe=TRUE)
+    mydata <- simulate_data(n=3000, asdataframe=TRUE)
 
     # Split data in train and test sample
-    split <- sample(c(1,2), nrow(data), prob=c(0.8, 0.2), replace=TRUE)
+    split <- sample(c(1,2), nrow(mydata), prob=c(0.5, 0.5), replace=TRUE)
     mydata_train <- mydata[split == 1, ]
     mydata_test <- mydata[split == 2, ]
 
     # Generate and fit models on trainsample
-    mydatasummary_train <- MCMdatasummary(mydata_train)
+    mydatasummary_train <- MCMdatasummary(
+      mydata_train, prep_asymptotic_se=FALSE
+    )
     mymodel <- MCMmodel(mydatasummary_train)
     mymodel2 <- MCMmodel(mydatasummary_train)
-    my_result1 <- MCMfit(mymodel, mydatasummary_train)
-    my_result2 <- MCMfit(mymodel2, mydatasummary_train)
+    my_result1 <- MCMfit(
+      mymodel, mydatasummary_train, compute_se=FALSE,
+      optimizers="lbfgs", optim_iters=1, learning_rate=0.1
+    )
+    my_result2 <- MCMfit(
+      mymodel2, mydatasummary_train, compute_se=FALSE,
+      optimizers="lbfgs", optim_iters=1, learning_rate=0.1
+    )
 
     # compare loss in test sample
     MCMcompareloss(list(my_result1, my_result2), mydata_test)

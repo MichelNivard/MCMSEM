@@ -5,10 +5,17 @@
   Fits an MCM sturctural equation model as defined in the MCMmodelclass object
 }
 \usage{
-MCMfit(mcmmodel, data, weights=NULL, compute_se=TRUE, se_type='asymptotic', optimizers=c("rprop", "lbfgs"),
-       optim_iters=c(50, 12), learning_rate=c(0.02, 1), loss_type='mse', bootstrap_iter=200, bootstrap_chunks=1000,
-       use_bounds=TRUE, use_skewness=TRUE, use_kurtosis=TRUE, device=NULL, device_se=NULL, low_memory=FALSE,
-       outofbounds_penalty=1, monitor_grads=FALSE, jacobian_method='simple', debug=FALSE)
+MCMfit(mcmmodel, data, weights=NULL, compute_se=TRUE,
+       se_type='asymptotic', optimizers=c("rprop", "lbfgs"),
+       optim_iters=c(50, 12), loss_type='mse', bootstrap_iter=200,
+       bootstrap_chunks=1000, learning_rate=c(0.02, 1),
+       use_bounds=TRUE, use_skewness=TRUE, use_kurtosis=TRUE,
+       device=NULL, device_se=NULL, low_memory=FALSE,
+       outofbounds_penalty=1, monitor_grads=FALSE, jacobian_method='simple', debug=FALSE,
+       n_starts=1L, seed=NULL, stationarity_limit=0.995,
+       stationarity_penalty=1e6, verbose=debug,
+       moment_weighting="identity", se_correction="auto",
+       weight_ridge=1e-8)
 }
 \arguments{
   \item{mcmmodel}{MCMmodelclass object}
@@ -21,7 +28,7 @@ MCMfit(mcmmodel, data, weights=NULL, compute_se=TRUE, se_type='asymptotic', opti
   \item{learning_rate}{Learning rates for the optimizers defined in optimizers. Should be of length 1 or length(optimizers)}
   \item{loss_type}{How to compute loss, should be one of 'mse' (mean squared errors), or 'smooth_l1' (smooth L1).}
   \item{bootstrap_iter}{Number of bootstrap iterations}
-  \item{bootstrap_chunk}{Chunksize of two-step bootstrap. Lower numbers will lead to better performance but may lead to less accurate estimates.}
+  \item{bootstrap_chunks}{Number of chunks in the two-step bootstrap. Lower numbers can improve performance but may reduce accuracy.}
   \item{use_bounds}{Use parameter bounds defined in the model, set this to FALSE in larger models to improve compute times}
   \item{use_skewness}{Use skewness and co-skewness to estimate parameters}
   \item{use_kurtosis}{Use kurtosis and co-kurtosis to estimate parameters}
@@ -32,15 +39,46 @@ MCMfit(mcmmodel, data, weights=NULL, compute_se=TRUE, se_type='asymptotic', opti
   \item{monitor_grads}{Monitor the gradients during optimization and return gradients at each optimization. This will aditionally cause non-LBFGS optimization to stop early when NaN gradients are encountered, and returns the last non-NaN result instead.}
   \item{jacobian_method}{Method used for the `numDeriv::jacobian()` function in asymptotic SE calculation}
   \item{debug}{Print more process information, including loss at every iteration}
+  \item{n_starts}{For dynamic models, total number of screened optimization
+  starts. Failed starts do not terminate the fit.}
+  \item{seed}{Optional seed for reproducible dynamic starts and torch
+  optimization.}
+  \item{stationarity_limit}{Dynamic-kernel spectral-radius limit, strictly
+  between zero and one.}
+  \item{stationarity_penalty}{Positive smooth penalty multiplier for dynamic
+  parameter values beyond \code{stationarity_limit}.}
+  \item{verbose}{For dynamic fits, print start number, initial/final loss,
+  convergence, spectral radius, and Gaussian covariance. Defaults to
+  \code{debug}.}
+  \item{moment_weighting}{Dynamic-kernel WLS weight: \code{"identity"},
+  \code{"diagonal"}, or \code{"full"}. Diagonal and full weighting require a
+  summary prepared for asymptotic SEs.}
+  \item{se_correction}{Dynamic asymptotic covariance: \code{"auto"} selects
+  efficient inverse-information SEs for full WLS and robust sandwich SEs
+  otherwise; \code{"robust"} always uses the sandwich; \code{"model_based"}
+  requires full WLS.}
+  \item{weight_ridge}{Non-negative relative eigenvalue or diagonal floor used
+  when forming WLS weights and solving the information matrix.}
 }
 \value{
   MCMresult object. This can be converted to a dataframe with as.data.frame(result)
 }
+\details{
+Dynamic models require skewness and kurtosis. Their asymptotic calculations use
+the Jacobian of the implied raw central moments and the mean-corrected sampling
+covariance prepared by \code{MCMdatasummary()}. Identity and diagonal weights
+use the robust sandwich covariance by default; full WLS uses the efficient
+inverse-information covariance. Gaussian covariance SEs are delta-method
+transformations of the Cholesky parameters. Analysis weights are not yet
+supported for dynamic WLS or SEs. Dynamic results retain all-start diagnostics
+and the best finite, in-bounds stationary solution.
+}
 
 \examples{
-    mysummary <- simulate_data()
+    mysummary <- simulate_data(n=1000, prep_asymptotic_se=FALSE)
     mymodel <- MCMmodel(mysummary)
-    my_result <- MCMfit(mymodel, mysummary)
+    my_result <- MCMfit(mymodel, mysummary, compute_se=FALSE,
+                        optimizers="lbfgs", optim_iters=1, learning_rate=0.1)
     my_result_df <- as.data.frame(my_result)
     # Print loss
     print(my_result_df$loss)

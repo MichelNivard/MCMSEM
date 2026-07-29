@@ -1,7 +1,7 @@
 # MCMSEM
 R-package which allows users to run multi co-moment structural equation models.
 
-## MCMSEM version 0.26.1
+## MCMSEM version 0.27.0
 Welcome to the new and improved MCMSEM. If you want to use the MCMSEM version as it was used in [the original publication](https://doi.org/10.31235/osf.io/ynam2), please go to the [v0.1.1 release](https://github.com/zenabtamimy/MCMSEM/releases/tag/v0.1.1).
 
 This version is considerably more powerful than our previous version. Some highlights:
@@ -11,8 +11,104 @@ This version is considerably more powerful than our previous version. Some highl
  - Significantly improved performance, and enabled optimization on GPU
  - Asymptotic calculation of standard errors (bootstrapping no longer required)
  - Exportable data, making it easier for researchers to share moment matrices for MCMSEM without sharing raw data
+ - A stationary dynamic VAR(1) kernel alongside the original contemporaneous structural kernel
 
 If you are new to this version of MCMSEM we highly recommend reading our Wiki before starting, as the syntax for using MCMSEM has changed significantly since `v0.1.1`.
+
+## Choosing a moment kernel
+
+MCMSEM now makes the scientific time assumption explicit:
+
+```r
+# Existing behavior and the default
+contemporaneous_model <- MCMmodel(ds, kernel = "contemporaneous")
+
+# Stationary observed-state VAR(1)
+dynamic_model <- MCMmodel(ds, kernel = "dynamic")
+```
+
+`kernel = "static"` remains functional as a deprecated alias for
+`"contemporaneous"`. The new canonical name avoids suggesting that a dynamic
+model is intrinsically preferable. The two kernels answer different questions.
+
+### Contemporaneous Structural MCMSEM
+
+The contemporaneous kernel models structural relations at one conceptual
+occasion. A path such as `Y ~ X` says that replacing the structural equation for
+`X` changes the value generated for `Y`; it does not add an explicit transition
+from one time point to the next. Higher-order moments may help identify a
+direction within this model, but do not create temporal order that the model
+does not contain.
+
+### Stationary Dynamic MCMSEM
+
+The dynamic kernel models repeated, time-homogeneous transitions
+`z[t] = B z[t-1] + epsilon[t]`. It can be fitted to the stationary moments of a
+single cross-section because prior shocks accumulate as
+`epsilon[t] + B epsilon[t-1] + B^2 epsilon[t-2] + ...`. Entries of `B` therefore
+refer to the chosen lag interval. The assumptions are stronger: innovations are
+serially independent and mutually independent, the transition is stable and
+time-homogeneous, and the process has reached stationarity.
+
+The current dynamic release supports observed states with at least two
+variables, a VAR(1) transition, fixed unit innovation variances, diagonal
+innovation third and fourth cumulants, and an optional full Gaussian residual
+covariance. It provides identity, diagonal, and full WLS moment weights plus
+asymptotic robust or efficient SEs. Latent measurement models, VAR(q), and
+combined contemporaneous-plus-lagged paths are not yet supported. See
+[Choosing between contemporaneous and dynamic kernels](wiki/2.3%20Choosing%20a%20kernel.md)
+for the conceptual assumptions, identification conditions, continuous-time
+connection, and limitations. The cumulant-identification results build on
+[Recke et al. (2026), *Identifiability in Graphical Discrete Lyapunov Models*](https://arxiv.org/abs/2601.21818).
+
+### Dynamic example
+
+```r
+library(MCMSEM)
+
+ds <- MCMdatasummary(
+  dat[, c("X", "Y")],
+  scale_data = FALSE,
+  use_skewness = TRUE,
+  use_kurtosis = TRUE
+)
+
+model <- MCMmodel(ds, kernel = "dynamic")
+
+# B[row, column] maps a lagged column variable to a current row variable.
+model <- MCMedit(model, "B", c(1, 1), "phi_X")
+model <- MCMedit(model, "B", c(1, 2), "Y_lag_to_X")
+model <- MCMedit(model, "B", c(2, 1), "X_lag_to_Y")
+model <- MCMedit(model, "B", c(2, 2), "phi_Y")
+
+model <- MCMedit(model, "lbound", "phi_X", 0)
+model <- MCMedit(model, "lbound", "phi_Y", 0)
+
+fit <- MCMfit(
+  model, ds,
+  compute_se = TRUE,
+  moment_weighting = "diagonal", # robust sandwich SEs
+  n_starts = 5,
+  seed = 2026
+)
+summary(fit)
+MCMdiagnostics(fit, jacobian = TRUE)
+```
+
+With fixed unit innovation variances, `scale_data = FALSE` keeps parameters on
+the data's stated measurement scale. Scaling is allowed, but changes the scale
+and therefore the target transition parameterization. Dynamic results include
+`B`, `Psi_G`, innovation cumulants, spectral radius, stationarity, unique-moment
+counts, nominal degrees of freedom, all-start diagnostics, implied `M2`, `M3`,
+`K4`, raw `M4`, residuals by moment order, the moment Jacobian and covariance,
+parameter covariance, and delta-method SEs for `Psi_G`.
+
+`MCMdatasummary(..., prep_asymptotic_se = TRUE)` estimates the sampling
+covariance of the raw central-moment vector with influence functions that
+account for estimating the means. `moment_weighting = "full"` uses its
+regularized inverse and defaults to efficient information-matrix SEs.
+`"diagonal"` and `"identity"` default to robust sandwich SEs. Analysis weights
+are not yet supported for dynamic WLS/SE calculations.
 
 ## Citation
 If you use this package please include the following citation:  

@@ -5,7 +5,8 @@
   Create a new MCM data summary, or load an existing one from disk
 }
 \usage{
-MCMdatasummary(data=NULL, path=NULL, weights=NULL, scale_data=TRUE, prep_asymptotic_se=TRUE, use_skewness=TRUE,
+MCMdatasummary(data=NULL, path=NULL, weights=NULL, scale_data=TRUE,
+               prep_asymptotic_se=TRUE, use_skewness=TRUE,
                use_kurtosis=TRUE, debug=FALSE, low_memory=FALSE)
 }
 \arguments{
@@ -13,7 +14,9 @@ MCMdatasummary(data=NULL, path=NULL, weights=NULL, scale_data=TRUE, prep_asympto
   \item{path}{Path to an existing data summary object (either data or path must be provided)}
   \item{weights}{Weights to be used for generating co-moment matrices for weighted analysis}
   \item{scale_data}{Should the data be scaled prior to analysis?}
-  \item{prep_asymptotic_se}{Prepare the required matrix for calculation of asymptotic standard errors}
+  \item{prep_asymptotic_se}{Prepare the sampling covariance of the selected raw
+  central moments for asymptotic standard errors and WLS weighting. Mean
+  estimation is accounted for with central-moment influence functions.}
   \item{use_skewness}{Include matrices for a model using skewness}
   \item{use_kurtosis}{Include matrices for a model using kurtosis}
   \item{debug}{Print detailed process updates}
@@ -24,14 +27,16 @@ MCMdatasummary(data=NULL, path=NULL, weights=NULL, scale_data=TRUE, prep_asympto
 }
 
 \examples{
-    rawdata <- simulate_data(asdataframe=TRUE)
+    rawdata <- simulate_data(n=1000, asdataframe=TRUE)
 
     # Create summary
-    mysummary <- MCMdatasummary(rawdata)
+    mysummary <- MCMdatasummary(rawdata, prep_asymptotic_se=FALSE)
 
     # Save summary
-    MCMsavesummary(mysummary, "path/to/summary")
+    path <- tempfile()
+    MCMsavesummary(mysummary, path)
 
     # Load summary
-    my_other_summary <- MCMdatasummary(path="path/to/summary.mcmdata")
+    my_other_summary <- MCMdatasummary(path=paste0(path, ".mcmdata"))
+    unlink(paste0(path, ".mcmdata"))
 }
