@@ -32,9 +32,10 @@ Legacy summary and model objects without kernel metadata are also treated as
 contemporaneous. The two kernels let the user specify slighlty different types of models and help answer different slightly questions.
 
 Why would we care about this kind of nuance? We (the developers) envision people will use MCMSEM alongside other estimation methods, as the assumptions about moments are novel to many users and people would want some external validaiton. One of the methods we could see people using  MCMSEM alongside in psychology would be (random intercept) cross lagged panel models, across 3+ waves of data. Those models define "causal" paths from variabe y on x across time, where y at t-1 influences x at t, as in MCMSEM you'd model the distubances as non-guasian, we'd need a way to model the disturbance of y at t, which hasn't influences x contemoreneously at t yet. This means that to get the same estimate/estimnd out of MCMSEM as you'd get out of a stationary (RI)CLPM, you have to model explict disturbances at each time point t. This requires the new "dynamic" kernel. 
+
 Which kernel you pick, essentially the choice you make with respect to how to model the data, depends on whether u conceive as the causal process as a static process that has unfoldeded over the past. For example a static process could be conceived of as follows: 
 
-> taller adults are heavier, becasue height causes weight, the process of growth is completed though so there is no further dynamic change in height, that results in changes in weight.
+> taller adults are heavier, because hte volum of their bodies, all else being equal, is higher, and at similar density this means they are heavier, the process of growth is completed in adults, so there is no dynamic change in height, that results in changes in weight.
 
 An example of a dynamic process can be found in markets (econ) or emotions (psychology), for example:
 
