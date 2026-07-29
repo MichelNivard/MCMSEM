@@ -53,8 +53,6 @@ Contemporaneous structural MCMSEM assumes that the measured variables can be rep
 The contemporaneous kernel uses the existing **Reticular Action Model (RAM)** specification. Here, $F$ maps the complete set of observed and latent variables onto the observed variables, $I$ is the identity matrix, $A$ contains the directed structural paths, and $S_2$, $S_3$, and $S_4$ contain the freely specified second-, third-, and fourth-order disturbance co-moments. The expected co-moment matrices are
 
 $$
-
-
 M_2 = F(I-A)^{-1}
 S_2
 (I-A)^{-T}F^\top,
@@ -97,22 +95,14 @@ Stationary dynamic MCMSEM assumes instead that the world evolves through repeate
 In the dynamic kernel, the matrix $B$ golds the causal paths, and it does not transform the innovations only once. Each past innovation has passed through the transition matrix a different number of times:
 
 $$
-z_t
-===
-
-\varepsilon_t+B\varepsilon_{t-1}+B^2\varepsilon_{t-2}+\cdots.
+z_t = \varepsilon_t+B\varepsilon_{t-1}+B^2\varepsilon_{t-2}+\cdots.
 $$
 
 Consequently, the stationary cumulant of order $r$ is the accumulated contribution of innovations from all previous times:
 
 $$
-C_r
-===
-
-\sum_{h=0}^{\infty}
+C_r = \sum_{h=0}^{\infty}
 (B^{\otimes r})^hD_r
-====================
-
 (I-B^{\otimes r})^{-1}D_r.
 $$
 
