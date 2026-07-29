@@ -24,6 +24,7 @@ Imports:
 Suggests: 
     testthat (>= 3.0.0),
     knitr,
+    lavaan,
     rmarkdown
 VignetteBuilder: knitr
 Config/testthat/edition: 3
