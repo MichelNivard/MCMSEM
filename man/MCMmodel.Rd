@@ -51,7 +51,7 @@ Graphical Discrete Lyapunov Models}. arXiv preprint arXiv:2601.21818.
 
 \examples{
     mysummary <- simulate_data(n=1000, prep_asymptotic_se=FALSE)
-    mymodel <- MCMmodel(mysummary)
+    mymodel <- MCMmodel(mysummary, kernel="contemporaneous")
 
     # The dynamic kernel currently supports observed states only.
     dynamic_model <- MCMmodel(mysummary, kernel="dynamic")

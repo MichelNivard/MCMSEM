@@ -20,7 +20,7 @@ MCMparseK(model, sort=TRUE, shorten=TRUE, add_one=TRUE, print=FALSE)
 
 \examples{
     mysummary <- simulate_data(n=1000, prep_asymptotic_se=FALSE)
-    mymodel <- MCMmodel(mysummary)
+    mymodel <- MCMmodel(mysummary, kernel="contemporaneous")
 
     print(MCMparseK(mymodel))
 }

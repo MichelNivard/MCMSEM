@@ -7,6 +7,10 @@
   preserves the previous implementation numerically.
 - Added `kernel = "static"` as a supported, silent alias that normalizes to
   `"contemporaneous"`; kernel values are otherwise matched exactly.
+- Made the kernel choice explicit throughout the README, wiki, and package
+  examples. Added reproducible longitudinal examples comparing CLPM/RI-CLPM
+  estimates with dynamic MCMSEM fits to the largest complete cross-sectional
+  wave.
 - Added differentiable torch propagation of stationary cumulants through orders
   two, three, and four using linear solves with Kronecker powers of `B`.
 - Fixed dynamic innovation variances to one and restricted innovation third and

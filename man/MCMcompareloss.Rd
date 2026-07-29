@@ -31,8 +31,8 @@ MCMcompareloss(results, test_data, weights=NULL, loss_type='auto',
     mydatasummary_train <- MCMdatasummary(
       mydata_train, prep_asymptotic_se=FALSE
     )
-    mymodel <- MCMmodel(mydatasummary_train)
-    mymodel2 <- MCMmodel(mydatasummary_train)
+    mymodel <- MCMmodel(mydatasummary_train, kernel="contemporaneous")
+    mymodel2 <- MCMmodel(mydatasummary_train, kernel="contemporaneous")
     my_result1 <- MCMfit(
       mymodel, mydatasummary_train, compute_se=FALSE,
       optimizers="lbfgs", optim_iters=1, learning_rate=0.1

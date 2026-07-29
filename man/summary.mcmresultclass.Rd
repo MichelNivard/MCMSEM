@@ -17,7 +17,7 @@
 
 \examples{
     mysummary <- simulate_data(n=1000, prep_asymptotic_se=FALSE)
-    mymodel <- MCMmodel(mysummary)
+    mymodel <- MCMmodel(mysummary, kernel="contemporaneous")
     my_result <- MCMfit(mymodel, mysummary, compute_se=FALSE,
                         optimizers="lbfgs", optim_iters=1, learning_rate=0.1)
     resultsummary <- summary(my_result)
