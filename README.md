@@ -48,21 +48,45 @@ MCMSEM an now model cross sectional data as if its a part of a dynamic system (u
 
 Contemporaneous structural MCMSEM assumes that the measured variables can be represented by a set of structural equations at one conceptual occasion, such as $Y=\beta X+\varepsilon_Y$. Choosing this model means treating the causal relation as meaningful without explicitly modelling the time over which it unfolds. The coefficient $\beta$ is interpreted through an intervention: replacing the equation for $X$ by $X=x$ changes the value generated for $Y$. Any prior history, adaptation, feedback, or equilibrium process is absorbed into the variables and disturbances rather than represented explicitly. Higher-order-moment identification also requires strong disturbance assumptions: the relevant structural errors must be sufficiently non-Gaussian, their dependence structure must be correctly specified, and omitted common causes must either be absent or explicitly modelled. This model is most defensible when the variables are naturally contemporaneous constructs, when one variable plausibly acts effectively before the other within the measurement window, or when the coefficient is understood as an equilibrium or total same-occasion response. It matters greatly if reciprocal processes operate within that window: a static directional path may then summarize an integrated equilibrium relationship rather than a single mechanistic transition.
 
-In the contemporaneous kernel, the structural equations can be written as $z=Az+\varepsilon$, so that $z=(I-A)^{-1}\varepsilon$. If $F_m$ maps the full structural system onto the observed variables, define $L=F_m(I-A)^{-1}$. The model-implied covariance is then
+### Contemporaneous Structural MCMSEM — moment equations
+
+The contemporaneous kernel uses the existing **Reticular Action Model (RAM)** specification. Here, $F$ maps the complete set of observed and latent variables onto the observed variables, $I$ is the identity matrix, $A$ contains the directed structural paths, and $S_2$, $S_3$, and $S_4$ contain the freely specified second-, third-, and fourth-order disturbance co-moments. The expected co-moment matrices are
 
 $$
-M_2 = LSL^T,
+
+
+M_2 = F(I-A)^{-1}
+S_2
+(I-A)^{-T}F^\top,
 $$
 
-where $S$ is the disturbance covariance matrix. The same transformation propagates the non-Gaussian disturbance cumulants into the observed co-skewness and co-kurtosis:
+$$
+M_3 = F(I-A)^{-1}
+S_3
+\left[
+(I-A)^{-T}\otimes(I-A)^{-T}
+\right]
+\left(
+F^\top\otimes F^\top
+\right),
+$$
+
+and
 
 $$
-C_3 = L^{\otimes 3}D_3,
-\qquad
-K_4 = L^{\otimes 4}D_4.
+M_4 = F(I-A)^{-1}
+S_4
+\left[
+(I-A)^{-T}\otimes
+(I-A)^{-T}\otimes
+(I-A)^{-T}
+\right]
+\left(
+F^\top\otimes F^\top\otimes F^\top
+\right).
 $$
 
-Here $D_3$ and $D_4$ contain the third- and fourth-order disturbance cumulants. Thus, the paths in $A$ are identified by how a single contemporaneous structural transformation mixes the disturbance covariance, skewness and kurtosis. When MCMSEM compares raw fourth moments rather than fourth cumulants, $K_4$ is converted back to $M_4$ by adding the covariance-pairing terms implied by $M_2$.
+The factor $(I-A)^{-1}$ is the RAM total-effects matrix: it propagates each disturbance through the contemporaneous directed paths in $A$. A covariance has two indices, co-skewness has three, and co-kurtosis has four, so the same RAM transformation must act once on each index. In the matrix representation used by MCMSEM, the left-hand factor transforms the first index, while the Kronecker-product factors transform the remaining indices. The paths in $A$ are therefore estimated from the way one contemporaneous structural system jointly transforms the disturbance covariance, co-skewness, and co-kurtosis matrices. This is the notation and parameterisation already used by the original MCMSEM model.
 
 
 ### Stationary Dynamic MCMSEM
@@ -70,7 +94,7 @@ Here $D_3$ and $D_4$ contain the third- and fourth-order disturbance cumulants. 
 Stationary dynamic MCMSEM assumes instead that the world evolves through repeated, time-homogeneous transitions, $z_t=Bz_{t-1}+\varepsilon_t$. Selecting it commits you to a particular temporal resolution: the effects in $B$ occur over one chosen lag, the same transition matrix operates at every wave, the innovation distribution is stable over time, and the process has reached stationarity. It also assumes that innovations are independent across time and, for the identifying higher-order-moment argument, that the non-Gaussian innovation components have the specified independence structure. Stable Gaussian confounding may be represented separately through a residual covariance matrix. The cross-sectional distribution is then interpreted as the accumulated result of infinitely many past shocks, not as a timeless structural relation. This matters because changing the measurement interval changes the meaning and usually the numerical value of $B$: a one-day cross-lag is not the same parameter as a one-year cross-lag. The dynamic model is therefore mechanistically clearer, but it buys that clarity by imposing stronger assumptions about stationarity, lag structure, and the absence of unmodelled intermediate dynamics.
 
 
-In the dynamic kernel, the matrix $B$ does not transform the innovations only once. Each past innovation has passed through the transition matrix a different number of times:
+In the dynamic kernel, the matrix $B$ golds the causal paths, and it does not transform the innovations only once. Each past innovation has passed through the transition matrix a different number of times:
 
 $$
 z_t
