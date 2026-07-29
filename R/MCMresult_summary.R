@@ -3,6 +3,17 @@ summary.mcmresultclass <- function(object, ...) {
   if (identical(.result_kernel(res), "dynamic")) {
     return(.summary_dynamic_result(res))
   }
+  last_gradient <- function(matrix_name, parameter_name) {
+    candidates <- c(if (.parameter_graph_active(res$model)) "Graph", matrix_name)
+    for (candidate in candidates) {
+      history <- tryCatch(res$gradients[[candidate]]$last_iter,
+                          error = function(e) data.frame())
+      if (is.data.frame(history) && parameter_name %in% colnames(history)) {
+        return(as.numeric(history[[parameter_name]][1L]))
+      }
+    }
+    NA_real_
+  }
   Pars_reg <- data.frame(matrix(NA, ncol=8, nrow=1))
   Pars_fact <- data.frame(matrix(NA, ncol=8, nrow=1))
   for (col in seq_len(ncol(res$model$named_matrices[['A']]))) {
@@ -16,11 +27,11 @@ summary.mcmresultclass <- function(object, ...) {
           if (col <= res$model$meta_data$n_latent) {
             lhs <- res$model$meta_data$latent_names[col]
             rhs <- res$model$meta_data$original_colnames[row - res$model$meta_data$n_latent]
-            Pars_reg <- rbind(Pars_reg, c(parname, lhs, "=~", rhs, parvalue, std, p, as.numeric(res$gradients$A$last_iter[parname])))
+            Pars_reg <- rbind(Pars_reg, c(parname, lhs, "=~", rhs, parvalue, std, p, last_gradient("A", parname)))
           } else {
             lhs <- res$model$meta_data$original_colnames[col - res$model$meta_data$n_latent]
             rhs <- res$model$meta_data$latent_names[row]
-            Pars_reg <- rbind(Pars_reg, c(parname, lhs, "~>", rhs, parvalue, std, p, as.numeric(res$gradients$A$last_iter[parname])))
+            Pars_reg <- rbind(Pars_reg, c(parname, lhs, "~>", rhs, parvalue, std, p, last_gradient("A", parname)))
           }
         } else {
           if (row > res$model$meta_data$n_latent) {
@@ -30,7 +41,7 @@ summary.mcmresultclass <- function(object, ...) {
             lhs <- res$model$meta_data$latent_names[col]
             rhs <- res$model$meta_data$latent_names[row]
           }
-          Pars_reg <- rbind(Pars_reg, c(parname, lhs, "~>", rhs, parvalue, std, p, as.numeric(res$gradients$A$last_iter[parname])))
+          Pars_reg <- rbind(Pars_reg, c(parname, lhs, "~>", rhs, parvalue, std, p, last_gradient("A", parname)))
         }
       }
     }
@@ -62,7 +73,7 @@ summary.mcmresultclass <- function(object, ...) {
         est <- parvalue
         std <- if ('se' %in% rownames(res$df)) {res$df['se', parname]} else {NA}
         p <- if ('se' %in% rownames(res$df)) {2*pnorm(abs(res$df['est', parname])/res$df['se', parname], lower.tail=FALSE)} else {NA}
-        Vars <- rbind(Vars, c(label, lhs, edge, rhs, est, std, p, as.numeric(res$gradients$S$last_iter[parname])))
+        Vars <- rbind(Vars, c(label, lhs, edge, rhs, est, std, p, last_gradient("S", parname)))
       }
     }
   }
@@ -85,7 +96,7 @@ summary.mcmresultclass <- function(object, ...) {
           est <- parvalue
           std <- if ('se' %in% rownames(res$df)) {res$df['se', parname]} else {NA}
           p <- if ('se' %in% rownames(res$df)) {2*pnorm(abs(res$df['est', parname])/res$df['se', parname], lower.tail=FALSE)} else {NA}
-          Skews <- rbind(Skews, c(label, edge, v1, v2, v3, est, std, p, as.numeric(res$gradients$Sk$last_iter[parname])))
+          Skews <- rbind(Skews, c(label, edge, v1, v2, v3, est, std, p, last_gradient("Sk", parname)))
         }
       }
     }
@@ -110,7 +121,7 @@ summary.mcmresultclass <- function(object, ...) {
           est <- parvalue
           std <- if ('se' %in% rownames(res$df)) {res$df['se', parname]} else {NA}
           p <- if ('se' %in% rownames(res$df)) {2*pnorm(abs(res$df['est', parname])/res$df['se', parname], lower.tail=FALSE)} else {NA}
-          Kurts <- rbind(Kurts, c(label, edge, v1, v2, v3, v4, est, std, p, as.numeric(res$gradients$K$last_iter[parname])))
+          Kurts <- rbind(Kurts, c(label, edge, v1, v2, v3, v4, est, std, p, last_gradient("K", parname)))
         }
       }
     }
@@ -135,7 +146,8 @@ summary.mcmresultclass <- function(object, ...) {
   return(mcmresultsummaryclass(parameters=Pars, variances=Vars,
                                skewness=if (res$info$use_skewness) {Skews} else {as.data.frame(NULL)},
                                kurtosis=if (res$info$use_kurtosis) {Kurts} else {as.data.frame(NULL)},
-                               loss=loss, n_par=n_par, n_obs=n_obs, chisq=chisq, bic=bic, result=res$copy()))
+                               loss=loss, n_par=n_par, n_obs=n_obs, chisq=chisq, bic=bic, result=res$copy(),
+                               parameter_table=.result_parameter_table(res)))
 }
 
 .summary_dynamic_result <- function(res) {
@@ -174,7 +186,7 @@ summary.mcmresultclass <- function(object, ...) {
   }
   innovations <- res$dynamic$innovations
   Skews <- data.frame(
-    label = paste0("tau_", innovations$variable),
+    label = .parameter_label_parts(as.vector(res$model$named_matrices$Tau))$name,
     edge = "~~~",
     v1 = innovations$variable,
     v2 = innovations$variable,
@@ -189,7 +201,7 @@ summary.mcmresultclass <- function(object, ...) {
     stringsAsFactors = FALSE
   )
   Kurts <- data.frame(
-    label = paste0("kappa_", innovations$variable),
+    label = .parameter_label_parts(as.vector(res$model$named_matrices$Kappa))$name,
     edge = "~~~~ cumulant",
     v1 = innovations$variable,
     v2 = innovations$variable,
@@ -223,6 +235,7 @@ summary.mcmresultclass <- function(object, ...) {
     n_obs = n_obs,
     chisq = chisq,
     bic = bic,
-    result = res$copy()
+    result = res$copy(),
+    parameter_table = .result_parameter_table(res)
   )
 }

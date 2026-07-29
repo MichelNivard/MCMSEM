@@ -157,7 +157,10 @@
 }
 
 .dynamic_gaussian_vector <- function(model, parameters) {
-  Psi <- .dynamic_implied_moments_base(model, parameters)$Psi_G
+  reported <- .parameter_values_base(model, parameters, optimizer_scale = TRUE)
+  Psi <- .dynamic_implied_moments_base(
+    model, unname(reported[model$param_names])
+  )$Psi_G
   unlist(lapply(seq_len(nrow(Psi)), function(row) Psi[row, seq_len(row)]),
          use.names = FALSE)
 }
@@ -170,10 +173,43 @@
   if (is.null(weight_spec$omega)) {
     weight_spec$omega <- .dynamic_require_moment_vcov(data)
   }
-  theta <- as.numeric(model$param_values)
-  names(theta) <- model$param_names
-  implied <- function(parameters) {
-    .dynamic_moment_vector(.dynamic_implied_moments_base(model, parameters))
+  theta <- .parameter_optimizer_coordinates(model)
+  implied <- function(optimizer_coordinates) {
+    reported <- .parameter_values_base(
+      model, optimizer_coordinates, optimizer_scale = TRUE
+    )
+    free_values <- unname(reported[model$param_names])
+    .dynamic_moment_vector(.dynamic_implied_moments_base(model, free_values))
+  }
+  if (length(theta) == 0L) {
+    all_names <- model$parameter_table$name
+    Delta <- matrix(numeric(), length(implied(theta)), 0L,
+                    dimnames = list(NULL, character()))
+    V <- matrix(0, length(all_names), length(all_names),
+                dimnames = list(all_names, all_names))
+    correction <- if (identical(se_correction, "auto")) {
+      if (identical(weight_spec$type, "full")) "model_based" else "robust"
+    } else se_correction
+    gaussian_count <- if (isTRUE(model$meta_data$gaussian_residual)) {
+      model$meta_data$n_phenotypes * (model$meta_data$n_phenotypes + 1L) / 2L
+    } else 0L
+    return(list(
+      se = stats::setNames(rep(0, length(all_names)), all_names),
+      vcov = V, vcov_robust = V, vcov_model_based = V,
+      vcov_optimizer = matrix(numeric(), 0L, 0L),
+      vcov_optimizer_robust = matrix(numeric(), 0L, 0L),
+      vcov_optimizer_model_based = matrix(numeric(), 0L, 0L),
+      vcov_free = matrix(numeric(), 0L, 0L),
+      parameter_jacobian = matrix(0, length(all_names), 0L,
+                                  dimnames = list(all_names, character())),
+      jacobian = Delta, jacobian_rank = 0L,
+      jacobian_singular_values = numeric(), jacobian_condition = NA_real_,
+      information = matrix(numeric(), 0L, 0L), bread_condition = NA_real_,
+      correction = correction,
+      gaussian_jacobian = matrix(numeric(), gaussian_count, 0L),
+      gaussian_vcov = matrix(0, gaussian_count, gaussian_count),
+      gaussian_se = rep(0, gaussian_count)
+    ))
   }
   Delta <- numDeriv::jacobian(
     func = implied, x = theta, method = jacobian_method
@@ -193,11 +229,19 @@
       "The dynamic moment Jacobian is rank deficient; asymptotic standard errors are not identified at this solution.",
       call. = FALSE
     )
-    V_na <- matrix(NA_real_, length(theta), length(theta),
-                   dimnames = list(model$param_names, model$param_names))
+    all_names <- model$parameter_table$name
+    V_na <- matrix(NA_real_, length(all_names), length(all_names),
+                   dimnames = list(all_names, all_names))
+    V_coordinate_na <- matrix(
+      NA_real_, length(theta), length(theta),
+      dimnames = list(model$param_names, model$param_names)
+    )
     return(list(
-      se = stats::setNames(rep(NA_real_, length(theta)), model$param_names),
+      se = stats::setNames(rep(NA_real_, length(all_names)), all_names),
       vcov = V_na, vcov_robust = V_na, vcov_model_based = V_na,
+      vcov_optimizer = V_coordinate_na, vcov_free = V_coordinate_na,
+      vcov_optimizer_robust = V_coordinate_na,
+      vcov_optimizer_model_based = V_coordinate_na,
       jacobian = Delta, jacobian_rank = rank,
       jacobian_singular_values = singular_values,
       jacobian_condition = jacobian_condition, bread_condition = Inf,
@@ -222,17 +266,27 @@
   } else {
     se_correction
   }
-  V <- if (identical(correction, "robust")) robust else model_based
-  dimnames(V) <- dimnames(robust) <- dimnames(model_based) <-
+  V_optimizer <- if (identical(correction, "robust")) robust else model_based
+  dimnames(V_optimizer) <- dimnames(robust) <- dimnames(model_based) <-
     list(model$param_names, model$param_names)
-  se <- sqrt(pmax(diag(V), 0))
+  reported_covariance <- .parameter_covariance_from_optimizer(
+    model, V_optimizer, theta, method = jacobian_method
+  )
+  robust_reported <- .parameter_covariance_from_optimizer(
+    model, robust, theta, method = jacobian_method
+  )$vcov
+  model_based_reported <- .parameter_covariance_from_optimizer(
+    model, model_based, theta, method = jacobian_method
+  )$vcov
+  V <- reported_covariance$vcov
+  se <- reported_covariance$se
 
   if (isTRUE(model$meta_data$gaussian_residual)) {
     gaussian_jacobian <- numDeriv::jacobian(
       func = function(parameters) .dynamic_gaussian_vector(model, parameters),
       x = theta, method = jacobian_method
     )
-    gaussian_vcov <- gaussian_jacobian %*% V %*% t(gaussian_jacobian)
+    gaussian_vcov <- gaussian_jacobian %*% V_optimizer %*% t(gaussian_jacobian)
     gaussian_vcov <- (gaussian_vcov + t(gaussian_vcov)) / 2
     gaussian_se <- sqrt(pmax(diag(gaussian_vcov), 0))
   } else {
@@ -242,10 +296,15 @@
   }
 
   list(
-    se = stats::setNames(se, model$param_names),
+    se = se,
     vcov = V,
-    vcov_robust = robust,
-    vcov_model_based = model_based,
+    vcov_robust = robust_reported,
+    vcov_model_based = model_based_reported,
+    vcov_optimizer = V_optimizer,
+    vcov_optimizer_robust = robust,
+    vcov_optimizer_model_based = model_based,
+    vcov_free = reported_covariance$free_vcov,
+    parameter_jacobian = reported_covariance$jacobian,
     jacobian = Delta,
     jacobian_rank = rank,
     jacobian_singular_values = singular_values,

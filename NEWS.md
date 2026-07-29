@@ -1,5 +1,40 @@
 # MCMSEM 0.27.0
 
+## General parameter constraints
+
+- Added `MCMparameter()` and `MCMparameters()` with one canonical graph for
+  independent free parameters, fixed constants, and safely derived parameters.
+  Auxiliary free parameters need not occupy matrix cells, and derived
+  parameters can be chained or reused across cells in either kernel.
+- Added a restricted differentiable expression language supporting symbols,
+  finite numeric constants, arithmetic, powers, `sqrt()`, `exp()`, `log()`,
+  `softplus()`, and `logistic()`. Expressions are compiled separately to base R
+  and Torch without unrestricted parsing or evaluation; unknown symbols,
+  unsupported calls, dependency cycles, invalid domains, and non-finite starts
+  are rejected.
+- Added exact positive (softplus) and finite-interval (logistic)
+  transformations. Natural reported values remain separate from internal
+  optimizer coordinates. Existing parameters retain identity coordinates and
+  their historical bound-penalty behavior.
+- Only independent free parameters now enter optimization, parameter counts,
+  degrees of freedom, Jacobians, gradient histories, and information criteria.
+  Fixed and derived parameters remain in result tables and summaries without
+  consuming degrees of freedom.
+- Added delta-method covariance and SE propagation from optimizer coordinates
+  to natural free and derived parameters. Fixed-parameter SEs are zero when an
+  estimator covariance is available; all parameter covariances are retained on
+  fitted result objects.
+- Added `MCMimpliedmoments()` as a common base-R evaluator for diagnostics and
+  validation in both kernels. Torch/base parity and gradient/finite-difference
+  tests cover the same graph compiler.
+- Extended copying, RDS serialization, result refitting, diagnostics, model
+  comparison, and summaries to retain and report parameter types,
+  transformations, dependencies, expressions, and matrix locations.
+- Added signed-gamma examples with positive shape, fixed sign, and derived
+  third/fourth cumulants. In the contemporaneous kernel, `K` stores the raw
+  standardized fourth moment (`3 + 6 / shape`); dynamic `Kappa` stores the
+  fourth cumulant (`6 / shape`).
+
 ## New stationary dynamic kernel
 
 - Added `kernel = "dynamic"` to `MCMmodel()` for observed-state stationary
@@ -46,6 +81,9 @@
 
 - Existing model objects without kernel metadata are treated as
   contemporaneous models.
+- Fixed one-step bootstrap fitting with data frames by passing numeric matrices
+  to the higher-order-moment routines; bootstrap covariance now propagates to
+  free, fixed, and derived result parameters.
 - Summary-data fits no longer require asymptotic-SE preparation when
   `compute_se = FALSE`.
 - Corrected contemporaneous result extraction so `M4` is governed by

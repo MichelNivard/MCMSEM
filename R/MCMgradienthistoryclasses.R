@@ -126,15 +126,16 @@ mcmmultigradienthistoryclass <- setRefClass("mcmmultigradienthistoryclass",
                                S="mcmgradienthistoryclass",
                                Sk="mcmgradienthistoryclass",
                                K="mcmgradienthistoryclass",
+                               Graph="mcmgradienthistoryclass",
                                hasgrads="logical"
                              ))
 
 mcmmultigradienthistoryclass$methods(
   initialize=function(x=list(), A=mcmgradienthistoryclass(label='A'), Fm=mcmgradienthistoryclass(label='Fm'), S=mcmgradienthistoryclass(label='S'),
-                      Sk=mcmgradienthistoryclass(label='Sk'), K=mcmgradienthistoryclass(label='K'), hasgrads=FALSE) {
+                      Sk=mcmgradienthistoryclass(label='Sk'), K=mcmgradienthistoryclass(label='K'), Graph=mcmgradienthistoryclass(label='Graph'), hasgrads=FALSE) {
     if (length(x) > 0) {
       .self$hasgrads <- hasgrads
-      for (matname in c("A", "Fm", "S", "Sk", "K")) {
+      for (matname in c("A", "Fm", "S", "Sk", "K", "Graph")) {
         if (matname %in% names(x)) {
           if (nrow(x[[matname]]) > 1) {
             last_iter <- as.data.frame(x[[matname]][nrow(x[[matname]]), ])
@@ -155,13 +156,14 @@ mcmmultigradienthistoryclass$methods(
       .self$S  <- S
       .self$Sk <- Sk
       .self$K  <- K
+      .self$Graph <- Graph
       .self$hasgrads <- hasgrads
     }
   },
   show=function(){
     if (.self$hasgrads) {
       cat(paste0("  Gradient history summary\n"))
-      for (i in c("A", "Fm", "S", "Sk", "K")) {
+      for (i in c("A", "Fm", "S", "Sk", "K", "Graph")) {
         if (.self[[i]]$hasgrads) {
           print(summary(.self[[i]]))
         }
@@ -171,7 +173,7 @@ mcmmultigradienthistoryclass$methods(
     }
   },
   copy=function(){
-    return(A=.self$A, Fm=.self$Fm, S=.self$S, Sk=.self$Sk, K=.self$K, hasgrads=.self$hasgrads)
+    return(A=.self$A, Fm=.self$Fm, S=.self$S, Sk=.self$Sk, K=.self$K, Graph=.self$Graph, hasgrads=.self$hasgrads)
   }
 )
 
@@ -179,7 +181,7 @@ as.data.frame.mcmmultigradienthistoryclass <- function(x, row.names = NULL,
                                                        optional = FALSE, ...) {
   if (x$hasgrads) {
     res <- list()
-    for (i in c("A", "Fm", "S", "Sk", "K")) {
+    for (i in c("A", "Fm", "S", "Sk", "K", "Graph")) {
       if (x[[i]]$hasgrads) {
         res[[i]] <- x[[i]]$df
       }
@@ -196,13 +198,13 @@ as.matrix.mcmmultigradienthistoryclass <- function(x, ...) {
 
 abs.mcmmultigradienthistoryclass <- function(x) {
   return(mcmmultigradienthistoryclass(
-    A=abs(x$A), Fm=abs(x$Fm), S=abs(x$S), Sk=abs(x$Sk), K=abs(x$K), hasgrads=x$hasgrads
+    A=abs(x$A), Fm=abs(x$Fm), S=abs(x$S), Sk=abs(x$Sk), K=abs(x$K), Graph=abs(x$Graph), hasgrads=x$hasgrads
   ))
 }
 
 log.mcmmultigradienthistoryclass <- function(x, base=exp(1)) {
   return(mcmmultigradienthistoryclass(
-    A=log(x$A, base=base), Fm=log(x$Fm, base=base), S=log(x$S, base=base), Sk=log(x$Sk,base=base), K=log(x$K,base=base), hasgrads=x$hasgrads
+    A=log(x$A, base=base), Fm=log(x$Fm, base=base), S=log(x$S, base=base), Sk=log(x$Sk,base=base), K=log(x$K,base=base), Graph=log(x$Graph,base=base), hasgrads=x$hasgrads
   ))
 }
 
@@ -212,14 +214,14 @@ log10.mcmmultigradienthistoryclass <- function(x) {
 
 sqrt.mcmmultigradienthistoryclass <- function(x) {
   return(mcmmultigradienthistoryclass(
-    A=sqrt(x$A), Fm=sqrt(x$Fm), S=sqrt(x$S), Sk=sqrt(x$Sk), K=sqrt(x$K), hasgrads=x$hasgrads
+    A=sqrt(x$A), Fm=sqrt(x$Fm), S=sqrt(x$S), Sk=sqrt(x$Sk), K=sqrt(x$K), Graph=sqrt(x$Graph), hasgrads=x$hasgrads
   ))
 }
 
 min.mcmmultigradienthistoryclass <- function(x, ..., na.rm=TRUE) {
   if (x$hasgrads) {
     res <- c()
-    for (i in c("A", "Fm", "S", "Sk", "K")) {
+    for (i in c("A", "Fm", "S", "Sk", "K", "Graph")) {
       if (x[[i]]$hasgrads) {
         res <- c(res, min(x[[i]], na.rm=na.rm))
       }
@@ -233,7 +235,7 @@ min.mcmmultigradienthistoryclass <- function(x, ..., na.rm=TRUE) {
 max.mcmmultigradienthistoryclass <- function(x, ..., na.rm=TRUE) {
   if (x$hasgrads) {
     res <- c()
-    for (i in c("A", "Fm", "S", "Sk", "K")) {
+    for (i in c("A", "Fm", "S", "Sk", "K", "Graph")) {
       if (x[[i]]$hasgrads) {
         res <- c(res, max(x[[i]], na.rm=na.rm))
       }
@@ -248,7 +250,7 @@ summary.mcmmultigradienthistoryclass <- function(object, ...) {
   x <- object
   if (x$hasgrads) {
     res <- list()
-    for (i in c("A", "Fm", "S", "Sk", "K")) {
+    for (i in c("A", "Fm", "S", "Sk", "K", "Graph")) {
       if (x[[i]]$hasgrads) {
         res[[i]] <- summary(x[[i]])
       }
@@ -263,7 +265,7 @@ plot.mcmmultigradienthistoryclass <- function(x, layout.matrix='auto', parameter
                                          ltys=c("solid", 'dashed', 'dotted', 'dotdash'), main='Gradient history of %s parameters',xlab='iteration', ylab='gradient', legendloc='topright', bty='n', ...) {
   if (x$hasgrads) {
     pars_to_plot <- c()
-    for (i in c("A", "Fm", "S", "Sk", "K")) {
+    for (i in c("A", "Fm", "S", "Sk", "K", "Graph")) {
       if (x[[i]]$hasgrads) {
         pars_to_plot <- c(pars_to_plot, i)
       }

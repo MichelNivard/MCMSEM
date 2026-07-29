@@ -3,10 +3,10 @@
 \alias{MCMdegreesoffreedom}
 \alias{MCMdiagnostics}
 \alias{MCMdynamicloss}
-\title{Dynamic-kernel counts, diagnostics, and loss}
+\title{Moment counts, identification diagnostics, and dynamic loss}
 \description{
-Inspect the unique moments, nominal degrees of freedom, stationarity, optional
-Jacobian rank, or loss at supplied parameters for Stationary Dynamic MCMSEM.
+Inspect unique moments, independent-free-parameter counts, nominal degrees of
+freedom, optional Jacobian diagnostics, dynamic stationarity, or dynamic loss.
 }
 \usage{
 MCMmomentcount(x, use_skewness=TRUE, use_kurtosis=TRUE)
@@ -25,8 +25,8 @@ MCMdynamicloss(model, data, parameters=NULL, loss_type="mse",
   \item{use_skewness}{Include unique third-order moments.}
   \item{use_kurtosis}{Include unique fourth-order moments.}
   \item{object}{An MCM model or result.}
-  \item{jacobian}{For a dynamic model, numerically evaluate the implied-moment
-  Jacobian and report its rank.}
+  \item{jacobian}{Numerically evaluate the implied-moment Jacobian with respect
+  to independent optimizer coordinates and report its rank and conditioning.}
   \item{tolerance}{Rank tolerance passed to \code{qr()}.}
   \item{model}{A model made with \code{kernel="dynamic"}.}
   \item{data}{An MCM data summary or raw numeric data.}
@@ -47,8 +47,12 @@ a numeric loss.
 }
 \details{
 Nominal degrees of freedom are the number of unique observed moments minus the
-number of free parameters. This count, and a local numerical Jacobian rank, do
-not prove global identification. Dynamic identification also depends on useful
+number of independent free parameters. Fixed and derived parameters are
+reported separately and do not consume degrees of freedom. Diagnostics include
+the observed-moment count, optimizer-coordinate Jacobian, local rank, condition
+number, near-null directions when detected, and the derived constraints used.
+These local diagnostics do not prove global identification. Dynamic
+identification also depends on useful
 non-Gaussianity, independent innovations, fixed innovation scale, stationarity,
 distinct source cumulant profiles, and no unmodelled non-Gaussian confounding.
 }

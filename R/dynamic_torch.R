@@ -27,6 +27,38 @@
 }
 
 .get_dynamic_torch_components <- function(model, device, dtype) {
+  if (.parameter_graph_active(model)) {
+    coordinates <- .parameter_optimizer_coordinates(model)
+    coordinate_tensor <- torch_tensor(
+      unname(coordinates), requires_grad = length(coordinates) > 0L,
+      device = device, dtype = dtype
+    )
+    optimizer_bounds <- .parameter_optimizer_bounds(model)
+    p <- model$meta_data$n_phenotypes
+    selectors <- list(
+      D2 = torch_tensor(.dynamic_diagonal_selector(p, 2L), device = device, dtype = dtype),
+      D3 = torch_tensor(.dynamic_diagonal_selector(p, 3L), device = device, dtype = dtype),
+      D4 = torch_tensor(.dynamic_diagonal_selector(p, 4L), device = device, dtype = dtype)
+    )
+    selectors$pairing <- lapply(
+      .dynamic_fourth_pairing_selectors(p), torch_tensor,
+      device = device, dtype = dtype
+    )
+    return(list(
+      param_names = list(graph = model$param_names),
+      par_list = list(graph = coordinate_tensor),
+      maps = list(), base_matrices = list(),
+      lower = list(graph = torch_tensor(
+        unname(optimizer_bounds$L), device = device, dtype = dtype
+      )),
+      upper = list(graph = torch_tensor(
+        unname(optimizer_bounds$U), device = device, dtype = dtype
+      )),
+      selectors = selectors, p = p,
+      gaussian_residual = isTRUE(model$meta_data$gaussian_residual),
+      dtype = dtype, device = device, parameter_graph = model$copy()
+    ))
+  }
   matrix_names <- c("B", "Tau", "Kappa", "L_G")
   dtypes <- stats::setNames(rep(list(dtype), length(matrix_names)), matrix_names)
   torch_matrices <- lapply(matrix_names, function(nm) {
@@ -130,6 +162,15 @@
 }
 
 .dynamic_torch_matrix <- function(components, name) {
+  if (!is.null(components$parameter_graph)) {
+    values <- .parameter_values_torch(
+      components$parameter_graph, components$par_list$graph
+    )
+    return(.parameter_torch_matrix(
+      components$parameter_graph, values, name,
+      components$par_list$graph
+    ))
+  }
   components$base_matrices[[name]] + torch_sum(
     components$maps[[name]] * components$par_list[[name]], dim = 3
   )
@@ -257,6 +298,15 @@
 }
 
 .dynamic_parameter_vector <- function(components) {
+  if (!is.null(components$parameter_graph)) {
+    coordinates <- as.numeric(torch_tensor(
+      components$par_list$graph, device = torch_device("cpu")
+    ))
+    values <- .parameter_values_base(
+      components$parameter_graph, coordinates, optimizer_scale = TRUE
+    )
+    return(unname(values[components$parameter_graph$param_names]))
+  }
   parameters <- .dynamic_grad_parameters(components)
   as.numeric(torch_tensor(
     torch_cat(parameters), device = torch_device("cpu")
@@ -298,7 +348,7 @@
   }
 
   initial_loss <- as.numeric(torch_tensor(objective(), device = torch_device("cpu")))
-  for (noptim in seq_along(optimizers)) {
+  if (length(parameters) > 0L) for (noptim in seq_along(optimizers)) {
     optimizer_name <- optimizers[noptim]
     if (isTRUE(verbose)) {
       cat(sprintf("  optimizer=%s, learning_rate=%g\n",
@@ -367,7 +417,7 @@
       observed$M2, observed$M3, observed$M4, TRUE, TRUE
     )
   }
-  if (!isTRUE(monitor_grads)) {
+  if (!isTRUE(monitor_grads) && length(parameters) > 0L) {
     for (parameter in parameters) {
       if (!is.null(parameter$grad)) parameter$grad$zero_()
     }
@@ -376,6 +426,13 @@
   }
   list(
     parameters = .dynamic_parameter_vector(components),
+    optimizer_coordinates = if (!is.null(components$parameter_graph)) {
+      as.numeric(torch_tensor(
+        components$par_list$graph, device = torch_device("cpu")
+      ))
+    } else {
+      .dynamic_parameter_vector(components)
+    },
     predicted = predicted,
     initial_loss = initial_loss,
     loss = as.numeric(torch_tensor(final_loss, device = torch_device("cpu"))),

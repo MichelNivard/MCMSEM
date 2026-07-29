@@ -43,6 +43,47 @@ An example of a dynamic process can be found in markets (econ) or emotions (psyc
 
 MCMSEM an now model cross sectional data as if its a part of a dynamic system (under assumtions like stationaiity, and non-gaussian disturbances, and all confounders being gausian.).
 
+## Free, fixed, and derived parameters
+
+`MCMparameter()` adds auxiliary parameters or converts an existing matrix label.
+Only free parameters are optimized; fixed and derived parameters do not consume
+degrees of freedom. This signed-gamma constraint uses one positive shape per
+innovation instead of separate skewness and excess-kurtosis parameters:
+
+```r
+model <- MCMmodel(ds, kernel = "dynamic")
+model <- MCMparameter(
+  model, "shape_Earnings", "free", start = 4, transform = "positive"
+)
+model <- MCMparameter(
+  model, "sign_Earnings", "fixed", value = -1
+)
+model <- MCMparameter(
+  model, "tau_Earnings", "derived",
+  expression = ~ sign_Earnings * 2 / sqrt(shape_Earnings)
+)
+model <- MCMparameter(
+  model, "kappa_Earnings", "derived",
+  expression = ~ 6 / shape_Earnings
+)
+
+MCMparameters(model)
+MCMdegreesoffreedom(model)
+```
+
+Expressions use a small validated language rather than arbitrary R evaluation.
+Supported operations are `+`, `-`, `*`, `/`, `^`, `sqrt()`, `exp()`, `log()`,
+`softplus()`, and `logistic()`. Free starts and fitted estimates are reported on
+their natural scale; positive and bounded parameters use unconstrained internal
+optimizer coordinates. Summaries report each parameter's type and expression,
+derived SEs use the delta method, and fixed SEs are zero when covariance is
+available.
+
+The same API works for contemporaneous models. There, diagonal `K` entries are
+raw standardized fourth moments, so the signed-gamma expression is
+`~ 3 + 6 / shape`; dynamic `Kappa` entries are fourth cumulants and use
+`~ 6 / shape`.
+
 
 ### Contemporaneous Structural MCMSEM
 
