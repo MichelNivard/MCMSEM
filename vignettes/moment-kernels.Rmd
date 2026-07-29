@@ -19,8 +19,9 @@ MCMmodel(ds, kernel = "contemporaneous") # default
 MCMmodel(ds, kernel = "dynamic")
 ```
 
-`kernel = "static"` is a deprecated alias for `"contemporaneous"`. The alias
-warns, and partial matching is not accepted.
+`kernel = "static"` is a supported, silent alias for `"contemporaneous"`.
+Legacy summaries and models without kernel metadata are treated as
+contemporaneous. Partial matching is not accepted.
 
 ## Contemporaneous Structural MCMSEM
 
@@ -134,9 +135,16 @@ profiles, innovation independence, fixed scale, stationarity, and no omitted
 non-Gaussian confounding. Similar or nearly Gaussian innovations can create weak
 identification and multiple low-loss states.
 
-The underlying generic and local identifiability results are described by
-[Recke et al. (2026)](https://arxiv.org/abs/2601.21818), *Identifiability in
-Graphical Discrete Lyapunov Models*, arXiv:2601.21818.
+The original MCM-SEM framework is described by Zenab Tamimy, Elsje van Bergen,
+Matthijs D. van der Zee, Conor V. Dolan, and Michel G. Nivard (2022),
+[*Multi Co-Moment Structural Equation Models: Discovering Direction of
+Causality in the Presence of
+Confounding*](https://doi.org/10.31235/osf.io/ynam2), SocArXiv. The
+cumulant-identification framework and discrete Lyapunov formulation underlying
+the dynamic kernel build on Cecilie Olesen Recke, Sarah Lumpp, Nataliia
+Kushnerchuk, Janike Oldekop, Jiayi Li, Jane Ivy Coons, and Elina Robeva (2026),
+[*Identifiability in Graphical Discrete Lyapunov
+Models*](https://arxiv.org/abs/2601.21818), arXiv preprint arXiv:2601.21818.
 
 ## Workflow
 

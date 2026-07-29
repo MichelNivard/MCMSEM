@@ -3,10 +3,7 @@ test_that("kernel API is exact, canonical, and backward compatible", {
   default_model <- MCMmodel(data)
   canonical_model <- MCMmodel(data, kernel = "contemporaneous")
   alias_model <- NULL
-  expect_warning(
-    alias_model <- MCMmodel(data, kernel = "static"),
-    "deprecated.*canonical term"
-  )
+  expect_silent(alias_model <- MCMmodel(data, kernel = "static"))
 
   expect_identical(default_model$meta_data$kernel, "contemporaneous")
   expect_identical(canonical_model$meta_data$kernel, "contemporaneous")
@@ -27,10 +24,22 @@ test_that("kernel API is exact, canonical, and backward compatible", {
 })
 
 test_that("old-style model metadata defaults to the contemporaneous kernel", {
-  model <- MCMmodel(make_moment_summary())
+  data <- make_moment_summary()
+  expect_false("kernel" %in% names(data$meta_data))
+
+  model <- MCMmodel(data)
   model$meta_data$kernel <- NULL
   expect_identical(MCMSEM:::.model_kernel(model), "contemporaneous")
+  expect_identical(MCMSEM:::.kernel_label(MCMSEM:::.model_kernel(model)),
+                   "Contemporaneous Structural MCMSEM")
   expect_s4_class(model$copy(), "mcmmodelclass")
+
+  fit <- MCMfit(
+    model, data, compute_se = FALSE,
+    optimizers = "lbfgs", optim_iters = 1, learning_rate = 0.05
+  )
+  expect_identical(MCMSEM:::.result_kernel(fit), "contemporaneous")
+  expect_identical(fit$model$meta_data$kernel, "contemporaneous")
 })
 
 test_that("dynamic matrices, starts, and bounds are editable", {

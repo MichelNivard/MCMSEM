@@ -5,8 +5,8 @@
 - Added `kernel = "dynamic"` to `MCMmodel()` for observed-state stationary
   VAR(1) moment models. `kernel = "contemporaneous"` remains the default and
   preserves the previous implementation numerically.
-- Added the deprecated `kernel = "static"` alias. It warns and normalizes to
-  `"contemporaneous"`; kernel values are matched exactly.
+- Added `kernel = "static"` as a supported, silent alias that normalizes to
+  `"contemporaneous"`; kernel values are otherwise matched exactly.
 - Added differentiable torch propagation of stationary cumulants through orders
   two, three, and four using linear solves with Kronecker powers of `B`.
 - Fixed dynamic innovation variances to one and restricted innovation third and
@@ -30,6 +30,13 @@
   raw central moments through order four. Dynamic asymptotic covariance is
   available as the robust sandwich estimator or, with full WLS, the efficient
   inverse-information estimator. Derived `Psi_G` SEs use the delta method.
+- Documentation credits both the original MCM-SEM framework to Tamimy, van
+  Bergen, van der Zee, Dolan, and Nivard (2022), *Multi Co-Moment Structural
+  Equation Models: Discovering Direction of Causality in the Presence of
+  Confounding*, and the cumulant-identification/discrete-Lyapunov framework to
+  Cecilie Olesen Recke, Sarah Lumpp, Nataliia Kushnerchuk, Janike Oldekop,
+  Jiayi Li, Jane Ivy Coons, and Elina Robeva (2026), *Identifiability in
+  Graphical Discrete Lyapunov Models*, arXiv preprint arXiv:2601.21818.
 
 ## Compatibility and fixes
 

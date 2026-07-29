@@ -52,6 +52,17 @@ not prove global identification. Dynamic identification also depends on useful
 non-Gaussianity, independent innovations, fixed innovation scale, stationarity,
 distinct source cumulant profiles, and no unmodelled non-Gaussian confounding.
 }
+\references{
+Tamimy, Zenab, Elsje van Bergen, Matthijs D. van der Zee, Conor V. Dolan, and
+Michel G. Nivard (2022). \emph{Multi Co-Moment Structural Equation Models:
+Discovering Direction of Causality in the Presence of Confounding}. SocArXiv.
+\doi{10.31235/osf.io/ynam2}.
+
+Recke, Cecilie Olesen, Sarah Lumpp, Nataliia Kushnerchuk, Janike Oldekop,
+Jiayi Li, Jane Ivy Coons, and Elina Robeva (2026). \emph{Identifiability in
+Graphical Discrete Lyapunov Models}. arXiv preprint arXiv:2601.21818.
+\url{https://arxiv.org/abs/2601.21818}.
+}
 \examples{
   ds <- simulate_data(n=1000, prep_asymptotic_se=FALSE)
   model <- MCMmodel(ds, kernel="dynamic")

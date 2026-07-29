@@ -3,26 +3,24 @@
 .normalize_kernel <- function(kernel) {
   if (!is.character(kernel) || length(kernel) != 1L || is.na(kernel)) {
     stop(
-      "`kernel` must be exactly one of \"contemporaneous\" or \"dynamic\".",
+      paste0(
+        "`kernel` must be exactly one of \"contemporaneous\" or \"dynamic\", ",
+        "or the supported alias \"static\"."
+      ),
       call. = FALSE
     )
   }
   if (identical(kernel, "static")) {
-    warning(
-      paste0(
-        "`kernel = \"static\"` is deprecated; use `kernel = \"contemporaneous\"`. ",
-        "The canonical term is now 'contemporaneous' because 'static' can ",
-        "misleadingly imply that a dynamic model is intrinsically preferable."
-      ),
-      call. = FALSE
-    )
     return("contemporaneous")
   }
   allowed <- c("contemporaneous", "dynamic")
   if (!(kernel %in% allowed)) {
     stop(
       "Invalid `kernel`: ", encodeString(kernel, quote = "\""),
-      ". Use exactly \"contemporaneous\" or \"dynamic\"; partial matching is not supported.",
+      paste0(
+        ". Use exactly \"contemporaneous\" or \"dynamic\", or the alias ",
+        "\"static\"; partial matching is not supported."
+      ),
       call. = FALSE
     )
   }

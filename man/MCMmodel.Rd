@@ -27,13 +27,26 @@ MCMmodel(data, n_latent=1, constrained_a=TRUE, scale_data=TRUE,
   \item{skew_latent}{Adds free parameters for skewness of latent factors}
   \item{kurt_latent}{Adds free parameters for kurtosis of latent factors}
   \item{kernel}{Exact kernel name: \code{"contemporaneous"} (the default) or
-  \code{"dynamic"}. The deprecated alias \code{"static"} warns and maps to
-  \code{"contemporaneous"}.}
+  \code{"dynamic"}. The supported alias \code{"static"} silently maps to
+  \code{"contemporaneous"}. Legacy models without kernel metadata are also
+  treated as contemporaneous.}
   \item{gaussian_residual}{For a dynamic model, estimate a full Gaussian
   residual/random-intercept covariance using a Cholesky parameterization.}
 }
 \value{
   Returns an MCMmodelclass object
+}
+
+\references{
+Tamimy, Zenab, Elsje van Bergen, Matthijs D. van der Zee, Conor V. Dolan, and
+Michel G. Nivard (2022). \emph{Multi Co-Moment Structural Equation Models:
+Discovering Direction of Causality in the Presence of Confounding}. SocArXiv.
+\doi{10.31235/osf.io/ynam2}.
+
+Recke, Cecilie Olesen, Sarah Lumpp, Nataliia Kushnerchuk, Janike Oldekop,
+Jiayi Li, Jane Ivy Coons, and Elina Robeva (2026). \emph{Identifiability in
+Graphical Discrete Lyapunov Models}. arXiv preprint arXiv:2601.21818.
+\url{https://arxiv.org/abs/2601.21818}.
 }
 
 \examples{

@@ -27,9 +27,9 @@ contemporaneous_model <- MCMmodel(ds, kernel = "contemporaneous")
 dynamic_model <- MCMmodel(ds, kernel = "dynamic")
 ```
 
-`kernel = "static"` remains functional as a deprecated alias for
-`"contemporaneous"`. The new canonical name avoids suggesting that a dynamic
-model is intrinsically preferable. The two kernels answer different questions.
+`kernel = "static"` is a supported, silent alias for `"contemporaneous"`.
+Legacy summary and model objects without kernel metadata are also treated as
+contemporaneous. The two kernels answer different questions.
 
 ### Contemporaneous Structural MCMSEM
 
@@ -58,8 +58,15 @@ asymptotic robust or efficient SEs. Latent measurement models, VAR(q), and
 combined contemporaneous-plus-lagged paths are not yet supported. See
 [Choosing between contemporaneous and dynamic kernels](wiki/2.3%20Choosing%20a%20kernel.md)
 for the conceptual assumptions, identification conditions, continuous-time
-connection, and limitations. The cumulant-identification results build on
-[Recke et al. (2026), *Identifiability in Graphical Discrete Lyapunov Models*](https://arxiv.org/abs/2601.21818).
+connection, and limitations. The original MCM-SEM framework is described by
+Tamimy et al. (2022), [*Multi Co-Moment Structural Equation Models: Discovering
+Direction of Causality in the Presence of
+Confounding*](https://doi.org/10.31235/osf.io/ynam2). The cumulant-identification
+framework and discrete Lyapunov formulation underlying the dynamic kernel build
+on Cecilie Olesen Recke, Sarah Lumpp, Nataliia Kushnerchuk, Janike Oldekop,
+Jiayi Li, Jane Ivy Coons, and Elina Robeva (2026), [*Identifiability in Graphical
+Discrete Lyapunov Models*](https://arxiv.org/abs/2601.21818), arXiv preprint
+arXiv:2601.21818.
 
 ### Dynamic example
 
@@ -111,9 +118,16 @@ regularized inverse and defaults to efficient information-matrix SEs.
 are not yet supported for dynamic WLS/SE calculations.
 
 ## Citation
+
 If you use this package please include the following citation:  
 Tamimy, Z., van Bergen, E., van der Zee, M. D., Dolan, C. V., & Nivard, M. G. (2022, June 30). Multi Co-Moment Structural Equation Models: Discovering Direction of Causality in the Presence of Confounding. [https://doi.org/10.31235/osf.io/ynam2](https://doi.org/10.31235/osf.io/ynam2)
 
+If you use the stationary dynamic kernel, also cite:
+
+Recke, C. O., Lumpp, S., Kushnerchuk, N., Oldekop, J., Li, J., Coons, J. I., &
+Robeva, E. (2026). *Identifiability in Graphical Discrete Lyapunov Models*.
+arXiv preprint arXiv:2601.21818.
+[https://arxiv.org/abs/2601.21818](https://arxiv.org/abs/2601.21818)
 
 ## Installation
 
