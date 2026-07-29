@@ -1,4 +1,8 @@
-summary.mcmresultclass <- function(res) {
+summary.mcmresultclass <- function(object, ...) {
+  res <- object
+  if (identical(.result_kernel(res), "dynamic")) {
+    return(.summary_dynamic_result(res))
+  }
   Pars_reg <- data.frame(matrix(NA, ncol=8, nrow=1))
   Pars_fact <- data.frame(matrix(NA, ncol=8, nrow=1))
   for (col in seq_len(ncol(res$model$named_matrices[['A']]))) {
@@ -132,4 +136,93 @@ summary.mcmresultclass <- function(res) {
                                skewness=if (res$info$use_skewness) {Skews} else {as.data.frame(NULL)},
                                kurtosis=if (res$info$use_kurtosis) {Kurts} else {as.data.frame(NULL)},
                                loss=loss, n_par=n_par, n_obs=n_obs, chisq=chisq, bic=bic, result=res$copy()))
+}
+
+.summary_dynamic_result <- function(res) {
+  transition <- res$transition_parameters
+  transition_se <- if ("se" %in% names(transition)) transition$se else NA_real_
+  Pars <- data.frame(
+    label = transition$label,
+    lhs = transition$lagged,
+    edge = "~(lag)>",
+    rhs = transition$current,
+    est = transition$estimate,
+    se = transition_se,
+    p = 2 * stats::pnorm(abs(transition$estimate / transition_se), lower.tail = FALSE),
+    last_gradient = NA_real_,
+    check.names = FALSE,
+    stringsAsFactors = FALSE
+  )
+  gaussian <- res$dynamic$gaussian_covariance
+  Vars <- if (nrow(gaussian) > 0L) {
+    data.frame(
+      label = gaussian$label,
+      lhs = gaussian$lhs,
+      edge = "~~",
+      rhs = gaussian$rhs,
+      est = gaussian$estimate,
+      se = if ("se" %in% names(gaussian)) gaussian$se else NA_real_,
+      p = if ("se" %in% names(gaussian)) {
+        2 * stats::pnorm(abs(gaussian$estimate / gaussian$se), lower.tail = FALSE)
+      } else NA_real_,
+      last_gradient = NA_real_,
+      check.names = FALSE,
+      stringsAsFactors = FALSE
+    )
+  } else {
+    data.frame()
+  }
+  innovations <- res$dynamic$innovations
+  Skews <- data.frame(
+    label = paste0("tau_", innovations$variable),
+    edge = "~~~",
+    v1 = innovations$variable,
+    v2 = innovations$variable,
+    v3 = innovations$variable,
+    est = innovations$third_cumulant,
+    se = if ("third_se" %in% names(innovations)) innovations$third_se else NA_real_,
+    p = if ("third_se" %in% names(innovations)) {
+      2 * stats::pnorm(abs(innovations$third_cumulant / innovations$third_se), lower.tail = FALSE)
+    } else NA_real_,
+    last_gradient = NA_real_,
+    check.names = FALSE,
+    stringsAsFactors = FALSE
+  )
+  Kurts <- data.frame(
+    label = paste0("kappa_", innovations$variable),
+    edge = "~~~~ cumulant",
+    v1 = innovations$variable,
+    v2 = innovations$variable,
+    v3 = innovations$variable,
+    v4 = innovations$variable,
+    est = innovations$fourth_cumulant,
+    se = if ("fourth_se" %in% names(innovations)) innovations$fourth_se else NA_real_,
+    p = if ("fourth_se" %in% names(innovations)) {
+      2 * stats::pnorm(abs(innovations$fourth_cumulant / innovations$fourth_se), lower.tail = FALSE)
+    } else NA_real_,
+    last_gradient = NA_real_,
+    check.names = FALSE,
+    stringsAsFactors = FALSE
+  )
+  n_par <- length(res$model$param_values)
+  n_obs <- res$model$meta_data$n_obs
+  chisq <- if (identical(res$info$moment_weighting, "identity") ||
+               is.null(res$info$moment_weighting)) {
+    n_obs * res$loss
+  } else {
+    res$loss * res$info$moment_weight_normalization
+  }
+  bic <- chisq + n_par * log(n_obs)
+  mcmresultsummaryclass(
+    parameters = Pars,
+    variances = Vars,
+    skewness = Skews,
+    kurtosis = Kurts,
+    loss = res$loss,
+    n_par = n_par,
+    n_obs = n_obs,
+    chisq = chisq,
+    bic = bic,
+    result = res$copy()
+  )
 }

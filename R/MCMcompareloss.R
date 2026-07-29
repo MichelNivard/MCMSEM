@@ -120,12 +120,13 @@ MCMcompareloss <- function(results, test_data, weights=NULL, loss_type='auto', e
   # Store N parameters loss type, use skew, use kurt
   for (resname in names(results)) {
     out[resname, "N_parameters"] <- ncol(results[[resname]]$df)
+    out[resname, "kernel"] <- .model_kernel(results[[resname]]$model)
     for (i in c("loss_type", "use_skewness", "use_kurtosis")) {
       out[resname, i] <- results[[resname]]$info[[i]]
     }
   }
   if (!extensive_model_info) {
-    for (i in c("loss_type", "use_skewness", "use_kurtosis")) {
+    for (i in c("kernel", "loss_type", "use_skewness", "use_kurtosis")) {
       if (length(unique(out[, i]))==1) {out[,i] <- NULL}
     }
   } else {

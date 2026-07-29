@@ -27,11 +27,12 @@ mcmgradienthistoryclass$methods(
   }
 )
 
-as.data.frame.mcmgradienthistoryclass <- function(x) {
+as.data.frame.mcmgradienthistoryclass <- function(x, row.names = NULL,
+                                                  optional = FALSE, ...) {
   return(x$df)
 }
 
-as.matrix.mcmgradienthistoryclass <- function(x) {
+as.matrix.mcmgradienthistoryclass <- function(x, ...) {
   return(as.matrix(x$df))
 }
 
@@ -61,15 +62,16 @@ sqrt.mcmgradienthistoryclass <- function(x) {
   return(mcmgradienthistoryclass(sqrt(x$df), label=x$label, hasgrads=x$hasgrads, last_iter=data.frame(sqrt(x$last_iter))))
 }
 
-min.mcmgradienthistoryclass <- function(x, na.rm=TRUE) {
+min.mcmgradienthistoryclass <- function(x, ..., na.rm=TRUE) {
   return(apply(x$df, 2, min, na.rm=na.rm))
 }
 
-max.mcmgradienthistoryclass <- function(x, na.rm=TRUE) {
+max.mcmgradienthistoryclass <- function(x, ..., na.rm=TRUE) {
   return(apply(x$df, 2, max, na.rm=na.rm))
 }
 
-summary.mcmgradienthistoryclass <- function(x) {
+summary.mcmgradienthistoryclass <- function(object, ...) {
+  x <- object
   if (x$hasgrads) {
     y <- rbind(min(x), max(x), min(abs(x)), max(abs(x)), x$last_iter)
     rownames(y) <- c("min", "max", "min(abs)", "max(abs)", "last iteration")
@@ -173,7 +175,8 @@ mcmmultigradienthistoryclass$methods(
   }
 )
 
-as.data.frame.mcmmultigradienthistoryclass <- function(x) {
+as.data.frame.mcmmultigradienthistoryclass <- function(x, row.names = NULL,
+                                                       optional = FALSE, ...) {
   if (x$hasgrads) {
     res <- list()
     for (i in c("A", "Fm", "S", "Sk", "K")) {
@@ -187,7 +190,7 @@ as.data.frame.mcmmultigradienthistoryclass <- function(x) {
   }
 }
 
-as.matrix.mcmmultigradienthistoryclass <- function(x) {
+as.matrix.mcmmultigradienthistoryclass <- function(x, ...) {
   return(as.matrix(as.data.frame(x)))
 }
 
@@ -203,7 +206,7 @@ log.mcmmultigradienthistoryclass <- function(x, base=exp(1)) {
   ))
 }
 
-log10.mcmmultigradienthistoryclass <- function(x, base=exp(1)) {
+log10.mcmmultigradienthistoryclass <- function(x) {
   return(log(x, base=10))
 }
 
@@ -213,7 +216,7 @@ sqrt.mcmmultigradienthistoryclass <- function(x) {
   ))
 }
 
-min.mcmmultigradienthistoryclass <- function(x, na.rm=TRUE) {
+min.mcmmultigradienthistoryclass <- function(x, ..., na.rm=TRUE) {
   if (x$hasgrads) {
     res <- c()
     for (i in c("A", "Fm", "S", "Sk", "K")) {
@@ -227,7 +230,7 @@ min.mcmmultigradienthistoryclass <- function(x, na.rm=TRUE) {
   }
 }
 
-max.mcmmultigradienthistoryclass <- function(x, na.rm=TRUE) {
+max.mcmmultigradienthistoryclass <- function(x, ..., na.rm=TRUE) {
   if (x$hasgrads) {
     res <- c()
     for (i in c("A", "Fm", "S", "Sk", "K")) {
@@ -241,7 +244,8 @@ max.mcmmultigradienthistoryclass <- function(x, na.rm=TRUE) {
   }
 }
 
-summary.mcmmultigradienthistoryclass <- function(x) {
+summary.mcmmultigradienthistoryclass <- function(object, ...) {
+  x <- object
   if (x$hasgrads) {
     res <- list()
     for (i in c("A", "Fm", "S", "Sk", "K")) {

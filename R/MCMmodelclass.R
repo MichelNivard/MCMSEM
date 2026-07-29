@@ -13,6 +13,35 @@ mcmstartvaluesclass$methods(
   drop=function(idx) {.self$.df <- .self$.df[, -idx]}
 )
 
+.model_default_bounds <- function(model, parameter) {
+  idx <- match(parameter, model$param_names)
+  coord <- model$param_coords[[idx]]
+  matrix_name <- coord[[1]]
+  if (identical(.model_kernel(model), "dynamic")) {
+    if (matrix_name == "B") {
+      rc <- lapply(coord[[2]], .r_1to2d_idx,
+                   nrows = nrow(model$num_matrices$B))
+      diagonal <- all(vapply(rc, function(x) x[1] == x[2], logical(1)))
+      return(c(L = if (diagonal) 0 else -0.98, U = 0.98))
+    }
+    if (matrix_name == "Tau") return(c(L = -100, U = 100))
+    if (matrix_name == "Kappa") return(c(L = -1.99, U = 100))
+    if (matrix_name == "L_G") {
+      rc <- lapply(coord[[2]], .r_1to2d_idx,
+                   nrows = nrow(model$num_matrices$L_G))
+      diagonal <- all(vapply(rc, function(x) x[1] == x[2], logical(1)))
+      return(c(
+        L = if (diagonal) log(1e-6) else -100,
+        U = if (diagonal) log(1e2) else 100
+      ))
+    }
+  }
+  defaults <- model$meta_data$bound_default
+  if (is.null(defaults)) defaults <- model$meta_data$bound_defaults
+  prefix <- sub("^([[:alpha:]]*).*", "\\1", gsub("l", "", parameter))
+  c(L = defaults$L[[prefix]], U = defaults$U[[prefix]])
+}
+
 # Define MCM model class structure
 mcmmodelclass <- setRefClass("mcmmodelclass",
                              fields=list(
@@ -48,7 +77,14 @@ mcmmodelclass$methods(
   },
   show=function() {
     # This is just what shows when you run 'mcmmodelinstance' in command prompt
-    for (mat in c("A", "Fm", "S")) {
+    kernel <- .model_kernel(.self)
+    cat("Kernel: ", .kernel_label(kernel), "\n", sep = "")
+    matrices <- if (identical(kernel, "dynamic")) {
+      c("B", "Tau", "Kappa", "L_G", "D2")
+    } else {
+      c("A", "Fm", "S")
+    }
+    for (mat in matrices) {
       cat(paste("Matrix", mat, "\n"))
       print(.self$named_matrices[[mat]])
     }
@@ -87,9 +123,8 @@ mcmmodelclass$methods(
     # Update bounds
     for (param in .self$param_names) {
       if (!(param %in% colnames(.self$bounds))) {
-        default_u <- .self$meta_data$bound_default[["U"]][[sub("^([[:alpha:]]*).*", "\\1", gsub("l", "",param))]]
-        default_l <- .self$meta_data$bound_default[["L"]][[sub("^([[:alpha:]]*).*", "\\1", gsub("l", "",param))]]
-        new_col <- data.frame(rbind(default_l, default_u))
+        default <- .model_default_bounds(.self, param)
+        new_col <- data.frame(rbind(default[["L"]], default[["U"]]))
         colnames(new_col) <- param
         .self$bounds <- cbind(.self$bounds, new_col)
       }
@@ -100,7 +135,7 @@ mcmmodelclass$methods(
       } else {
         if (any(is.na(.self$bounds[, col]))) {
           for (row in rownames(.self$bounds)[which(is.na(.self$bounds[, col]))]) {
-            .self$bounds[row, col] <- .self$meta_data$bound_default[[row]][[sub("^([[:alpha:]]*).*", "\\1", gsub("l", "", col))]]
+            .self$bounds[row, col] <- .model_default_bounds(.self, col)[[row]]
           }
         }
       }
@@ -121,17 +156,32 @@ mcmmodelclass$methods(
   }
 )
 
-print.mcmmodelclass <- function(model, matrix=NULL) {
+print.mcmmodelclass <- function(x, matrix=NULL, ...) {
+  model <- x
   if (is.null(matrix)) {
     model$show()
   } else {
-    if (matrix %in% c("A", "Fm", "S", "Sk")) {
+    available <- names(model$named_matrices)
+    if (matrix %in% setdiff(available, c("K"))) {
       print(model$named_matrices[[matrix]])
-    } else if (matrix == "K") {
+    } else if (matrix == "K" && "K" %in% available) {
       print(model$named_matrices[[matrix]])
       warning(paste0("This matrix only contains free K parameters, the K matrix used for optimization is additionally a product of the S matrix. To see this full product, run MCMparseK(",deparse(substitute(model)),")"))
     } else {
-      stop('matrix argument should be one of ("A", "Fm", "S", "Sk", "K")')
+      stop(
+        "`matrix` must be one of: ",
+        paste(available, collapse = ", "),
+        call. = FALSE
+      )
     }
   }
+}
+
+summary.mcmmodelclass <- function(object, ...) {
+  object$show()
+  dof <- MCMdegreesoffreedom(object)
+  cat("Free parameters: ", dof$n_parameters, "\n", sep = "")
+  cat("Unique moments: ", dof$n_moments, "\n", sep = "")
+  cat("Nominal degrees of freedom: ", dof$df, "\n", sep = "")
+  invisible(object)
 }

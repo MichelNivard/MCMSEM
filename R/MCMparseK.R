@@ -1,4 +1,10 @@
 MCMparseK <- function(model, sort=TRUE, shorten=TRUE, add_one=TRUE, print=FALSE) {
+  if (identical(.model_kernel(model), "dynamic")) {
+    stop(
+      "`MCMparseK()` applies to the contemporaneous K parameterization. Dynamic fourth cumulants are available in fitted_result$predicted$K4.",
+      call. = FALSE
+    )
+  }
   S <- model$named_matrices$S
   if (ncol(S) > 11) {
     cat("This is probably going to take a while... \nFeel free to cancel this operation, or grab yourself a drink and a snack (or a few).\n")

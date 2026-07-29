@@ -1,10 +1,11 @@
 MCMedit <- function(model, pointer, name, value) {
   default_starts <- list(a=0.2, b=0, s=0, sk=0, k=0)
   x <- model$copy()
+  dynamic_model <- identical(.model_kernel(x), "dynamic")
   if (pointer %in% names(x$num_matrices)) {
     # For modifying parameters:
     # Verify integrity of named parameters, they should be a, b, s, sk or k if all but letters are dropped
-    if (is.character(value) & all(is.na(suppressWarnings(as.numeric(value))))) {
+    if (!dynamic_model && is.character(value) & all(is.na(suppressWarnings(as.numeric(value))))) {
       if (length(value) > 1) {
         for (i in value) {
           i_pos <- gsub("-", "", i)
@@ -33,7 +34,9 @@ MCMedit <- function(model, pointer, name, value) {
         if (is.character(value)) {
           for (i in seq_along(name[[1]])) {
             x$named_matrices[[pointer]][name[[1]][i], name[[2]][i]] <- value[i]
-            x$num_matrices[[pointer]][name[[1]][i], name[[2]][i]] <- default_starts[[sub("^([[:alpha:]]*).*", "\\1", gsub("l", "", gsub("-", "", value[i])))]]
+            if (!dynamic_model) {
+              x$num_matrices[[pointer]][name[[1]][i], name[[2]][i]] <- default_starts[[sub("^([[:alpha:]]*).*", "\\1", gsub("l", "", gsub("-", "", value[i])))]]
+            }
           }
         } else {
           for (i in seq_along(name[[1]])) {
@@ -46,7 +49,9 @@ MCMedit <- function(model, pointer, name, value) {
       } else {
         if (is.character(value)) {
           x$named_matrices[[pointer]][name[1], name[2]] <- value
-          x$num_matrices[[pointer]][name[1], name[2]] <- default_starts[[sub("^([[:alpha:]]*).*", "\\1", gsub("l", "", gsub("-", "", value)))]]
+          if (!dynamic_model) {
+            x$num_matrices[[pointer]][name[1], name[2]] <- default_starts[[sub("^([[:alpha:]]*).*", "\\1", gsub("l", "", gsub("-", "", value)))]]
+          }
         } else {
           if (is.character(name)) {
             # MCMedit(model, "A", c("b1_2", "b1_3", "b1_4"), 0)
@@ -87,7 +92,10 @@ MCMedit <- function(model, pointer, name, value) {
     }
   } else if (pointer %in% c("bound", "ubound", "lbound")){
     # For modifying bounds
-    if (all(name %in% c("a", "b", "s", "sk", "k", "fm"))) {
+    if (dynamic_model && all(name %in% c("B", "Tau", "Kappa", "L_G"))) {
+      group_by_parameter <- vapply(x$param_coords, `[[`, character(1), 1)
+      col_to_change <- which(group_by_parameter %in% name)
+    } else if (all(name %in% c("a", "b", "s", "sk", "k", "fm"))) {
       colsub <- sub("^([[:alpha:]]*).*", "\\1", colnames(x$bounds))
       colsub[startsWith(colnames(x$bounds), "sk")] <- "sk"
       col_to_change <- which(colsub %in% name)
@@ -104,6 +112,11 @@ MCMedit <- function(model, pointer, name, value) {
         x$start_values$set_all(value)
         x$param_values <- value
       }
+    } else if (dynamic_model && all(name %in% c("B", "Tau", "Kappa", "L_G"))) {
+      group_by_parameter <- vapply(x$param_coords, `[[`, character(1), 1)
+      cols_to_change <- which(group_by_parameter %in% name)
+      x$start_values$set("start", cols_to_change, value)
+      x$param_values[cols_to_change] <- value
     } else if (all((!(name %in% x$param_names)) & !(name %in% c("a", "b", "s", "sk", "k", "fm")) )) {
       stop(paste0("Parameter ", name, " not found"))
     } else if (all(name %in% c("a", "b", "s", "sk", "k", "fm"))) {

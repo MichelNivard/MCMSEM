@@ -5,9 +5,36 @@
 MCMfit <- function(mcmmodel, data, weights=NULL, compute_se=TRUE, se_type='asymptotic', optimizers=c("rprop", "lbfgs"),
                    optim_iters=c(50, 12), loss_type='mse', bootstrap_iter=200,bootstrap_chunks=1000, learning_rate=c(0.02, 1),
                    use_bounds=TRUE, use_skewness=TRUE, use_kurtosis=TRUE, device=NULL, device_se=NULL, low_memory=FALSE,
-                   outofbounds_penalty=1, monitor_grads=FALSE, jacobian_method='simple', debug=FALSE) {
+                   outofbounds_penalty=1, monitor_grads=FALSE, jacobian_method='simple', debug=FALSE,
+                   n_starts=1L, seed=NULL, stationarity_limit=0.995,
+                   stationarity_penalty=1e6, verbose=debug,
+                   moment_weighting="identity", se_correction="auto",
+                   weight_ridge=1e-8) {
   START_MCMfit <- Sys.time()
   if (debug) {cat("MCMfit verifying input\n")}
+  input_model <- if (inherits(mcmmodel, "mcmresultclass")) mcmmodel$model else mcmmodel
+  if (!inherits(input_model, "mcmmodelclass")) {
+    stop("`mcmmodel` must be an MCM model or result object.", call. = FALSE)
+  }
+  if (identical(.model_kernel(input_model), "dynamic")) {
+    dynamic_model <- input_model$copy()
+    if (inherits(mcmmodel, "mcmresultclass")) {
+      dynamic_model$start_values$set_all(mcmmodel$model$param_values)
+    }
+    return(.MCMfit_dynamic(
+      dynamic_model, data, weights, compute_se, se_type, optimizers,
+      optim_iters, loss_type, learning_rate, use_bounds, use_skewness,
+      use_kurtosis, device, outofbounds_penalty, monitor_grads, debug,
+      n_starts, seed, stationarity_limit, stationarity_penalty, verbose,
+      moment_weighting, se_correction, weight_ridge, jacobian_method
+    ))
+  }
+  if (!identical(.normalize_moment_weighting(moment_weighting), "identity")) {
+    stop("`moment_weighting` is currently available only for `kernel = \"dynamic\"`.", call. = FALSE)
+  }
+  if (!identical(.normalize_se_correction(se_correction), "auto")) {
+    stop("`se_correction` is currently available only for `kernel = \"dynamic\"`.", call. = FALSE)
+  }
   if (class(mcmmodel)[[1]] == "mcmresultclass") {
     cat("Note: Using the old model from the result object provided\n")
     # If a result class is provided, first check if settings are similar enough
@@ -48,6 +75,7 @@ MCMfit <- function(mcmmodel, data, weights=NULL, compute_se=TRUE, se_type='asymp
       model$param_coords <- new_coords
     }
   }
+  model$meta_data$kernel <- "contemporaneous"
   if (class(data)[[1]] != "mcmdataclass") {
     data_org <- data
     if (debug) {cat("MCMfit converting data\n")}
@@ -59,16 +87,18 @@ MCMfit <- function(mcmmodel, data, weights=NULL, compute_se=TRUE, se_type='asymp
       if ((se_type == 'asymptotic') & !(data$SE$computed))
         stop("This summary data was made without the required preparation for asymptotic SE")
     }
-    kurtskew_se_prepared <- "idx" %in% names(data$SE$idx)
-    kurt_se_prepared <- "idx_noskew" %in% names(data$SE$idx)
-    skew_se_prepared <- "idx_nokurt" %in% names(data$SE$idx)
-    if ((use_kurtosis & use_skewness) & !(kurtskew_se_prepared)) {
-      if (kurt_se_prepared) {stop("Data summary object was prepared with use_skewness=FALSE")}
-      if (skew_se_prepared) {stop("Data summary object was prepared with use_kurtosis=FALSE")}
-      if (!(kurt_se_prepared) & !(skew_se_prepared)) {stop("Data summary object was prepared with use_skewness=FALSE and use_kurtosis=FALSE")}
+    if (compute_se && identical(se_type, "asymptotic")) {
+      kurtskew_se_prepared <- "idx" %in% names(data$SE$idx)
+      kurt_se_prepared <- "idx_noskew" %in% names(data$SE$idx)
+      skew_se_prepared <- "idx_nokurt" %in% names(data$SE$idx)
+      if ((use_kurtosis & use_skewness) & !(kurtskew_se_prepared)) {
+        if (kurt_se_prepared) {stop("Data summary object was prepared with use_skewness=FALSE")}
+        if (skew_se_prepared) {stop("Data summary object was prepared with use_kurtosis=FALSE")}
+        if (!(kurt_se_prepared) & !(skew_se_prepared)) {stop("Data summary object was prepared with use_skewness=FALSE and use_kurtosis=FALSE")}
+      }
+      if (use_kurtosis & !(kurt_se_prepared)) {{stop("Data summary object was prepared with use_kurtosis=FALSE")}}
+      if (use_skewness & !(skew_se_prepared)) {{stop("Data summary object was prepared with use_skewness=FALSE")}}
     }
-    if (use_kurtosis & !(kurt_se_prepared)) {{stop("Data summary object was prepared with use_kurtosis=FALSE")}}
-    if (use_skewness & !(skew_se_prepared)) {{stop("Data summary object was prepared with use_skewness=FALSE")}}
   }
   if (is.null(device)) {
     device <- torch_device("cpu")
@@ -307,18 +337,18 @@ MCMfit <- function(mcmmodel, data, weights=NULL, compute_se=TRUE, se_type='asymp
   observed <- list(M2=as.matrix(torch_tensor(M2.obs, device=cpu_device)))
   predicted <- list(M2=as.matrix(torch_tensor(pred_matrices$M2, device=cpu_device)))
   if (use_skewness) {predicted[['M3']] <- as.matrix(torch_tensor(pred_matrices$M3, device=cpu_device)); observed[['M3']] <- as.matrix(torch_tensor(M3.obs, device=cpu_device))}
-  if (use_skewness) {predicted[['M4']] <- as.matrix(torch_tensor(pred_matrices$M4, device=cpu_device)); observed[['M4']] <- as.matrix(torch_tensor(M4.obs, device=cpu_device))}
+  if (use_kurtosis) {predicted[['M4']] <- as.matrix(torch_tensor(pred_matrices$M4, device=cpu_device)); observed[['M4']] <- as.matrix(torch_tensor(M4.obs, device=cpu_device))}
                                
   return(mcmresultclass(df=results, loss=as.numeric(torch_tensor(loss, device=cpu_device)),
                         gradients=grad_hist, model=model$copy(), history=history,
                         runtimes=list(Preparation=TIME_prep, Optimizer=TIME_optim, SE=TIME_se, Total=TIME_total),
-                        info=list(version=MCMSEMversion, compute_se=compute_se, se_type=se_type, optim_iters=optim_iters,
+                        info=list(version=MCMSEMversion, kernel="contemporaneous", compute_se=compute_se, se_type=se_type, optim_iters=optim_iters,
                                   bootstrap_iter=bootstrap_iter,bootstrap_chunks=bootstrap_chunks, learning_rate=learning_rate,
                                   use_bounds=use_bounds, use_skewness=use_skewness, use_kurtosis=use_kurtosis, jacobian_method=jacobian_method, debug=debug,
                                   device=device$type, device_se=device_se$type, low_memory=low_memory, weighted=data$meta_data$weighted, loss_type=loss_type,
                                   optimizers=optimizers, n=data$meta_data$N),
                         observed=observed,
-                        predicted=predicted
+                        predicted=predicted,
+                        kernel="contemporaneous"
                       ))
 }
-

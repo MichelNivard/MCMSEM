@@ -1,11 +1,33 @@
 # Wrapper function to create mcmmodel instance
 MCMmodel <- function(data, n_latent=1, constrained_a=TRUE, scale_data=TRUE, weights=NULL, latent_names=NULL,
                      causal_observed=TRUE, var_observed=TRUE, skew_observed=TRUE, kurt_observed=TRUE,
-                     causal_latent=FALSE, var_latent=FALSE, skew_latent=FALSE, kurt_latent=FALSE) {
-  # TODO: Expand checks on how many latent can/should be used with or without constrained a depending on input data
+                     causal_latent=FALSE, var_latent=FALSE, skew_latent=FALSE, kurt_latent=FALSE,
+                     kernel="contemporaneous", gaussian_residual=TRUE) {
+  n_latent_missing <- missing(n_latent)
+  kernel <- .normalize_kernel(kernel)
   if (class(data)[[1]] != "mcmdataclass") {
     data <- MCMdatasummary(data, scale_data=scale_data, weights=weights, prep_asymptotic_se=FALSE)
   }
+  if (identical(kernel, "dynamic")) {
+    if (!n_latent_missing && n_latent != 0) {
+      stop(
+        "The first dynamic-kernel release supports observed-state models only; use `n_latent = 0` or omit `n_latent`.",
+        call. = FALSE
+      )
+    }
+    unsupported <- c(
+      causal_latent=causal_latent, var_latent=var_latent,
+      skew_latent=skew_latent, kurt_latent=kurt_latent
+    )
+    if (any(unsupported)) {
+      stop(
+        "Latent measurement structures are not yet supported by the dynamic kernel.",
+        call. = FALSE
+      )
+    }
+    return(.dynamic_model(data, gaussian_residual = gaussian_residual))
+  }
+  # TODO: Expand checks on how many latent can/should be used with or without constrained a depending on input data
   # Input data verification
   if (data$meta_data$ncol == 2) {
     if (n_latent > 1) {
@@ -96,6 +118,7 @@ MCMmodel <- function(data, n_latent=1, constrained_a=TRUE, scale_data=TRUE, weig
                        start_values=mcmstartvaluesclass(start_values),
                        bounds=bounds,
                        meta_data=list(n_obs=data$meta_data$N, n_phenotypes=n_p, n_latent=n_latent, bound_defaults=bound_defaults,
+                                      bound_default=bound_defaults, kernel="contemporaneous",
                                       weighted=data$meta_data$weighted, data_was_scaled=data$meta_data$data_was_scaled, scale_data=data$meta_data$scale_data,
                                       original_colnames=data$meta_data$colnames, latent_names=latent_names))
   # causal_observed=TRUE, var_observed=TRUE, skew_observed=TRUE, kurt_observed=TRUE,

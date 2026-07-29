@@ -21,7 +21,7 @@ mcmdataclass$methods(
     cat(paste0("N observed vars: ", .self$meta_data$ncol, "\n"))
   },
   copy=function(){
-    return(mcmresultclass(.self$meta_data, .self$M2, .self$M3, .self$M4, .self$SE))
+    return(mcmdataclass(.self$meta_data, .self$M2, .self$M3, .self$M4, .self$SE))
   },
   save=function(dest, debug=FALSE) {
     if (!(endsWith(dest, ".mcmdata"))) {dest <- paste0(dest,".mcmdata")}
@@ -58,6 +58,16 @@ mcmdataclass$methods(
       if ("idx_nokurt" %in% names(.self$SE$idx)) {file.h5[['SE/idx_nokurt']] <- .self$SE$idx$idx_nokurt}
       if ("idx_noskew" %in% names(.self$SE$idx)) {file.h5[['SE/idx_noskew']] <- .self$SE$idx$idx_noskew}
       file.h5[['SE/idx_nokurt_noskew']] <- .self$SE$idx$idx_nokurt_noskew
+      if (!is.null(.self$SE$representation)) {
+        file.h5[['SE/representation']] <- .self$SE$representation
+      }
+      if (!is.null(.self$SE$influence_function_corrected)) {
+        file.h5[['SE/influence_function_corrected']] <-
+          as.numeric(.self$SE$influence_function_corrected)
+      }
+      if (!is.null(.self$SE$covariance_scale)) {
+        file.h5[['SE/covariance_scale']] <- .self$SE$covariance_scale
+      }
     }
     file.h5$close_all()
   },
@@ -79,6 +89,22 @@ mcmdataclass$methods(
       if (idxname %in% idxnames) {
         .self$SE$idx[[idxname]] <- file.h5[[paste0('SE/', idxname)]]$read()
       }
+    }
+    .self$SE$representation <- if ("representation" %in% idxnames) {
+      file.h5[['SE/representation']]$read()
+    } else {
+      NA_character_
+    }
+    .self$SE$influence_function_corrected <-
+      if ("influence_function_corrected" %in% idxnames) {
+        as.logical(file.h5[['SE/influence_function_corrected']]$read())
+      } else {
+        FALSE
+      }
+    .self$SE$covariance_scale <- if ("covariance_scale" %in% idxnames) {
+      file.h5[['SE/covariance_scale']]$read()
+    } else {
+      NA_character_
     }
     bools <- c("data_was_scaled", "scale_data", "weighted")  #meta data objects that should be converted to boolean
     for (i in file.h5[["meta"]]$ls()$name) {
