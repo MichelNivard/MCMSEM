@@ -633,14 +633,40 @@ if (run_unrestricted_gamma) {
       )
     }
   )
+  unrestricted_fits <- lapply(
+    seq_len(nrow(unrestricted_grid)), function(index) {
+      message(
+        "Long refinement of unrestricted common-gamma grid ", index, "/",
+        nrow(unrestricted_grid), " (1 continuation)"
+      )
+      tryCatch(
+        MCMfit(
+          unrestricted_fits[[index]], dynamic_data, compute_se = FALSE,
+          optimizers = c("rprop", "lbfgs"),
+          optim_iters = c(3000, 300),
+          learning_rate = c(0.003, 0.001),
+          moment_weighting = "diagonal", se_correction = "robust",
+          n_starts = 1L, seed = 20261000L + index, verbose = FALSE
+        ),
+        error = function(error) {
+          warning(
+            "Long refinement ", index,
+            " was not admissible; retaining its initial grid fit: ",
+            conditionMessage(error), call. = FALSE
+          )
+          unrestricted_fits[[index]]
+        }
+      )
+    }
+  )
   unrestricted_losses <- vapply(
     unrestricted_fits, function(fit) fit$loss, numeric(1L)
   )
   unrestricted_best <- which.min(unrestricted_losses)
   unrestricted_gamma_fit <- MCMfit(
     unrestricted_fits[[unrestricted_best]], dynamic_data, compute_se = TRUE,
-    optimizers = c("rprop", "lbfgs"), optim_iters = c(300, 80),
-    learning_rate = c(0.005, 0.002),
+    optimizers = c("rprop", "lbfgs"), optim_iters = c(1500, 300),
+    learning_rate = c(0.002, 0.001),
     moment_weighting = "diagonal", se_correction = "robust",
     n_starts = 1L, seed = 20260920L, verbose = FALSE
   )
@@ -713,6 +739,8 @@ print(gamma_fit$dynamic$common_gamma)
 if (!is.null(unrestricted_gamma_fit)) {
   cat("\nUnrestricted-innovation common-gamma sensitivity paths\n")
   print(unrestricted_gamma_paths, row.names = FALSE)
+  cat("\nUnrestricted-innovation common-gamma parameter table\n")
+  print(unrestricted_gamma_fit$parameter_table, row.names = FALSE)
   cat("\nUnrestricted-innovation common-gamma residual\n")
   print(unrestricted_gamma_fit$dynamic$common_gamma)
 }
@@ -802,6 +830,11 @@ if (!is.null(unrestricted_gamma_fit)) {
   utils::write.csv(
     unrestricted_gamma_paths,
     file.path(output_dir, "unrestricted_common_gamma_paths.csv"),
+    row.names = FALSE
+  )
+  utils::write.csv(
+    unrestricted_gamma_fit$parameter_table,
+    file.path(output_dir, "unrestricted_common_gamma_parameters.csv"),
     row.names = FALSE
   )
   utils::write.csv(
