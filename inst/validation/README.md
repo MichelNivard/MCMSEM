@@ -6,11 +6,13 @@ source builds and Git.
 
 ## Longitudinal CLPM/RI-CLPM comparison
 
-`longitudinal_clpm_example.R` first runs the controlled stationary VAR(1)
-simulation reported in the README. It then reads the bundled 437 KB
+`longitudinal_clpm_example.R` first runs both controlled stationary VAR(1)
+simulations reported in the README: one without a stable component, and one
+with a time-invariant bivariate Gaussian random intercept that matches both an
+RI-CLPM and Gaussian-residual dynamic MCMSEM. It then reads the bundled 437 KB
 `inst/extdata/sipp_2014_panel.csv.gz` analysis matrix and fits an
 equality-constrained CLPM, an RI-CLPM, and dynamic MCMSEM specifications with
-no residual, a full Gaussian residual covariance, and a common-gamma
+a full Gaussian residual covariance and a common-gamma
 confounder. The SIPP analysis uses diagonal WLS with robust sandwich SEs and
 explicit multistart searches.
 
@@ -22,6 +24,12 @@ not vendored. Run the complete opt-in analysis from the package source tree:
 
 ```sh
 Rscript inst/validation/longitudinal_clpm_example.R
+```
+
+To run only the two controlled calibrations:
+
+```sh
+Rscript inst/validation/longitudinal_clpm_example.R --simulation-only
 ```
 
 The main common-gamma analysis uses signed-gamma innovation constraints to

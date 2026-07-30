@@ -20,8 +20,21 @@ if (in_source_tree) {
 } else if (!requireNamespace("MCMSEM", quietly = TRUE)) {
   stop("Run from an MCMSEM source tree or install MCMSEM first.")
 }
-run_unrestricted_gamma <- "--unrestricted-gamma" %in%
-  commandArgs(trailingOnly = TRUE)
+arguments <- commandArgs(trailingOnly = TRUE)
+run_unrestricted_gamma <- "--unrestricted-gamma" %in% arguments
+run_simulation_only <- "--simulation-only" %in% arguments
+
+extract_dynamic_paths <- function(fit) {
+  paths <- fit$transition_parameters[
+    , c("label", "lagged", "current", "estimate", "se")
+  ]
+  paths$pvalue <- 2 * stats::pnorm(
+    abs(paths$estimate / paths$se), lower.tail = FALSE
+  )
+  paths$ci.lower <- paths$estimate - 1.96 * paths$se
+  paths$ci.upper <- paths$estimate + 1.96 * paths$se
+  paths
+}
 
 # First validate the comparison under known, exactly matched assumptions.
 set.seed(20260730)
@@ -107,17 +120,7 @@ simulation_dynamic_fit <- MCMfit(
   seed = 20260730,
   verbose = FALSE
 )
-simulation_dynamic_paths <- simulation_dynamic_fit$transition_parameters[
-  , c("label", "lagged", "current", "estimate", "se")
-]
-simulation_dynamic_paths$pvalue <- 2 * stats::pnorm(
-  abs(simulation_dynamic_paths$estimate / simulation_dynamic_paths$se),
-  lower.tail = FALSE
-)
-simulation_dynamic_paths$ci.lower <- simulation_dynamic_paths$estimate -
-  1.96 * simulation_dynamic_paths$se
-simulation_dynamic_paths$ci.upper <- simulation_dynamic_paths$estimate +
-  1.96 * simulation_dynamic_paths$se
+simulation_dynamic_paths <- extract_dynamic_paths(simulation_dynamic_fit)
 simulation_metrics <- data.frame(
   n = simulation_n,
   clpm_cfi_robust = lavaan::fitMeasures(simulation_clpm_fit, "cfi.robust"),
@@ -134,6 +137,251 @@ simulation_metrics <- data.frame(
     simulation_dynamic_fit$start_diagnostics$convergence == 0
   )
 )
+
+# Simulate a second stationary process with centered gamma innovations and add
+# a stable bivariate Gaussian random intercept. The innovation shape constraints
+# and random-intercept distribution are exactly matched in the fitted models.
+simulation_gaussian_n <- 100000L
+simulation_shape_x <- 1
+simulation_shape_y <- 2.5
+simulation_gaussian_truth <- matrix(
+  c(0.50, 0.20, 0.20, 0.35), 2, 2, byrow = TRUE,
+  dimnames = list(c("X", "Y"), c("X", "Y"))
+)
+set.seed(20260732)
+simulation_ri_state <- matrix(0, simulation_gaussian_n, 2L)
+simulation_ri_panel <- array(
+  NA_real_, dim = c(simulation_gaussian_n, 2L, 4L)
+)
+simulation_ri_innovation <- function(n) {
+  cbind(
+    (stats::rgamma(n, shape = simulation_shape_x) -
+       simulation_shape_x) / sqrt(simulation_shape_x),
+    (stats::rgamma(n, shape = simulation_shape_y) -
+       simulation_shape_y) / sqrt(simulation_shape_y)
+  )
+}
+for (tt in seq_len(204L)) {
+  simulation_ri_state <-
+    simulation_ri_state %*% t(simulation_truth) +
+    simulation_ri_innovation(simulation_gaussian_n)
+  if (tt > 200L) {
+    simulation_ri_panel[, , tt - 200L] <- simulation_ri_state
+  }
+}
+simulation_random_intercept <- matrix(
+  stats::rnorm(simulation_gaussian_n * 2L), simulation_gaussian_n, 2L
+) %*% chol(simulation_gaussian_truth)
+for (wave in seq_len(4L)) {
+  simulation_ri_panel[, , wave] <-
+    simulation_ri_panel[, , wave] + simulation_random_intercept
+}
+simulation_ri_wide <- data.frame(
+  X1 = simulation_ri_panel[, 1, 1], Y1 = simulation_ri_panel[, 2, 1],
+  X2 = simulation_ri_panel[, 1, 2], Y2 = simulation_ri_panel[, 2, 2],
+  X3 = simulation_ri_panel[, 1, 3], Y3 = simulation_ri_panel[, 2, 3],
+  X4 = simulation_ri_panel[, 1, 4], Y4 = simulation_ri_panel[, 2, 4]
+)
+
+simulation_confounded_clpm_fit <- lavaan::sem(
+  simulation_clpm_syntax, data = simulation_ri_wide,
+  estimator = "MLR", meanstructure = TRUE
+)
+simulation_confounded_clpm_estimates <- lavaan::parameterEstimates(
+  simulation_confounded_clpm_fit, ci = TRUE
+)
+simulation_confounded_clpm_paths <- simulation_confounded_clpm_estimates[
+  match(simulation_labels, simulation_confounded_clpm_estimates$label),
+  c("label", "est", "se", "pvalue", "ci.lower", "ci.upper")
+]
+
+simulation_riclpm_syntax <- "
+  RI_X =~ 1*X1 + 1*X2 + 1*X3 + 1*X4
+  RI_Y =~ 1*Y1 + 1*Y2 + 1*Y3 + 1*Y4
+  wX1 =~ 1*X1
+  wX2 =~ 1*X2
+  wX3 =~ 1*X3
+  wX4 =~ 1*X4
+  wY1 =~ 1*Y1
+  wY2 =~ 1*Y2
+  wY3 =~ 1*Y3
+  wY4 =~ 1*Y4
+  X1 ~~ 0*X1
+  X2 ~~ 0*X2
+  X3 ~~ 0*X3
+  X4 ~~ 0*X4
+  Y1 ~~ 0*Y1
+  Y2 ~~ 0*Y2
+  Y3 ~~ 0*Y3
+  Y4 ~~ 0*Y4
+  wX2 ~ x_ar*wX1 + y_to_x*wY1
+  wX3 ~ x_ar*wX2 + y_to_x*wY2
+  wX4 ~ x_ar*wX3 + y_to_x*wY3
+  wY2 ~ y_ar*wY1 + x_to_y*wX1
+  wY3 ~ y_ar*wY2 + x_to_y*wX2
+  wY4 ~ y_ar*wY3 + x_to_y*wX3
+  RI_X ~~ RI_Y
+  wX1 ~~ wY1
+  wX2 ~~ wY2
+  wX3 ~~ wY3
+  wX4 ~~ wY4
+  RI_X ~~ 0*wX1 + 0*wY1
+  RI_Y ~~ 0*wX1 + 0*wY1
+"
+simulation_riclpm_fit <- lavaan::sem(
+  simulation_riclpm_syntax, data = simulation_ri_wide,
+  estimator = "MLR", meanstructure = TRUE, fixed.x = FALSE
+)
+if (!isTRUE(lavaan::lavInspect(simulation_riclpm_fit, "post.check"))) {
+  stop("The simulated RI-CLPM solution failed lavaan's post-estimation check.")
+}
+simulation_riclpm_estimates <- lavaan::parameterEstimates(
+  simulation_riclpm_fit, ci = TRUE
+)
+simulation_riclpm_paths <- simulation_riclpm_estimates[
+  match(simulation_labels, simulation_riclpm_estimates$label),
+  c("label", "est", "se", "pvalue", "ci.lower", "ci.upper")
+]
+
+simulation_ri_final <- simulation_ri_wide[c("X4", "Y4")]
+names(simulation_ri_final) <- c("X", "Y")
+simulation_ri_data <- MCMdatasummary(
+  simulation_ri_final,
+  scale_data = FALSE,
+  prep_asymptotic_se = TRUE,
+  use_skewness = TRUE,
+  use_kurtosis = TRUE
+)
+simulation_gaussian_model <- MCMmodel(
+  simulation_ri_data,
+  n_latent = 0,
+  kernel = "dynamic",
+  residual_family = "gaussian"
+)
+simulation_gaussian_model <- MCMedit(
+  simulation_gaussian_model, "B", c(1, 1), "x_ar"
+)
+simulation_gaussian_model <- MCMedit(
+  simulation_gaussian_model, "B", c(1, 2), "y_to_x"
+)
+simulation_gaussian_model <- MCMedit(
+  simulation_gaussian_model, "B", c(2, 1), "x_to_y"
+)
+simulation_gaussian_model <- MCMedit(
+  simulation_gaussian_model, "B", c(2, 2), "y_ar"
+)
+simulation_gaussian_model <- MCMparameter(
+  simulation_gaussian_model, "shape_X", "free",
+  start = simulation_shape_x, transform = "positive"
+)
+simulation_gaussian_model <- MCMparameter(
+  simulation_gaussian_model, "shape_Y", "free",
+  start = simulation_shape_y, transform = "positive"
+)
+simulation_gaussian_model <- MCMparameter(
+  simulation_gaussian_model, "sign_X", "fixed", value = 1
+)
+simulation_gaussian_model <- MCMparameter(
+  simulation_gaussian_model, "sign_Y", "fixed", value = 1
+)
+simulation_gaussian_model <- MCMparameter(
+  simulation_gaussian_model, "tau_X", "derived",
+  expression = ~ sign_X * 2 / sqrt(shape_X)
+)
+simulation_gaussian_model <- MCMparameter(
+  simulation_gaussian_model, "kappa_X", "derived",
+  expression = ~ 6 / shape_X
+)
+simulation_gaussian_model <- MCMparameter(
+  simulation_gaussian_model, "tau_Y", "derived",
+  expression = ~ sign_Y * 2 / sqrt(shape_Y)
+)
+simulation_gaussian_model <- MCMparameter(
+  simulation_gaussian_model, "kappa_Y", "derived",
+  expression = ~ 6 / shape_Y
+)
+simulation_gaussian_cholesky <-
+  MCMSEM:::.covariance_to_cholesky_parameters(simulation_gaussian_truth)
+simulation_gaussian_starts <- c(
+  x_ar = simulation_truth[1, 1],
+  y_to_x = simulation_truth[1, 2],
+  x_to_y = simulation_truth[2, 1],
+  y_ar = simulation_truth[2, 2],
+  shape_X = simulation_shape_x,
+  shape_Y = simulation_shape_y,
+  log_sd_G_X = simulation_gaussian_cholesky[1, 1],
+  chol_G_Y_X = simulation_gaussian_cholesky[2, 1],
+  log_sd_G_Y = simulation_gaussian_cholesky[2, 2]
+)
+for (name in names(simulation_gaussian_starts)) {
+  simulation_gaussian_model <- MCMedit(
+    simulation_gaussian_model, "start", name,
+    simulation_gaussian_starts[[name]]
+  )
+}
+simulation_gaussian_fit <- MCMfit(
+  simulation_gaussian_model,
+  simulation_ri_data,
+  compute_se = TRUE,
+  optimizers = c("rprop", "lbfgs"),
+  optim_iters = c(700, 60),
+  learning_rate = c(0.01, 0.05),
+  moment_weighting = "diagonal",
+  se_correction = "robust",
+  n_starts = 10,
+  seed = 20260732,
+  verbose = FALSE
+)
+simulation_gaussian_paths <- extract_dynamic_paths(simulation_gaussian_fit)
+simulation_gaussian_metrics <- data.frame(
+  n = simulation_gaussian_n,
+  clpm_cfi_robust = lavaan::fitMeasures(
+    simulation_confounded_clpm_fit, "cfi.robust"
+  ),
+  clpm_rmsea_robust = lavaan::fitMeasures(
+    simulation_confounded_clpm_fit, "rmsea.robust"
+  ),
+  clpm_srmr = lavaan::fitMeasures(
+    simulation_confounded_clpm_fit, "srmr"
+  ),
+  riclpm_cfi_robust = lavaan::fitMeasures(
+    simulation_riclpm_fit, "cfi.robust"
+  ),
+  riclpm_rmsea_robust = lavaan::fitMeasures(
+    simulation_riclpm_fit, "rmsea.robust"
+  ),
+  riclpm_srmr = lavaan::fitMeasures(simulation_riclpm_fit, "srmr"),
+  dynamic_loss = simulation_gaussian_fit$loss,
+  dynamic_spectral_radius = simulation_gaussian_fit$spectral_radius,
+  dynamic_nominal_df = simulation_gaussian_fit$degrees_of_freedom,
+  dynamic_jacobian_rank = simulation_gaussian_fit$info$jacobian_rank,
+  dynamic_information_condition =
+    simulation_gaussian_fit$info$information_condition,
+  dynamic_admissible_starts = sum(
+    simulation_gaussian_fit$start_diagnostics$convergence == 0
+  )
+)
+
+if (run_simulation_only) {
+  cat("Simulation truth\n")
+  print(simulation_truth)
+  cat("\nNo-confounder simulation paths\n")
+  print(simulation_clpm_paths, row.names = FALSE)
+  print(simulation_dynamic_paths, row.names = FALSE)
+  cat("\nGaussian random-intercept truth\n")
+  print(simulation_gaussian_truth)
+  cat("\nGaussian-confounder simulation metrics\n")
+  print(simulation_gaussian_metrics, row.names = FALSE)
+  cat("\nConfounded CLPM paths\n")
+  print(simulation_confounded_clpm_paths, row.names = FALSE)
+  cat("\nRI-CLPM paths\n")
+  print(simulation_riclpm_paths, row.names = FALSE)
+  cat("\nGaussian-residual MCMSEM paths\n")
+  print(simulation_gaussian_paths, row.names = FALSE)
+  cat("\nEstimated Gaussian residual covariance\n")
+  print(simulation_gaussian_fit$Psi_G)
+  quit(save = "no", status = 0L)
+}
 
 # Then run the comparison on the small, derived SIPP matrix bundled with the
 # package. The original Census wave files are not included in the repository.
@@ -268,10 +516,6 @@ fit_dynamic_model <- function(
   )
 }
 
-message("Fitting plain dynamic MCMSEM (40 starts)")
-dynamic_model <- make_dynamic_model("none")
-dynamic_fit <- fit_dynamic_model(dynamic_model, 20260901L, 40L, 1200L)
-
 message("Fitting dynamic MCMSEM with a Gaussian residual (20 starts)")
 gaussian_model <- make_dynamic_model("gaussian")
 gaussian_fit <- fit_dynamic_model(gaussian_model, 20260731L, 20L, 1400L)
@@ -402,24 +646,12 @@ if (run_unrestricted_gamma) {
   )
 }
 
-dynamic_paths <- function(fit) {
-  paths <- fit$transition_parameters[
-    , c("label", "lagged", "current", "estimate", "se")
-  ]
-  paths$pvalue <- 2 * stats::pnorm(
-    abs(paths$estimate / paths$se), lower.tail = FALSE
-  )
-  paths$ci.lower <- paths$estimate - 1.96 * paths$se
-  paths$ci.upper <- paths$estimate + 1.96 * paths$se
-  paths
-}
-base_paths <- dynamic_paths(dynamic_fit)
-gaussian_paths <- dynamic_paths(gaussian_fit)
-gamma_paths <- dynamic_paths(gamma_fit)
+gaussian_paths <- extract_dynamic_paths(gaussian_fit)
+gamma_paths <- extract_dynamic_paths(gamma_fit)
 unrestricted_gamma_paths <- if (is.null(unrestricted_gamma_fit)) {
   NULL
 } else {
-  dynamic_paths(unrestricted_gamma_fit)
+  extract_dynamic_paths(unrestricted_gamma_fit)
 }
 
 fit_metrics <- data.frame(
@@ -433,8 +665,6 @@ fit_metrics <- data.frame(
   riclpm_tli_scaled = lavaan::fitMeasures(riclpm_fit, "tli.scaled"),
   riclpm_rmsea_scaled = lavaan::fitMeasures(riclpm_fit, "rmsea.scaled"),
   riclpm_srmr = lavaan::fitMeasures(riclpm_fit, "srmr"),
-  dynamic_loss = dynamic_fit$loss,
-  dynamic_information_condition = dynamic_fit$info$information_condition,
   gaussian_loss = gaussian_fit$loss,
   gaussian_information_condition = gaussian_fit$info$information_condition,
   gamma_loss = gamma_fit$loss,
@@ -454,6 +684,16 @@ cat("\nSimulation CLPM transition paths\n")
 print(simulation_clpm_paths, row.names = FALSE)
 cat("\nSimulation dynamic MCMSEM transition paths\n")
 print(simulation_dynamic_paths, row.names = FALSE)
+cat("\nGaussian-confounder simulation fit metrics\n")
+print(simulation_gaussian_metrics, row.names = FALSE)
+cat("\nGaussian-confounder simulation CLPM transition paths\n")
+print(simulation_confounded_clpm_paths, row.names = FALSE)
+cat("\nGaussian-confounder simulation RI-CLPM transition paths\n")
+print(simulation_riclpm_paths, row.names = FALSE)
+cat("\nGaussian-confounder simulation MCMSEM transition paths\n")
+print(simulation_gaussian_paths, row.names = FALSE)
+cat("\nGaussian-confounder simulation residual covariance\n")
+print(simulation_gaussian_fit$Psi_G)
 cat("\nReal-data fit metrics\n")
 print(fit_metrics, row.names = FALSE)
 cat("\nReal-data wave diagnostics\n")
@@ -462,8 +702,6 @@ cat("\nCLPM transition paths\n")
 print(clpm_paths, row.names = FALSE)
 cat("\nRI-CLPM within-person transition paths\n")
 print(riclpm_paths, row.names = FALSE)
-cat("\nDynamic MCMSEM transition paths\n")
-print(base_paths, row.names = FALSE)
 cat("\nDynamic MCMSEM paths with Gaussian residual\n")
 print(gaussian_paths, row.names = FALSE)
 cat("\nEstimated Gaussian residual covariance\n")
@@ -478,9 +716,6 @@ if (!is.null(unrestricted_gamma_fit)) {
   cat("\nUnrestricted-innovation common-gamma residual\n")
   print(unrestricted_gamma_fit$dynamic$common_gamma)
 }
-cat("\nDynamic start diagnostics\n")
-print(dynamic_fit$start_diagnostics, row.names = FALSE)
-
 output_dir <- file.path("validation-output", "longitudinal-example")
 dir.create(output_dir, recursive = TRUE, showWarnings = FALSE)
 utils::write.csv(
@@ -499,6 +734,35 @@ utils::write.csv(
   simulation_dynamic_paths,
   file.path(output_dir, "simulation_dynamic_paths.csv"), row.names = FALSE
 )
+utils::write.csv(
+  simulation_gaussian_metrics,
+  file.path(output_dir, "simulation_gaussian_fit_metrics.csv"),
+  row.names = FALSE
+)
+utils::write.csv(
+  simulation_confounded_clpm_paths,
+  file.path(output_dir, "simulation_confounded_clpm_paths.csv"),
+  row.names = FALSE
+)
+utils::write.csv(
+  simulation_riclpm_paths,
+  file.path(output_dir, "simulation_riclpm_paths.csv"), row.names = FALSE
+)
+utils::write.csv(
+  simulation_gaussian_paths,
+  file.path(output_dir, "simulation_gaussian_dynamic_paths.csv"),
+  row.names = FALSE
+)
+utils::write.csv(
+  simulation_gaussian_truth,
+  file.path(output_dir, "simulation_gaussian_residual_truth.csv"),
+  row.names = TRUE
+)
+utils::write.csv(
+  simulation_gaussian_fit$Psi_G,
+  file.path(output_dir, "simulation_gaussian_residual_estimate.csv"),
+  row.names = TRUE
+)
 utils::write.csv(fit_metrics, file.path(output_dir, "fit_metrics.csv"), row.names = FALSE)
 utils::write.csv(
   wave_diagnostics,
@@ -508,7 +772,6 @@ utils::write.csv(clpm_paths, file.path(output_dir, "clpm_paths.csv"), row.names 
 utils::write.csv(
   riclpm_paths, file.path(output_dir, "riclpm_paths.csv"), row.names = FALSE
 )
-utils::write.csv(base_paths, file.path(output_dir, "dynamic_paths.csv"), row.names = FALSE)
 utils::write.csv(
   gaussian_paths,
   file.path(output_dir, "gaussian_dynamic_paths.csv"), row.names = FALSE
@@ -516,11 +779,6 @@ utils::write.csv(
 utils::write.csv(
   gaussian_fit$Psi_G,
   file.path(output_dir, "gaussian_residual_covariance.csv"), row.names = TRUE
-)
-utils::write.csv(
-  dynamic_fit$start_diagnostics,
-  file.path(output_dir, "dynamic_start_diagnostics.csv"),
-  row.names = FALSE
 )
 utils::write.csv(
   gaussian_fit$start_diagnostics,

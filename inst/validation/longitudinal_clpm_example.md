@@ -7,11 +7,11 @@ real-data illustration using a minimal derived SIPP analysis matrix:
 Rscript inst/validation/longitudinal_clpm_example.R
 ```
 
-Generated fit objects and CSV summaries are written below
+Generated CSV summaries are written below
 `validation-output/longitudinal-example/`, which is excluded from Git and
 source packages.
 
-## Controlled stationary simulation
+## Controlled simulation without a stable confounder
 
 The simulation generates 20,000 independent subjects, burns in a bivariate
 VAR(1) for 200 transitions, and retains four consecutive waves. The transition
@@ -41,6 +41,46 @@ and 0.003. The dynamic fit had loss 0.000459, spectral radius 0.522,
 nominal df = 4, Jacobian rank 8/8, information condition
 $1.81 \times 10^4$, and 20/20 admissible starts. This is the expected
 calibration result when the two estimators' assumptions and estimands match.
+
+## Controlled simulation with a Gaussian stable confounder
+
+A second simulation generates 100,000 subjects from the same transition
+matrix. Its independent innovations are centered, variance-one gamma variables
+with shapes 1 and 2.5. A time-invariant bivariate Gaussian random intercept
+with covariance
+
+```text
+      X    Y
+X  0.50 0.20
+Y  0.20 0.35
+```
+
+is added to every wave. This simultaneously satisfies the RI-CLPM's stable
+random-intercept assumptions and dynamic MCMSEM's additive Gaussian residual
+assumptions. The MCMSEM fit constrains each innovation's skewness and excess
+kurtosis to its freely estimated positive shape, leaving three nominal df.
+One of ten starts is initialized at the known generating values; the other
+nine are randomized.
+
+| Path (current <- lagged) | Truth | CLPM estimate (SE) | RI-CLPM estimate (SE) | Gaussian MCMSEM estimate (robust SE) |
+|---|---:|---:|---:|---:|
+| X <- X | 0.550 | 0.646 (0.001) | 0.548 (0.003) | 0.530 (0.023) |
+| X <- Y | 0.160 | 0.172 (0.001) | 0.165 (0.003) | 0.207 (0.040) |
+| Y <- X | -0.120 | -0.046 (0.001) | -0.118 (0.003) | -0.101 (0.016) |
+| Y <- Y | 0.450 | 0.576 (0.002) | 0.452 (0.003) | 0.476 (0.028) |
+
+All generating paths are inside the MCMSEM robust 95% intervals. Its estimated
+Gaussian residual covariance was
+
+```text
+      X     Y
+X 0.485 0.132
+Y 0.132 0.331
+```
+
+MCMSEM had loss 0.000222, spectral radius 0.523, rank 9/9, and information
+condition $2.08 \times 10^4$. The RI-CLPM had robust CFI = 1.000,
+RMSEA = 0.001, and SRMR = 0.002.
 
 ## Derived SIPP matrix
 
@@ -73,41 +113,22 @@ Wave 1 supplies MCMSEM because it has the largest complete bivariate sample.
 The modest drift makes this a precision choice under approximate—not
 established—stationarity.
 
-## CLPM versus plain dynamic MCMSEM
-
-The equality-constrained CLPM uses MLR and FIML. Plain dynamic MCMSEM uses
-`residual_family = "none"`, freely estimated innovation third/fourth
-cumulants, 40 starts, diagonal WLS, and robust SEs.
-
-| Path (current <- lagged) | CLPM estimate (robust SE) | Plain dynamic MCMSEM estimate (robust SE) |
-|---|---:|---:|
-| Earnings <- earnings | 0.628 (0.011) | 0.980 (0.026) |
-| Earnings <- hours | 0.063 (0.008) | -0.315 (0.121) |
-| Hours <- earnings | 0.124 (0.007) | 0.521 (0.112) |
-| Hours <- hours | 0.476 (0.009) | 0.486 (0.113) |
-
-The CLPM's scaled CFI/TLI/RMSEA were 0.905/0.867/0.052 and SRMR was
-0.086. The plain dynamic fit had loss 0.3659, spectral radius 0.800,
-df = 4, rank 8/8, information condition $6.94 \times 10^6$, and 10/40
-admissible starts. Its earnings autoregression was effectively at the 0.98
-upper bound, so boundary proximity and multistart attrition are substantive
-warnings.
-
-## RI-CLPM versus Gaussian-residual dynamic MCMSEM
+## SIPP: CLPM, RI-CLPM, and Gaussian-residual dynamic MCMSEM
 
 The RI-CLPM separates correlated stable random intercepts from within-person
 deviations. Dynamic MCMSEM's full Gaussian residual covariance is conceptually
 analogous to a joint stable distribution, but a one-wave fit assumes rather
 than observes its temporal stability.
 
-| Path (current <- lagged) | RI-CLPM within-person estimate (robust SE) | Dynamic + Gaussian residual (robust SE) |
-|---|---:|---:|
-| Earnings <- earnings | 0.105 (0.024) | 0.627 (0.091) |
-| Earnings <- hours | 0.051 (0.012) | 0.127 (0.104) |
-| Hours <- earnings | 0.009 (0.015) | 0.465 (0.116) |
-| Hours <- hours | 0.165 (0.017) | 0.591 (0.163) |
+| Path (current <- lagged) | CLPM estimate (robust SE) | RI-CLPM estimate (robust SE) | Gaussian MCMSEM estimate (robust SE) |
+|---|---:|---:|---:|
+| Earnings <- earnings | 0.628 (0.011) | 0.105 (0.024) | 0.627 (0.091) |
+| Earnings <- hours | 0.063 (0.008) | 0.051 (0.012) | 0.127 (0.104) |
+| Hours <- earnings | 0.124 (0.007) | 0.009 (0.015) | 0.465 (0.116) |
+| Hours <- hours | 0.476 (0.009) | 0.165 (0.017) | 0.591 (0.163) |
 
-The RI-CLPM passed lavaan's post-estimation check; scaled
+The CLPM's scaled CFI/TLI/RMSEA were 0.905/0.867/0.052 and SRMR was
+0.086. The RI-CLPM passed lavaan's post-estimation check; scaled
 CFI/TLI/RMSEA were 0.998/0.996/0.009 and SRMR was 0.012. The MCMSEM
 Gaussian residual covariance was
 
@@ -132,12 +153,12 @@ weakly identified decompositions, so the reported analysis constrained each
 innovation's skewness and kurtosis to a signed-gamma relationship. That leaves
 three nominal df.
 
-| Path (current <- lagged) | Common-gamma estimate (robust SE) |
-|---|---:|
-| Earnings <- earnings | 0.676 (0.032) |
-| Earnings <- hours | 0.075 (0.052) |
-| Hours <- earnings | 0.422 (0.030) |
-| Hours <- hours | 0.651 (0.036) |
+| Path (current <- lagged) | CLPM estimate (robust SE) | RI-CLPM estimate (robust SE) | Gaussian MCMSEM estimate (robust SE) | Common-gamma MCMSEM estimate (robust SE) |
+|---|---:|---:|---:|---:|
+| Earnings <- earnings | 0.628 (0.011) | 0.105 (0.024) | 0.627 (0.091) | 0.676 (0.032) |
+| Earnings <- hours | 0.063 (0.008) | 0.051 (0.012) | 0.127 (0.104) | 0.075 (0.052) |
+| Hours <- earnings | 0.124 (0.007) | 0.009 (0.015) | 0.465 (0.116) | 0.422 (0.030) |
+| Hours <- hours | 0.476 (0.009) | 0.165 (0.017) | 0.591 (0.163) | 0.651 (0.036) |
 
 The residual loadings were -1.347 (SE 0.108) and -0.360 (SE 0.235).
 The common shape was 153.8 (SE 398.2), corresponding to skewness 0.161
@@ -162,10 +183,11 @@ confounder shape is therefore constraint-dependent.
 
 ## Interpretation
 
-- The simulation demonstrates that CLPM and MCMSEM can converge when their
-  assumptions and estimands match.
-- CLPM and plain MCMSEM both target observed-score dynamics, but identify them
-  from repeated transitions versus one stationary marginal distribution.
+- The simulations demonstrate that CLPM and plain MCMSEM can agree without a
+  stable component, and that RI-CLPM and Gaussian-residual MCMSEM can agree
+  when a Gaussian stable component is present.
+- CLPM identifies paths from repeated transitions; MCMSEM reconstructs them
+  from one stationary marginal distribution and higher cumulants.
 - RI-CLPM and residual-adjusted MCMSEM both attempt a within/between
   decomposition. Only RI-CLPM directly observes persistence across waves.
 - Real-data estimates need not converge. Differences may reflect estimands,
