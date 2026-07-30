@@ -2,8 +2,10 @@
 MCMmodel <- function(data, n_latent=1, constrained_a=TRUE, scale_data=TRUE, weights=NULL, latent_names=NULL,
                      causal_observed=TRUE, var_observed=TRUE, skew_observed=TRUE, kurt_observed=TRUE,
                      causal_latent=FALSE, var_latent=FALSE, skew_latent=FALSE, kurt_latent=FALSE,
-                     kernel="contemporaneous", gaussian_residual=TRUE) {
+                     kernel="contemporaneous", gaussian_residual=TRUE,
+                     residual_family=NULL) {
   n_latent_missing <- missing(n_latent)
+  gaussian_residual_missing <- missing(gaussian_residual)
   kernel <- .normalize_kernel(kernel)
   if (class(data)[[1]] != "mcmdataclass") {
     data <- MCMdatasummary(data, scale_data=scale_data, weights=weights, prep_asymptotic_se=FALSE)
@@ -25,7 +27,14 @@ MCMmodel <- function(data, n_latent=1, constrained_a=TRUE, scale_data=TRUE, weig
         call. = FALSE
       )
     }
-    return(.dynamic_model(data, gaussian_residual = gaussian_residual))
+    residual_family <- .normalize_dynamic_residual_family(
+      residual_family, gaussian_residual, gaussian_residual_missing
+    )
+    return(.dynamic_model(data, residual_family = residual_family))
+  }
+  if (!is.null(residual_family)) {
+    stop("`residual_family` is currently available only for `kernel = \"dynamic\"`.",
+         call. = FALSE)
   }
   # TODO: Expand checks on how many latent can/should be used with or without constrained a depending on input data
   # Input data verification

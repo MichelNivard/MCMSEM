@@ -24,7 +24,9 @@ for internal coordinates.}
 contemporaneous model. Dynamic models currently require both.}
 }
 \value{
-A named list of implied moment and kernel matrices.
+A named list of implied moment and kernel matrices. Dynamic models also return
+the dynamic and residual cumulant components; a common-gamma residual includes
+its loadings, shape, skewness, and excess kurtosis.
 }
 \description{
 Evaluates free, fixed, and derived parameters before constructing either

@@ -114,6 +114,30 @@ $$
 
 The parameters in $B$ are therefore identified by the pattern produced when independent non-Gaussian innovations repeatedly propagate through the system. If correlated Gaussian residual or random-intercept components are included, their covariance $\Psi_G$ is added to $C_2$, while $C_3$ and $K_4$ remain unchanged; raw $M_4$ is then reconstructed using the total covariance $C_2+\Psi_G$.
 
+Alternatively, `residual_family = "common_gamma"` adds one non-Gaussian
+confounder to the stationary marginal state. Write
+$U=(G-\alpha)/\sqrt{\alpha}$ for $G\sim\operatorname{Gamma}(\alpha,1)$ and
+$y_t=z_t+\lambda U$. Then
+
+$$
+C_{2,U}=\lambda\lambda^\top,\qquad
+C_{3,U}=\frac{2}{\sqrt{\alpha}}\lambda^{\otimes3},\qquad
+K_{4,U}=\frac{6}{\alpha}\lambda^{\otimes4}.
+$$
+
+The loadings may be signed and `shape_Gamma` is positive. This factor replaces,
+rather than supplements, the Gaussian residual in the current API. It is an
+additive marginal confounder: it is not an innovation repeatedly propagated
+through $B$.
+
+```r
+gamma_model <- MCMmodel(
+  ds, kernel = "dynamic", residual_family = "common_gamma"
+)
+gamma_parameters <- MCMparameters(gamma_model)
+gamma_parameters[grepl("Gamma", gamma_parameters$name), ]
+```
+
 
 ## Free, fixed, and derived parameters
 
@@ -147,7 +171,7 @@ The same API works for contemporaneous models. There, diagonal `K` entries are r
 `~ 6 / shape`.
 
 
-The current dynamic release supports observed states with at least two variables, a VAR(1) transition, fixed unit innovation variances, diagonal innovation third and fourth cumulants, and an optional full Gaussian residual covariance, or via the newly added constraints other parametric residuals. It provides identity, diagonal, and full WLS moment weights plus asymptotic robust or efficient SEs. Latent measurement models, VAR(q), and combined contemporaneous-plus-lagged paths are not yet supported.
+The current dynamic release supports observed states with at least two variables, a VAR(1) transition, fixed unit innovation variances, diagonal innovation third and fourth cumulants, and either an optional full Gaussian residual covariance or one common-gamma residual factor. It provides identity, diagonal, and full WLS moment weights plus asymptotic robust or efficient SEs. General user-defined residual distributions, latent measurement models, VAR(q), and combined contemporaneous-plus-lagged paths are not yet supported.
 
 
 See
@@ -543,300 +567,425 @@ starts. This is the clean agreement expected when both estimators' assumptions
 match the data-generating process; it is not evidence that agreement is
 guaranteed with observational data.
 
-#### Real-data sensitivity analysis
+#### Real-data illustration: earnings and hours in the 2014 SIPP panel
 
-This example uses the public
-[National Longitudinal Survey of Young Women](https://www.nlsinfo.org/content/cohorts/young-women)
-through the documented
-[`nlswork` extract](https://vincentarelbundock.github.io/Rdatasets/doc/sampleSelection/nlswork.html).
-It fits a traditional CLPM and an RI-CLPM to four equally spaced
-two-year waves (1971, 1973, 1975, and 1977), then fits dynamic MCMSEM with and
-without a Gaussian residual covariance to the largest cross-sectional wave.
-This is a comparison of workflows and assumptions, not a claim that all four
-models have the same target.
+This example uses the U.S. Census Bureau's public-use
+[2014 Survey of Income and Program Participation (SIPP) panel](https://www.census.gov/programs-surveys/sipp/data/datasets/2014-panel.html).
+Its four waves cover the 2013--2016 reference years. The original Census files
+are hundreds of megabytes and are not stored in this repository. Instead, the
+package includes a 437 KB
+[derived analysis matrix](inst/extdata/sipp_2014_panel.csv.gz) and its
+[full provenance](inst/extdata/README.md).
+
+The matrix contains only four waves of transformed log earnings and usual
+weekly hours: eight columns, no identifiers, demographics, survey weights, or
+source variables. The derivation selected December in each wave, retained a
+working-age baseline cohort, and treated non-positive earnings or hours as
+unavailable. The analysis is consequently an unweighted methodological
+illustration among people with positive earnings and hours, not a
+population-representative labor estimate. Variable definitions and the
+public-use files are available from the Census
+[wave pages](https://www.census.gov/programs-surveys/sipp/data/datasets/2014-panel/wave-1.html)
+and [data dictionaries](https://www.census.gov/programs-surveys/sipp/tech-documentation/data-dictionaries/data-dictionaries-2014.html).
+
+Load the exact matrix used below:
 
 ```r
 library(MCMSEM)
 library(lavaan)
 
-nls_long <- read.csv(paste0(
-  "https://vincentarelbundock.github.io/Rdatasets/csv/",
-  "sampleSelection/nlswork.csv"
-))
-nls_long <- nls_long[nls_long$year %in% c(71, 73, 75, 77), ]
-
-# The dynamic kernel fixes innovation variances to one. Apply the same
-# transparent linear rescaling in both models; do not silently z-score.
-nls_long$Wage <- 4 * nls_long$ln_wage
-nls_long$Hours <- nls_long$hours / 5
-
-wide <- reshape(
-  nls_long[c("idcode", "year", "Wage", "Hours")],
-  idvar = "idcode", timevar = "year", direction = "wide"
+sipp_file <- system.file(
+  "extdata", "sipp_2014_panel.csv.gz", package = "MCMSEM"
 )
-names(wide) <- sub("Wage\\.", "Wage", names(wide))
-names(wide) <- sub("Hours\\.", "Hours", names(wide))
+if (!nzchar(sipp_file)) {
+  # When running directly from a source checkout.
+  sipp_file <- "inst/extdata/sipp_2014_panel.csv.gz"
+}
+sipp <- read.csv(sipp_file, na.strings = c("", "NA"))
+stopifnot(
+  identical(
+    names(sipp),
+    c(
+      "Earnings1", "Hours1", "Earnings2", "Hours2",
+      "Earnings3", "Hours3", "Earnings4", "Hours4"
+    )
+  )
+)
 ```
 
-Fit a CLPM with the four autoregressive/cross-lagged coefficients constrained
-equal across the three two-year transitions. Robust maximum likelihood and
-FIML are used for non-normality and incomplete waves.
+Log earnings and hours were each centered using wave-1 complete cases and
+rescaled as `2 * (value - wave1_mean) / wave1_sd`. The same affine
+transformation was used at every wave and in every model. It gives both
+variables variance four in wave 1, comfortably above the dynamic kernel's fixed
+unit innovation variance. Thus the reported unstandardized paths share common
+measurement units and are approximately standardized; scale differences do not
+explain differences between methods.
+
+Dynamic MCMSEM assumes a stationary marginal distribution, so in the
+population any wave could be used. We use wave 1 because it has the largest
+jointly observed sample. The empirical moments are similar but not identical,
+so stationarity remains an approximation rather than something established by
+choosing the largest wave:
+
+| Wave | Reference year | Complete N | Earnings mean | Hours mean | Earnings variance | Hours variance | Covariance |
+|---:|---:|---:|---:|---:|---:|---:|---:|
+| 1 | 2013 | 22,049 | 0.000 | 0.000 | 4.000 | 4.000 | 2.031 |
+| 2 | 2014 | 15,787 | 0.036 | -0.034 | 4.192 | 4.170 | 2.179 |
+| 3 | 2015 | 12,190 | 0.184 | 0.055 | 4.012 | 4.205 | 2.087 |
+| 4 | 2016 | 10,446 | 0.268 | 0.033 | 4.057 | 4.156 | 2.166 |
+
+##### Observed-score dynamics: CLPM versus plain dynamic MCMSEM
+
+First fit a traditional CLPM. The four paths are constrained equal across the
+three annual transitions. MLR and FIML retain incomplete panel rows and provide
+non-normality-robust inference.
 
 ```r
 clpm_syntax <- "
-  Wage73 ~ wage_ar*Wage71 + hours_to_wage*Hours71
-  Wage75 ~ wage_ar*Wage73 + hours_to_wage*Hours73
-  Wage77 ~ wage_ar*Wage75 + hours_to_wage*Hours75
+  Earnings2 ~ earnings_ar*Earnings1 + hours_to_earnings*Hours1
+  Earnings3 ~ earnings_ar*Earnings2 + hours_to_earnings*Hours2
+  Earnings4 ~ earnings_ar*Earnings3 + hours_to_earnings*Hours3
 
-  Hours73 ~ hours_ar*Hours71 + wage_to_hours*Wage71
-  Hours75 ~ hours_ar*Hours73 + wage_to_hours*Wage73
-  Hours77 ~ hours_ar*Hours75 + wage_to_hours*Wage75
+  Hours2 ~ hours_ar*Hours1 + earnings_to_hours*Earnings1
+  Hours3 ~ hours_ar*Hours2 + earnings_to_hours*Earnings2
+  Hours4 ~ hours_ar*Hours3 + earnings_to_hours*Earnings3
 
-  Wage71 ~~ Hours71
-  Wage73 ~~ Hours73
-  Wage75 ~~ Hours75
-  Wage77 ~~ Hours77
+  Earnings1 ~~ Hours1
+  Earnings2 ~~ Hours2
+  Earnings3 ~~ Hours3
+  Earnings4 ~~ Hours4
 "
-
 clpm_fit <- sem(
-  clpm_syntax, data = wide,
+  clpm_syntax, data = sipp,
   estimator = "MLR", missing = "fiml", meanstructure = TRUE
 )
-clpm_estimates <- parameterEstimates(clpm_fit, ci = TRUE)
-clpm_labels <- c("wage_ar", "hours_to_wage", "hours_ar", "wage_to_hours")
-clpm_paths <- clpm_estimates[
-  match(clpm_labels, clpm_estimates$label),
-  c("label", "est", "se", "pvalue", "ci.lower", "ci.upper")
-]
-clpm_paths
-fitMeasures(clpm_fit, c("cfi.robust", "tli.robust", "rmsea.robust", "srmr"))
 ```
 
-The validated run used 3,314 women with at least one observed wave:
-
-| CLPM path | Estimate | Robust SE | p-value | 95% CI |
-|---|---:|---:|---:|---:|
-| Wage autoregression | 0.681 | 0.018 | <0.001 | [0.646, 0.715] |
-| Hours to later wage | 0.039 | 0.012 | 0.001 | [0.015, 0.063] |
-| Hours autoregression | 0.443 | 0.023 | <0.001 | [0.397, 0.488] |
-| Wage to later hours | 0.035 | 0.020 | 0.071 | [-0.003, 0.074] |
-
-Robust fit indices were CFI = 0.929, TLI = 0.901, RMSEA = 0.095, and
-SRMR = 0.058. The fit is not uniformly strong, which is itself useful context
-when comparing the estimates below.
-
-An RI-CLPM separates stable between-person differences from within-person
-deviations. The equality constraints again define one transition matrix over
-the three two-year lags.
+Now fit the basic dynamic kernel with freely estimated innovation skewness and
+kurtosis and no residual confounder. Only the largest cross-section enters
+MCMSEM.
 
 ```r
-riclpm_syntax <- "
-  RI_Wage =~ 1*Wage71 + 1*Wage73 + 1*Wage75 + 1*Wage77
-  RI_Hours =~ 1*Hours71 + 1*Hours73 + 1*Hours75 + 1*Hours77
-
-  wWage71 =~ 1*Wage71
-  wWage73 =~ 1*Wage73
-  wWage75 =~ 1*Wage75
-  wWage77 =~ 1*Wage77
-  wHours71 =~ 1*Hours71
-  wHours73 =~ 1*Hours73
-  wHours75 =~ 1*Hours75
-  wHours77 =~ 1*Hours77
-
-  Wage71 ~~ 0*Wage71
-  Wage73 ~~ 0*Wage73
-  Wage75 ~~ 0*Wage75
-  Wage77 ~~ 0*Wage77
-  Hours71 ~~ 0*Hours71
-  Hours73 ~~ 0*Hours73
-  Hours75 ~~ 0*Hours75
-  Hours77 ~~ 0*Hours77
-
-  wWage73 ~ wage_ar*wWage71 + hours_to_wage*wHours71
-  wWage75 ~ wage_ar*wWage73 + hours_to_wage*wHours73
-  wWage77 ~ wage_ar*wWage75 + hours_to_wage*wHours75
-  wHours73 ~ hours_ar*wHours71 + wage_to_hours*wWage71
-  wHours75 ~ hours_ar*wHours73 + wage_to_hours*wWage73
-  wHours77 ~ hours_ar*wHours75 + wage_to_hours*wWage75
-
-  RI_Wage ~~ RI_Hours
-  wWage71 ~~ wHours71
-  wWage73 ~~ wHours73
-  wWage75 ~~ wHours75
-  wWage77 ~~ wHours77
-  RI_Wage ~~ 0*wWage71 + 0*wHours71
-  RI_Hours ~~ 0*wWage71 + 0*wHours71
-"
-riclpm_fit <- sem(
-  riclpm_syntax, data = wide,
-  estimator = "MLR", missing = "fiml", meanstructure = TRUE,
-  fixed.x = FALSE
-)
-```
-
-The RI-CLPM passed `lavaan`'s post-estimation check and fit better than the
-ordinary CLPM (robust CFI = 0.969, TLI = 0.949, RMSEA = 0.068, SRMR = 0.044):
-
-| RI-CLPM within-person path | Estimate | Robust SE | p-value | 95% CI |
-|---|---:|---:|---:|---:|
-| Wage autoregression | 0.401 | 0.062 | <0.001 | [0.280, 0.522] |
-| Hours to later wage | 0.056 | 0.025 | 0.026 | [0.007, 0.105] |
-| Hours autoregression | 0.315 | 0.051 | <0.001 | [0.215, 0.415] |
-| Wage to later hours | 0.077 | 0.060 | 0.203 | [-0.041, 0.194] |
-
-Under stationarity, every wave has the same population marginal distribution.
-For precision, select the wave with the largest number of jointly observed
-cases; here that is 1977. In real data, wave choice still deserves a
-stationarity check because equality of the marginal distributions is an
-assumption. The observed diagnostics already show some drift:
-
-| Year | Complete N | Wage mean | Hours mean | Wage variance | Hours variance | Covariance |
-|---:|---:|---:|---:|---:|---:|---:|
-| 1971 | 1,851 | 6.187 | 7.331 | 2.748 | 3.613 | 0.181 |
-| 1973 | 1,981 | 6.314 | 7.218 | 2.955 | 4.040 | 0.260 |
-| 1975 | 2,131 | 6.327 | 7.340 | 2.650 | 3.581 | 0.010 |
-| 1977 | 2,167 | 6.637 | 7.222 | 2.973 | 3.985 | 0.262 |
-
-Fit the eight-parameter dynamic kernel without a Gaussian residual component.
-`B[row, column]` maps a lagged column variable to a current row variable.
-
-```r
-wave_years <- c(71, 73, 75, 77)
-complete_n <- vapply(wave_years, function(yy) {
-  sum(complete.cases(wide[paste0(c("Wage", "Hours"), yy)]))
+complete_n <- vapply(seq_len(4L), function(wave) {
+  sum(complete.cases(sipp[paste0(c("Earnings", "Hours"), wave)]))
 }, integer(1))
-mcm_wave <- wave_years[which.max(complete_n)]
-final_wave <- na.omit(wide[paste0(c("Wage", "Hours"), mcm_wave)])
-names(final_wave) <- c("Wage", "Hours")
+mcm_wave <- which.max(complete_n)
+mcm_values <- na.omit(
+  sipp[paste0(c("Earnings", "Hours"), mcm_wave)]
+)
+names(mcm_values) <- c("Earnings", "Hours")
 
 dynamic_data <- MCMdatasummary(
-  final_wave,
+  mcm_values,
   scale_data = FALSE,
   prep_asymptotic_se = TRUE,
   use_skewness = TRUE,
   use_kurtosis = TRUE
 )
-dynamic_model <- MCMmodel(
-  dynamic_data,
-  n_latent = 0,
-  kernel = "dynamic",
-  gaussian_residual = FALSE
-)
-dynamic_model <- MCMedit(dynamic_model, "B", c(1, 1), "Wage_AR")
-dynamic_model <- MCMedit(dynamic_model, "B", c(1, 2), "Hours_lag_to_Wage")
-dynamic_model <- MCMedit(dynamic_model, "B", c(2, 1), "Wage_lag_to_Hours")
-dynamic_model <- MCMedit(dynamic_model, "B", c(2, 2), "Hours_AR")
 
-dynamic_fit <- MCMfit(
-  dynamic_model,
+make_dynamic_model <- function(residual_family) {
+  model <- MCMmodel(
+    dynamic_data,
+    n_latent = 0,
+    kernel = "dynamic",
+    residual_family = residual_family
+  )
+  model <- MCMedit(model, "B", c(1, 1), "Earnings_AR")
+  model <- MCMedit(
+    model, "B", c(1, 2), "Hours_lag_to_Earnings"
+  )
+  model <- MCMedit(
+    model, "B", c(2, 1), "Earnings_lag_to_Hours"
+  )
+  MCMedit(model, "B", c(2, 2), "Hours_AR")
+}
+
+plain_model <- make_dynamic_model("none")
+plain_fit <- MCMfit(
+  plain_model,
   dynamic_data,
   compute_se = TRUE,
   optimizers = c("rprop", "lbfgs"),
-  optim_iters = c(750, 40),
-  learning_rate = c(0.01, 0.2),
+  optim_iters = c(1200, 80),
+  learning_rate = c(0.01, 0.005),
+  moment_weighting = "diagonal",
+  se_correction = "robust",
+  n_starts = 40,
+  seed = 20260901,
+  verbose = FALSE
+)
+```
+
+The validated estimates were:
+
+| Path (current <- lagged) | CLPM estimate (robust SE) | Plain dynamic MCMSEM estimate (robust SE) |
+|---|---:|---:|
+| Earnings <- earnings | 0.628 (0.011) | 0.980 (0.026) |
+| Earnings <- hours | 0.063 (0.008) | -0.315 (0.121) |
+| Hours <- earnings | 0.124 (0.007) | 0.521 (0.112) |
+| Hours <- hours | 0.476 (0.009) | 0.486 (0.113) |
+
+The CLPM used all 24,505 contributing panel rows. Its scaled CFI, TLI, and
+RMSEA were 0.905, 0.867, and 0.052; SRMR was 0.086. The plain MCMSEM solution
+had loss 0.3659, spectral radius 0.800, nominal df = 4, Jacobian rank
+8/8, information condition number $6.94 \times 10^6$, and 10/40 admissible
+starts. The earnings autoregression is also effectively at its 0.98 upper
+bound. The solution is reportable, but its boundary proximity and multistart
+attrition make it a sensitivity result rather than a clean point estimate.
+
+These are comparable observed-scale transition matrices, but they are not
+estimated from the same information. The CLPM observes the transitions.
+MCMSEM reconstructs a stationary transition from one marginal distribution
+using non-Gaussian higher moments. The controlled simulation above shows that
+they can converge when both models' assumptions hold; agreement is not
+guaranteed in observational data.
+
+##### Within-person dynamics: RI-CLPM and a Gaussian MCMSEM confounder
+
+A CLPM mixes stable between-person differences with within-person change. The
+RI-CLPM below separates two correlated random intercepts from within-person
+deviations and estimates the transition matrix among those deviations.
+
+```r
+riclpm_syntax <- "
+  RI_Earnings =~ 1*Earnings1 + 1*Earnings2 + 1*Earnings3 + 1*Earnings4
+  RI_Hours =~ 1*Hours1 + 1*Hours2 + 1*Hours3 + 1*Hours4
+
+  wE1 =~ 1*Earnings1
+  wE2 =~ 1*Earnings2
+  wE3 =~ 1*Earnings3
+  wE4 =~ 1*Earnings4
+  wH1 =~ 1*Hours1
+  wH2 =~ 1*Hours2
+  wH3 =~ 1*Hours3
+  wH4 =~ 1*Hours4
+
+  Earnings1 ~~ 0*Earnings1
+  Earnings2 ~~ 0*Earnings2
+  Earnings3 ~~ 0*Earnings3
+  Earnings4 ~~ 0*Earnings4
+  Hours1 ~~ 0*Hours1
+  Hours2 ~~ 0*Hours2
+  Hours3 ~~ 0*Hours3
+  Hours4 ~~ 0*Hours4
+
+  wE2 ~ earnings_ar*wE1 + hours_to_earnings*wH1
+  wE3 ~ earnings_ar*wE2 + hours_to_earnings*wH2
+  wE4 ~ earnings_ar*wE3 + hours_to_earnings*wH3
+  wH2 ~ hours_ar*wH1 + earnings_to_hours*wE1
+  wH3 ~ hours_ar*wH2 + earnings_to_hours*wE2
+  wH4 ~ hours_ar*wH3 + earnings_to_hours*wE3
+
+  RI_Earnings ~~ RI_Hours
+  wE1 ~~ wH1
+  wE2 ~~ wH2
+  wE3 ~~ wH3
+  wE4 ~~ wH4
+  RI_Earnings ~~ 0*wE1 + 0*wH1
+  RI_Hours ~~ 0*wE1 + 0*wH1
+"
+riclpm_fit <- sem(
+  riclpm_syntax, data = sipp,
+  estimator = "MLR", missing = "fiml",
+  meanstructure = TRUE, fixed.x = FALSE
+)
+stopifnot(lavInspect(riclpm_fit, "post.check"))
+```
+
+In dynamic MCMSEM, `residual_family = "gaussian"` adds an unrestricted
+Gaussian covariance that is not propagated through the transition matrix. It
+is conceptually analogous to a joint distribution of stable between-person
+differences: it can absorb variance and covariance that should not be assigned
+to the dynamic innovations. Unlike the RI-CLPM, however, a one-wave MCMSEM fit
+does not observe that the component persists over time; stability is a
+distributional interpretation.
+
+```r
+gaussian_model <- make_dynamic_model("gaussian")
+gaussian_fit <- MCMfit(
+  gaussian_model,
+  dynamic_data,
+  compute_se = TRUE,
+  optimizers = c("rprop", "lbfgs"),
+  optim_iters = c(1400, 80),
+  learning_rate = c(0.01, 0.005),
   moment_weighting = "diagonal",
   se_correction = "robust",
   n_starts = 20,
-  seed = 20260729,
+  seed = 20260731,
   verbose = FALSE
 )
-summary(dynamic_fit)
-MCMdiagnostics(dynamic_fit, jacobian = TRUE)
-```
-
-The real final wave supplied 2,167 complete observations. The validated run
-gave:
-
-| Dynamic MCMSEM path | Estimate | Robust SE | p-value | 95% CI |
-|---|---:|---:|---:|---:|
-| Wage autoregression | 0.730 | 0.088 | <0.001 | [0.558, 0.902] |
-| Hours to later wage | 0.273 | 0.157 | 0.082 | [-0.035, 0.581] |
-| Hours autoregression | 0.821 | 0.075 | <0.001 | [0.673, 0.969] |
-| Wage to later hours | -0.391 | 0.239 | 0.101 | [-0.858, 0.077] |
-
-The solution was stationary (spectral radius 0.840), had nominal df = 4 and
-Jacobian rank 8/8, and 18 of 20 starts were admissible. Its information
-condition number was 2.51e6, so the cross-lag uncertainty should be taken
-seriously. The CLPM conditions on repeated individual measurements; dynamic
-MCMSEM infers a stationary transition from one marginal cross-section under
-independent non-Gaussian innovations and fixed innovation scale. Agreement is
-therefore informative but is not an automatic validity test, and disagreement
-must not be hidden.
-
-As a sensitivity analysis, allow a full Gaussian covariance component. This
-component contributes to the covariance and raw fourth moments, but not to
-third or fourth cumulants. It is conceptually related to stable Gaussian
-heterogeneity, although it is not the same model as an RI-CLPM.
-
-```r
-gaussian_model <- MCMmodel(
-  dynamic_data,
-  n_latent = 0,
-  kernel = "dynamic",
-  gaussian_residual = TRUE
-)
-gaussian_model <- MCMedit(gaussian_model, "B", c(1, 1), "Wage_AR")
-gaussian_model <- MCMedit(
-  gaussian_model, "B", c(1, 2), "Hours_lag_to_Wage"
-)
-gaussian_model <- MCMedit(
-  gaussian_model, "B", c(2, 1), "Wage_lag_to_Hours"
-)
-gaussian_model <- MCMedit(gaussian_model, "B", c(2, 2), "Hours_AR")
-gaussian_fit <- MCMfit(
-  gaussian_model, dynamic_data, compute_se = TRUE,
-  optimizers = c("rprop", "lbfgs"), optim_iters = c(1000, 50),
-  learning_rate = c(0.01, 0.2),
-  moment_weighting = "diagonal", se_correction = "robust",
-  n_starts = 30, seed = 20260731, verbose = FALSE
-)
-summary(gaussian_fit)
-MCMdiagnostics(gaussian_fit, jacobian = TRUE)
 gaussian_fit$Psi_G
 ```
 
-| Dynamic MCMSEM path with Gaussian residual | Estimate | Robust SE | p-value | 95% CI |
-|---|---:|---:|---:|---:|
-| Wage autoregression | 0.692 | 0.402 | 0.085 | [-0.097, 1.481] |
-| Hours to later wage | 0.307 | 0.124 | 0.013 | [0.064, 0.549] |
-| Hours autoregression | 0.750 | 0.201 | <0.001 | [0.356, 1.145] |
-| Wage to later hours | -0.518 | 0.517 | 0.316 | [-1.532, 0.495] |
+| Path (current <- lagged) | RI-CLPM within-person estimate (robust SE) | Dynamic MCMSEM + Gaussian residual (robust SE) |
+|---|---:|---:|
+| Earnings <- earnings | 0.105 (0.024) | 0.627 (0.091) |
+| Earnings <- hours | 0.051 (0.012) | 0.127 (0.104) |
+| Hours <- earnings | 0.009 (0.015) | 0.465 (0.116) |
+| Hours <- hours | 0.165 (0.017) | 0.591 (0.163) |
 
-The estimated Gaussian covariance was
-`matrix(c(0.343, 0.215, 0.215, 0.135), 2, 2)` and was numerically close to
-rank one. The loss fell from 0.717 to
-0.693, but the model adds three parameters, has only one nominal df, reached
-an information condition number of `1e8`, and produced 20 admissible starts
-out of 30. The very wide SEs are the important result: the richer decomposition
-is weakly identified in this dataset.
+The RI-CLPM passed lavaan's post-estimation check and fit the longitudinal
+covariance structure closely: scaled CFI = 0.998, TLI = 0.996, RMSEA = 0.009,
+and SRMR = 0.012. The MCMSEM Gaussian residual covariance was
 
-How to choose and evaluate these analyses:
+```text
+          Earnings  Hours
+Earnings     1.842  0.450
+Hours        0.450  0.421
+```
 
-1. Choose the longitudinal estimand first. A CLPM describes observed-score
-   transitions that mix stable between-person and within-person variation. An
-   RI-CLPM describes transitions among within-person deviations and is usually
-   the more relevant sensitivity analysis when stable trait differences are
-   plausible.
-2. Use `gaussian_residual = FALSE` when theory says the stationary covariance
-   is generated by the dynamic non-Gaussian system and parsimony is important.
-   Use `TRUE` when an independent stable Gaussian component is scientifically
-   plausible, but recognize that it adds `p(p + 1)/2` covariance parameters.
-3. Do not select solely by the smallest training loss. Compare nominal df,
-   held-out moment loss where sample size permits, Jacobian rank, information
-   condition, spectral radius, bounds, the proportion of admissible starts,
-   and whether substantively important paths persist across specifications.
-4. Treat cross-method agreement as triangulation. CLPM, RI-CLPM, and
-   cross-sectional dynamic MCMSEM condition on different information and need
-   not agree even when each computation is correct. In this example the
-   RI-CLPM has the stronger longitudinal fit, while the parsimonious dynamic
-   model is much better conditioned than its Gaussian-residual extension.
+which implies a residual correlation of 0.511. Its loss was 0.1004, spectral
+radius 0.852, nominal df = 1, and Jacobian rank 11/11. The information
+condition number was $1.17 \times 10^8$, and the robust SEs above use the
+ordinary un-ridged sandwich information matrix. The full-rank Jacobian does not
+make this nearly saturated decomposition precise; the large condition number
+and wide SEs are central results.
 
-The exact run, download checksum, fuller diagnostics, and machine-readable
-outputs are documented in
-[`inst/validation/longitudinal_clpm_example.R`](inst/validation/longitudinal_clpm_example.R)
-and
+##### Could the confounder itself be non-Gaussian?
+
+A Gaussian residual affects covariance and Gaussian fourth-moment pairings but
+has no third or fourth cumulants. If the stable source is skewed, assigning all
+higher cumulants to the dynamic innovations may distort the transition matrix.
+The common-gamma family adds one centered variance-one gamma factor `U` with
+signed loadings `lambda`:
+
+$$
+X_t = X_t^{\mathrm{dynamic}} + \lambda U,
+\qquad
+\operatorname{Cov}(\lambda U)=\lambda\lambda^\prime.
+$$
+
+Its positive shape `alpha` determines skewness $2/\sqrt{\alpha}$ and
+excess kurtosis $6/\alpha$. Large `alpha` approaches a rank-one Gaussian
+factor. Loadings remain signed, so odd cumulants retain their direction.
+
+The direct API is:
+
+```r
+gamma_model <- make_dynamic_model("common_gamma")
+```
+
+With freely estimated innovation skewness and kurtosis, this bivariate model
+has only one overidentifying degree of freedom and admits competing,
+ill-conditioned decompositions. For the reported test we therefore imposed a
+scientifically explicit signed-gamma relationship on each innovation:
+earnings innovations were allowed negative skew and hours innovations positive
+skew, while their two shapes remained free. For example:
+
+```r
+gamma_model <- MCMparameter(
+  gamma_model, "shape_Earnings", "free",
+  start = 0.114, transform = "positive"
+)
+gamma_model <- MCMparameter(
+  gamma_model, "shape_Hours", "free",
+  start = 0.295, transform = "positive"
+)
+gamma_model <- MCMparameter(
+  gamma_model, "sign_Earnings", "fixed", value = -1
+)
+gamma_model <- MCMparameter(
+  gamma_model, "sign_Hours", "fixed", value = 1
+)
+gamma_model <- MCMparameter(
+  gamma_model, "tau_Earnings", "derived",
+  expression = ~ sign_Earnings * 2 / sqrt(shape_Earnings)
+)
+gamma_model <- MCMparameter(
+  gamma_model, "kappa_Earnings", "derived",
+  expression = ~ 6 / shape_Earnings
+)
+gamma_model <- MCMparameter(
+  gamma_model, "tau_Hours", "derived",
+  expression = ~ sign_Hours * 2 / sqrt(shape_Hours)
+)
+gamma_model <- MCMparameter(
+  gamma_model, "kappa_Hours", "derived",
+  expression = ~ 6 / shape_Hours
+)
+
+# A direct multistart fit. The validation script below uses a broader explicit
+# grid over confounder shapes and loading orientations.
+gamma_fit <- MCMfit(
+  gamma_model,
+  dynamic_data,
+  compute_se = TRUE,
+  optimizers = c("rprop", "lbfgs"),
+  optim_iters = c(1200, 100),
+  learning_rate = c(0.01, 0.005),
+  moment_weighting = "diagonal",
+  se_correction = "robust",
+  n_starts = 30,
+  seed = 20260902,
+  verbose = FALSE
+)
+gamma_fit$dynamic$common_gamma
+```
+
+The validation script searches both loading orientations and starting shapes
+0.25, 2, and 20 before computing robust SEs. That search gave:
+
+| Path (current <- lagged) | Common-gamma MCMSEM estimate (robust SE) |
+|---|---:|
+| Earnings <- earnings | 0.676 (0.032) |
+| Earnings <- hours | 0.075 (0.052) |
+| Hours <- earnings | 0.422 (0.030) |
+| Hours <- hours | 0.651 (0.036) |
+
+The common-factor loadings were -1.347 (SE 0.108) for earnings and -0.360
+(SE 0.235) for hours. Their product gives a positive rank-one covariance. The
+estimated gamma shape was 153.8 (SE 398.2), implying skewness 0.161
+(SE 0.209) and excess kurtosis 0.039 (SE 0.101). The loss was 0.1090 and the
+information condition number was $7.29 \times 10^{10}$.
+
+This fit does not provide reliable evidence that the confounder is
+non-Gaussian: the point estimate is close to the Gaussian limit, its
+distributional SEs are large, and the overall decomposition is extremely
+ill-conditioned. That conclusion is conditional on the signed-gamma innovation
+constraints; it is not a general test that every possible confounder is
+Gaussian.
+
+That qualification matters empirically. An optional grid with the innovation
+third and fourth cumulants left free found another basin with loss 0.00024,
+shape 0.489 (SE 0.087), and loadings 1.213 (SE 0.039) and -0.064
+(SE 0.037). Its information condition was $1.30 \times 10^8$ and it had only
+one nominal df. This solution describes a strongly non-Gaussian component
+almost entirely specific to earnings, not a convincing shared earnings-hours
+confounder. Run that longer sensitivity analysis with
+
+```sh
+Rscript inst/validation/longitudinal_clpm_example.R --unrestricted-gamma
+```
+
+The constrained and unrestricted results together show that the data do not
+support a specification-invariant conclusion about confounder shape.
+
+##### How to interpret agreement and disagreement
+
+The three comparisons should be read as triangulation rather than as competing
+software implementations of one regression:
+
+1. The CLPM and plain dynamic MCMSEM both describe observed-score dynamics.
+   The former identifies paths from repeated transitions; the latter identifies
+   them from a stationary marginal distribution and higher cumulants.
+2. The RI-CLPM and residual-adjusted MCMSEM both attempt a within-versus-between
+   decomposition. The RI-CLPM observes stable components across waves; MCMSEM
+   infers a residual distribution under stronger assumptions.
+3. A residual family can improve the scientific match while weakening
+   identification. Compare Jacobian rank, information condition, nominal df,
+   spectral radius, multistart behavior, and robust SEs—not only training loss.
+4. The controlled simulation demonstrates that CLPM and MCMSEM can converge to
+   the same transition matrix. Real-data estimates do not have to converge:
+   disagreement can reflect different estimands, nonstationarity, weak
+   distributional identification, or model misspecification rather than a
+   scaling error.
+
+The complete executable analysis, including the simulation, all multistart
+settings, wave diagnostics, and machine-readable output, is in
+[`inst/validation/longitudinal_clpm_example.R`](inst/validation/longitudinal_clpm_example.R);
+a compact record of the validated results is in
 [`inst/validation/longitudinal_clpm_example.md`](inst/validation/longitudinal_clpm_example.md).
-
 
 ### More information
 

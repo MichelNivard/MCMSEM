@@ -24,8 +24,10 @@ test_that("population dynamic fit uses the common result infrastructure", {
   expect_equal(fit$innovation_variances, c(A = 1, B = 1))
   expect_equal(c(fit$n_moments, fit$degrees_of_freedom), c(12, 1))
   expect_true(fit$stationary)
-  expect_named(fit$predicted,
-               c("M2", "M3", "M4", "K4", "within_M2", "Psi_G", "L_G"))
+  expect_named(fit$predicted, c(
+    "M2", "M3", "M4", "K4", "within_M2", "dynamic_M3", "dynamic_K4",
+    "residual_M2", "residual_M3", "residual_K4", "Psi_G", "L_G"
+  ))
   expect_named(fit$residuals, c("M2", "M3", "M4"))
   expect_output(print(fit), "Kernel: Stationary Dynamic MCMSEM")
   expect_output(print(summary(fit)), "Nominal df     : 1")
@@ -49,7 +51,7 @@ test_that("dynamic robust WLS standard errors use the sandwich equation", {
   fit <- MCMfit(
     model, population, compute_se = TRUE,
     optimizers = "lbfgs", optim_iters = 1, learning_rate = 0.1,
-    n_starts = 1, moment_weighting = "diagonal", weight_ridge = 0
+    n_starts = 1, moment_weighting = "diagonal", weight_ridge = 1e-8
   )
   ase <- fit$dynamic$asymptotic
   Delta <- ase$jacobian
@@ -57,6 +59,7 @@ test_that("dynamic robust WLS standard errors use the sandwich equation", {
   bread <- solve(crossprod(Delta, W %*% Delta))
   expected <- bread %*% crossprod(Delta, W %*% Omega %*% W %*% Delta) %*% bread
   expect_equal(unname(ase$vcov), unname(expected), tolerance = 1e-6)
+  expect_false(ase$information_regularized)
   expect_identical(fit$info$se_correction, "robust")
   expect_true(fit$info$standard_errors_available)
   expect_true(all(is.finite(unlist(fit$df["se", ]))))

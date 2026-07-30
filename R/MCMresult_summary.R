@@ -165,17 +165,22 @@ summary.mcmresultclass <- function(object, ...) {
     check.names = FALSE,
     stringsAsFactors = FALSE
   )
-  gaussian <- res$dynamic$gaussian_covariance
-  Vars <- if (nrow(gaussian) > 0L) {
+  residual_covariance <- if (!is.null(res$dynamic$residual_covariance)) {
+    res$dynamic$residual_covariance
+  } else res$dynamic$gaussian_covariance
+  Vars <- if (nrow(residual_covariance) > 0L) {
     data.frame(
-      label = gaussian$label,
-      lhs = gaussian$lhs,
+      label = residual_covariance$label,
+      lhs = residual_covariance$lhs,
       edge = "~~",
-      rhs = gaussian$rhs,
-      est = gaussian$estimate,
-      se = if ("se" %in% names(gaussian)) gaussian$se else NA_real_,
-      p = if ("se" %in% names(gaussian)) {
-        2 * stats::pnorm(abs(gaussian$estimate / gaussian$se), lower.tail = FALSE)
+      rhs = residual_covariance$rhs,
+      est = residual_covariance$estimate,
+      se = if ("se" %in% names(residual_covariance)) residual_covariance$se else NA_real_,
+      p = if ("se" %in% names(residual_covariance)) {
+        2 * stats::pnorm(
+          abs(residual_covariance$estimate / residual_covariance$se),
+          lower.tail = FALSE
+        )
       } else NA_real_,
       last_gradient = NA_real_,
       check.names = FALSE,

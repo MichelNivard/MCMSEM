@@ -37,6 +37,15 @@
 
 ## New stationary dynamic kernel
 
+- Added `residual_family = "common_gamma"` (with exact alias `"gamma"`) for an
+  additive centered, variance-one common gamma confounder. Signed loadings and
+  one positive shape jointly determine its rank-one covariance, co-skewness,
+  and fourth-cumulant tensors. Base-R and Torch evaluators, gradients,
+  multistarts, result decomposition, delta-method residual-covariance SEs, and
+  validation tests use the same parameter graph.
+- Retained full backward compatibility for `gaussian_residual`: omitted
+  residual-family metadata falls back to the legacy Gaussian/none behavior,
+  while conflicting explicit specifications are rejected.
 - Added `kernel = "dynamic"` to `MCMmodel()` for observed-state stationary
   VAR(1) moment models. `kernel = "contemporaneous"` remains the default and
   preserves the previous implementation numerically.
@@ -45,7 +54,9 @@
 - Made the kernel choice explicit throughout the README, wiki, and package
   examples. Added reproducible longitudinal examples comparing CLPM/RI-CLPM
   estimates with dynamic MCMSEM fits to the largest complete cross-sectional
-  wave.
+  wave. The real-data example now uses a 437 KB derived analysis matrix from
+  the public-use 2014 SIPP panel; identifiers, survey weights, demographics,
+  and the large Census source files are not distributed with the package.
 - Added differentiable torch propagation of stationary cumulants through orders
   two, three, and four using linear solves with Kronecker powers of `B`.
 - Fixed dynamic innovation variances to one and restricted innovation third and
@@ -69,6 +80,10 @@
   raw central moments through order four. Dynamic asymptotic covariance is
   available as the robust sandwich estimator or, with full WLS, the efficient
   inverse-information estimator. Derived `Psi_G` SEs use the delta method.
+- The parameter information matrix now uses the standard un-ridged inverse in
+  the WLS and sandwich equations. `weight_ridge` continues to stabilize the
+  moment weight matrix, but no longer silently caps information conditioning
+  and understates Wald SEs along weakly identified parameter directions.
 - Documentation credits both the original MCM-SEM framework to Tamimy, van
   Bergen, van der Zee, Dolan, and Nivard (2022), *Multi Co-Moment Structural
   Equation Models: Discovering Direction of Causality in the Presence of

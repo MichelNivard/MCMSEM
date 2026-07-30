@@ -992,7 +992,9 @@ MCMparameters <- function(object) {
 #'   for internal coordinates.
 #' @param use_skewness,use_kurtosis Include third and fourth moments for a
 #'   contemporaneous model. Dynamic models currently require both.
-#' @return A named list of implied moment and kernel matrices.
+#' @return A named list of implied moment and kernel matrices. Dynamic models
+#'   also return the dynamic and residual cumulant components; a common-gamma
+#'   residual includes its loadings, shape, skewness, and excess kurtosis.
 #' @export
 MCMimpliedmoments <- function(model, parameters = NULL,
                               parameter_scale = c("reported", "optimizer"),

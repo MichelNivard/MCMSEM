@@ -48,7 +48,7 @@ MCMfit(mcmmodel, data, weights=NULL, compute_se=TRUE,
   \item{stationarity_penalty}{Positive smooth penalty multiplier for dynamic
   parameter values beyond \code{stationarity_limit}.}
   \item{verbose}{For dynamic fits, print start number, initial/final loss,
-  convergence, spectral radius, and Gaussian covariance. Defaults to
+  convergence, spectral radius, and residual covariance. Defaults to
   \code{debug}.}
   \item{moment_weighting}{Dynamic-kernel WLS weight: \code{"identity"},
   \code{"diagonal"}, or \code{"full"}. Diagonal and full weighting require a
@@ -58,7 +58,8 @@ MCMfit(mcmmodel, data, weights=NULL, compute_se=TRUE,
   otherwise; \code{"robust"} always uses the sandwich; \code{"model_based"}
   requires full WLS.}
   \item{weight_ridge}{Non-negative relative eigenvalue or diagonal floor used
-  when forming WLS weights and solving the information matrix.}
+  when forming diagonal or full WLS moment weights. The parameter information
+  matrix itself is inverted without this statistical ridge.}
 }
 \value{
   An MCM result object. For constrained models, \code{df} and
@@ -72,10 +73,17 @@ Dynamic models require skewness and kurtosis. Their asymptotic calculations use
 the Jacobian of the implied raw central moments and the mean-corrected sampling
 covariance prepared by \code{MCMdatasummary()}. Identity and diagonal weights
 use the robust sandwich covariance by default; full WLS uses the efficient
-inverse-information covariance. Gaussian covariance SEs are delta-method
-transformations of the Cholesky parameters. Analysis weights are not yet
+inverse-information covariance. Residual covariance SEs are delta-method
+transformations of the underlying Gaussian Cholesky or common-gamma loading
+parameters. Analysis weights are not yet
 supported for dynamic WLS or SEs. Dynamic results retain all-start diagnostics
 and the best finite, in-bounds stationary solution.
+
+For \code{residual_family="common_gamma"}, the fitted factor loadings and shape
+are in \code{dynamic$common_gamma}; \code{dynamic$residual_M2},
+\code{residual_M3}, and \code{residual_K4} retain its cumulant contribution.
+Shape-implied skewness and excess-kurtosis SEs also use the delta method.
+The legacy top-level \code{Psi_G} field remains reserved for Gaussian residuals.
 
 Only independent free parameters enter either optimizer. Positive and bounded
 free parameters are optimized on unconstrained internal coordinates and

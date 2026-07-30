@@ -20,6 +20,8 @@ if (in_source_tree) {
 } else if (!requireNamespace("MCMSEM", quietly = TRUE)) {
   stop("Run from an MCMSEM source tree or install MCMSEM first.")
 }
+run_unrestricted_gamma <- "--unrestricted-gamma" %in%
+  commandArgs(trailingOnly = TRUE)
 
 # First validate the comparison under known, exactly matched assumptions.
 set.seed(20260730)
@@ -133,101 +135,71 @@ simulation_metrics <- data.frame(
   )
 )
 
-# Then run the same comparison on real longitudinal data.
-data_url <- paste0(
-  "https://vincentarelbundock.github.io/Rdatasets/csv/",
-  "sampleSelection/nlswork.csv"
-)
-data_file <- tempfile(fileext = ".csv")
-on.exit(unlink(data_file), add = TRUE)
-utils::download.file(data_url, data_file, mode = "wb", quiet = TRUE)
-expected_md5 <- "f546ffe0bee86acb5d79b8775d341709"
-observed_md5 <- unname(tools::md5sum(data_file))
-if (!identical(observed_md5, expected_md5)) {
-  stop("The downloaded NLS data do not match the validated file version.")
+# Then run the comparison on the small, derived SIPP matrix bundled with the
+# package. The original Census wave files are not included in the repository.
+data_file <- if (in_source_tree) {
+  file.path("inst", "extdata", "sipp_2014_panel.csv.gz")
+} else {
+  system.file("extdata", "sipp_2014_panel.csv.gz", package = "MCMSEM")
 }
-
-nls_long <- utils::read.csv(data_file)
-nls_long <- nls_long[nls_long$year %in% c(71, 73, 75, 77), ]
-
-# MCMSEM fixes both innovation variances to one. These transparent linear
-# rescalings retain all distributional information while putting both observed
-# variances above one. They are used in the CLPM and MCMSEM fits alike.
-nls_long$Wage <- 4 * nls_long$ln_wage
-nls_long$Hours <- nls_long$hours / 5
-
-wide <- stats::reshape(
-  nls_long[c("idcode", "year", "Wage", "Hours")],
-  idvar = "idcode", timevar = "year", direction = "wide"
-)
-names(wide) <- sub("Wage\\.", "Wage", names(wide))
-names(wide) <- sub("Hours\\.", "Hours", names(wide))
+if (!nzchar(data_file) || !file.exists(data_file)) {
+  stop("Cannot find the bundled SIPP analysis matrix.")
+}
+wide <- utils::read.csv(data_file, na.strings = c("", "NA"))
+expected_names <- as.vector(rbind(
+  paste0("Earnings", 1:4), paste0("Hours", 1:4)
+))
+stopifnot(identical(names(wide), expected_names), nrow(wide) == 24505L)
 
 clpm_syntax <- "
-  Wage73 ~ wage_ar*Wage71 + hours_to_wage*Hours71
-  Wage75 ~ wage_ar*Wage73 + hours_to_wage*Hours73
-  Wage77 ~ wage_ar*Wage75 + hours_to_wage*Hours75
-
-  Hours73 ~ hours_ar*Hours71 + wage_to_hours*Wage71
-  Hours75 ~ hours_ar*Hours73 + wage_to_hours*Wage73
-  Hours77 ~ hours_ar*Hours75 + wage_to_hours*Wage75
-
-  Wage71 ~~ Hours71
-  Wage73 ~~ Hours73
-  Wage75 ~~ Hours75
-  Wage77 ~~ Hours77
+  Earnings2 ~ earnings_ar*Earnings1 + hours_to_earnings*Hours1
+  Earnings3 ~ earnings_ar*Earnings2 + hours_to_earnings*Hours2
+  Earnings4 ~ earnings_ar*Earnings3 + hours_to_earnings*Hours3
+  Hours2 ~ hours_ar*Hours1 + earnings_to_hours*Earnings1
+  Hours3 ~ hours_ar*Hours2 + earnings_to_hours*Earnings2
+  Hours4 ~ hours_ar*Hours3 + earnings_to_hours*Earnings3
+  Earnings1 ~~ Hours1
+  Earnings2 ~~ Hours2
+  Earnings3 ~~ Hours3
+  Earnings4 ~~ Hours4
 "
-
 clpm_fit <- lavaan::sem(
   clpm_syntax, data = wide,
   estimator = "MLR", missing = "fiml", meanstructure = TRUE
 )
-clpm_estimates <- lavaan::parameterEstimates(
-  clpm_fit, standardized = TRUE, ci = TRUE
-)
-clpm_labels <- c("wage_ar", "hours_to_wage", "hours_ar", "wage_to_hours")
-clpm_paths <- clpm_estimates[
-  !duplicated(clpm_estimates$label) & clpm_estimates$label %in% clpm_labels,
-  c("label", "est", "se", "pvalue", "std.all", "ci.lower", "ci.upper")
-]
-clpm_paths <- clpm_paths[match(clpm_labels, clpm_paths$label), ]
 
 riclpm_syntax <- "
-  RI_Wage =~ 1*Wage71 + 1*Wage73 + 1*Wage75 + 1*Wage77
-  RI_Hours =~ 1*Hours71 + 1*Hours73 + 1*Hours75 + 1*Hours77
-
-  wWage71 =~ 1*Wage71
-  wWage73 =~ 1*Wage73
-  wWage75 =~ 1*Wage75
-  wWage77 =~ 1*Wage77
-  wHours71 =~ 1*Hours71
-  wHours73 =~ 1*Hours73
-  wHours75 =~ 1*Hours75
-  wHours77 =~ 1*Hours77
-
-  Wage71 ~~ 0*Wage71
-  Wage73 ~~ 0*Wage73
-  Wage75 ~~ 0*Wage75
-  Wage77 ~~ 0*Wage77
-  Hours71 ~~ 0*Hours71
-  Hours73 ~~ 0*Hours73
-  Hours75 ~~ 0*Hours75
-  Hours77 ~~ 0*Hours77
-
-  wWage73 ~ wage_ar*wWage71 + hours_to_wage*wHours71
-  wWage75 ~ wage_ar*wWage73 + hours_to_wage*wHours73
-  wWage77 ~ wage_ar*wWage75 + hours_to_wage*wHours75
-  wHours73 ~ hours_ar*wHours71 + wage_to_hours*wWage71
-  wHours75 ~ hours_ar*wHours73 + wage_to_hours*wWage73
-  wHours77 ~ hours_ar*wHours75 + wage_to_hours*wWage75
-
-  RI_Wage ~~ RI_Hours
-  wWage71 ~~ wHours71
-  wWage73 ~~ wHours73
-  wWage75 ~~ wHours75
-  wWage77 ~~ wHours77
-  RI_Wage ~~ 0*wWage71 + 0*wHours71
-  RI_Hours ~~ 0*wWage71 + 0*wHours71
+  RI_Earnings =~ 1*Earnings1 + 1*Earnings2 + 1*Earnings3 + 1*Earnings4
+  RI_Hours =~ 1*Hours1 + 1*Hours2 + 1*Hours3 + 1*Hours4
+  wE1 =~ 1*Earnings1
+  wE2 =~ 1*Earnings2
+  wE3 =~ 1*Earnings3
+  wE4 =~ 1*Earnings4
+  wH1 =~ 1*Hours1
+  wH2 =~ 1*Hours2
+  wH3 =~ 1*Hours3
+  wH4 =~ 1*Hours4
+  Earnings1 ~~ 0*Earnings1
+  Earnings2 ~~ 0*Earnings2
+  Earnings3 ~~ 0*Earnings3
+  Earnings4 ~~ 0*Earnings4
+  Hours1 ~~ 0*Hours1
+  Hours2 ~~ 0*Hours2
+  Hours3 ~~ 0*Hours3
+  Hours4 ~~ 0*Hours4
+  wE2 ~ earnings_ar*wE1 + hours_to_earnings*wH1
+  wE3 ~ earnings_ar*wE2 + hours_to_earnings*wH2
+  wE4 ~ earnings_ar*wE3 + hours_to_earnings*wH3
+  wH2 ~ hours_ar*wH1 + earnings_to_hours*wE1
+  wH3 ~ hours_ar*wH2 + earnings_to_hours*wE2
+  wH4 ~ hours_ar*wH3 + earnings_to_hours*wE3
+  RI_Earnings ~~ RI_Hours
+  wE1 ~~ wH1
+  wE2 ~~ wH2
+  wE3 ~~ wH3
+  wE4 ~~ wH4
+  RI_Earnings ~~ 0*wE1 + 0*wH1
+  RI_Hours ~~ 0*wE1 + 0*wH1
 "
 riclpm_fit <- lavaan::sem(
   riclpm_syntax, data = wide,
@@ -237,145 +209,242 @@ riclpm_fit <- lavaan::sem(
 if (!isTRUE(lavaan::lavInspect(riclpm_fit, "post.check"))) {
   stop("The RI-CLPM solution failed lavaan's post-estimation check.")
 }
-riclpm_estimates <- lavaan::parameterEstimates(
-  riclpm_fit, standardized = TRUE, ci = TRUE
-)
-riclpm_paths <- riclpm_estimates[
-  !duplicated(riclpm_estimates$label) &
-    riclpm_estimates$label %in% clpm_labels,
-  c("label", "est", "se", "pvalue", "std.all", "ci.lower", "ci.upper")
-]
-riclpm_paths <- riclpm_paths[match(clpm_labels, riclpm_paths$label), ]
 
-wave_years <- c(71, 73, 75, 77)
-complete_n <- vapply(wave_years, function(yy) {
-  sum(stats::complete.cases(wide[paste0(c("Wage", "Hours"), yy)]))
-}, integer(1))
-mcm_wave <- wave_years[which.max(complete_n)]
-final_wave <- stats::na.omit(
-  wide[paste0(c("Wage", "Hours"), mcm_wave)]
+path_labels <- c(
+  "earnings_ar", "hours_to_earnings", "earnings_to_hours", "hours_ar"
 )
-names(final_wave) <- c("Wage", "Hours")
-wave_diagnostics <- do.call(rbind, lapply(wave_years, function(yy) {
-  values <- stats::na.omit(wide[paste0(c("Wage", "Hours"), yy)])
-  names(values) <- c("Wage", "Hours")
+extract_lavaan_paths <- function(fit) {
+  estimates <- lavaan::parameterEstimates(fit, standardized = TRUE, ci = TRUE)
+  paths <- estimates[
+    !duplicated(estimates$label) & estimates$label %in% path_labels,
+    c("label", "est", "se", "pvalue", "std.all", "ci.lower", "ci.upper")
+  ]
+  paths[match(path_labels, paths$label), ]
+}
+clpm_paths <- extract_lavaan_paths(clpm_fit)
+riclpm_paths <- extract_lavaan_paths(riclpm_fit)
+
+wave_diagnostics <- do.call(rbind, lapply(seq_len(4L), function(wave) {
+  values <- stats::na.omit(wide[paste0(c("Earnings", "Hours"), wave)])
+  names(values) <- c("Earnings", "Hours")
   data.frame(
-    year = 1900 + yy,
-    complete_n = nrow(values),
-    wage_mean = mean(values$Wage),
+    wave = wave, year = 2012L + wave, complete_n = nrow(values),
+    earnings_mean = mean(values$Earnings),
     hours_mean = mean(values$Hours),
-    wage_variance = stats::var(values$Wage),
+    earnings_variance = stats::var(values$Earnings),
     hours_variance = stats::var(values$Hours),
-    covariance = stats::cov(values$Wage, values$Hours)
+    covariance = stats::cov(values$Earnings, values$Hours)
   )
 }))
+mcm_wave <- wave_diagnostics$wave[which.max(wave_diagnostics$complete_n)]
+mcm_values <- stats::na.omit(
+  wide[paste0(c("Earnings", "Hours"), mcm_wave)]
+)
+names(mcm_values) <- c("Earnings", "Hours")
 dynamic_data <- MCMdatasummary(
-  final_wave,
-  scale_data = FALSE,
-  prep_asymptotic_se = TRUE,
-  use_skewness = TRUE,
-  use_kurtosis = TRUE
-)
-dynamic_model <- MCMmodel(
-  dynamic_data,
-  n_latent = 0,
-  kernel = "dynamic",
-  gaussian_residual = FALSE
-)
-dynamic_model <- MCMedit(dynamic_model, "B", c(1, 1), "Wage_AR")
-dynamic_model <- MCMedit(dynamic_model, "B", c(1, 2), "Hours_lag_to_Wage")
-dynamic_model <- MCMedit(dynamic_model, "B", c(2, 1), "Wage_lag_to_Hours")
-dynamic_model <- MCMedit(dynamic_model, "B", c(2, 2), "Hours_AR")
-
-dynamic_fit <- MCMfit(
-  dynamic_model,
-  dynamic_data,
-  compute_se = TRUE,
-  optimizers = c("rprop", "lbfgs"),
-  optim_iters = c(750, 40),
-  learning_rate = c(0.01, 0.2),
-  moment_weighting = "diagonal",
-  se_correction = "robust",
-  n_starts = 20,
-  seed = 20260729,
-  verbose = FALSE
+  mcm_values, scale_data = FALSE, prep_asymptotic_se = TRUE,
+  use_skewness = TRUE, use_kurtosis = TRUE
 )
 
-gaussian_model <- MCMmodel(
-  dynamic_data,
-  n_latent = 0,
-  kernel = "dynamic",
-  gaussian_residual = TRUE
+make_dynamic_model <- function(residual_family) {
+  model <- MCMmodel(
+    dynamic_data, n_latent = 0, kernel = "dynamic",
+    residual_family = residual_family
+  )
+  model <- MCMedit(model, "B", c(1, 1), "Earnings_AR")
+  model <- MCMedit(model, "B", c(1, 2), "Hours_lag_to_Earnings")
+  model <- MCMedit(model, "B", c(2, 1), "Earnings_lag_to_Hours")
+  MCMedit(model, "B", c(2, 2), "Hours_AR")
+}
+fit_dynamic_model <- function(
+    model, seed, n_starts, rprop_iters, lbfgs_iters = 80L) {
+  MCMfit(
+    model, dynamic_data, compute_se = TRUE,
+    optimizers = c("rprop", "lbfgs"),
+    optim_iters = c(rprop_iters, lbfgs_iters),
+    learning_rate = c(0.01, 0.005),
+    moment_weighting = "diagonal", se_correction = "robust",
+    n_starts = n_starts, seed = seed, verbose = FALSE
+  )
+}
+
+message("Fitting plain dynamic MCMSEM (40 starts)")
+dynamic_model <- make_dynamic_model("none")
+dynamic_fit <- fit_dynamic_model(dynamic_model, 20260901L, 40L, 1200L)
+
+message("Fitting dynamic MCMSEM with a Gaussian residual (20 starts)")
+gaussian_model <- make_dynamic_model("gaussian")
+gaussian_fit <- fit_dynamic_model(gaussian_model, 20260731L, 20L, 1400L)
+
+constrain_signed_gamma_innovations <- function(model) {
+  model <- MCMparameter(
+    model, "shape_Earnings", "free", start = 0.114,
+    transform = "positive"
+  )
+  model <- MCMparameter(
+    model, "shape_Hours", "free", start = 0.295,
+    transform = "positive"
+  )
+  model <- MCMparameter(model, "sign_Earnings", "fixed", value = -1)
+  model <- MCMparameter(model, "sign_Hours", "fixed", value = 1)
+  model <- MCMparameter(
+    model, "tau_Earnings", "derived",
+    expression = ~ sign_Earnings * 2 / sqrt(shape_Earnings)
+  )
+  model <- MCMparameter(
+    model, "kappa_Earnings", "derived",
+    expression = ~ 6 / shape_Earnings
+  )
+  model <- MCMparameter(
+    model, "tau_Hours", "derived",
+    expression = ~ sign_Hours * 2 / sqrt(shape_Hours)
+  )
+  MCMparameter(
+    model, "kappa_Hours", "derived", expression = ~ 6 / shape_Hours
+  )
+}
+
+gamma_grid <- data.frame(
+  loading_earnings = c(1.32, 1.32, 1.32, -1.32, -1.32, -1.32, 0.25, -0.25),
+  loading_hours = c(0.31, 0.31, 0.31, -0.31, -0.31, -0.31, 0.10, -0.10),
+  shape = c(0.25, 2, 20, 0.25, 2, 20, 2, 2)
 )
-gaussian_model <- MCMedit(gaussian_model, "B", c(1, 1), "Wage_AR")
-gaussian_model <- MCMedit(
-  gaussian_model, "B", c(1, 2), "Hours_lag_to_Wage"
-)
-gaussian_model <- MCMedit(
-  gaussian_model, "B", c(2, 1), "Wage_lag_to_Hours"
-)
-gaussian_model <- MCMedit(gaussian_model, "B", c(2, 2), "Hours_AR")
-gaussian_fit <- MCMfit(
-  gaussian_model,
-  dynamic_data,
-  compute_se = TRUE,
-  optimizers = c("rprop", "lbfgs"),
-  optim_iters = c(1000, 50),
-  learning_rate = c(0.01, 0.2),
-  moment_weighting = "diagonal",
-  se_correction = "robust",
-  n_starts = 30,
-  seed = 20260731,
-  verbose = FALSE
+gamma_grid_fits <- lapply(seq_len(nrow(gamma_grid)), function(index) {
+  message(
+    "Fitting common-gamma grid ", index, "/", nrow(gamma_grid),
+    " (3 starts)"
+  )
+  model <- constrain_signed_gamma_innovations(
+    make_dynamic_model("common_gamma")
+  )
+  bounded_paths <- list(
+    Earnings_AR = c(0.68, 0, 0.98),
+    Hours_lag_to_Earnings = c(0.08, -0.98, 0.98),
+    Earnings_lag_to_Hours = c(0.42, -0.98, 0.98),
+    Hours_AR = c(0.65, 0, 0.98)
+  )
+  for (name in names(bounded_paths)) {
+    specification <- bounded_paths[[name]]
+    model <- MCMparameter(
+      model, name, "free", start = specification[1L],
+      transform = "bounded", lower = specification[2L],
+      upper = specification[3L], overwrite = TRUE
+    )
+  }
+  starts <- c(
+    loading_Gamma_Earnings = gamma_grid$loading_earnings[index],
+    loading_Gamma_Hours = gamma_grid$loading_hours[index],
+    shape_Gamma = gamma_grid$shape[index]
+  )
+  for (name in names(starts)) {
+    model <- MCMedit(model, "start", name, starts[[name]])
+  }
+  MCMfit(
+    model, dynamic_data, compute_se = FALSE,
+    optimizers = c("rprop", "lbfgs"), optim_iters = c(800, 60),
+    learning_rate = c(0.01, 0.005),
+    moment_weighting = "diagonal", se_correction = "robust",
+    n_starts = 3L, seed = 20260830L + index, verbose = FALSE
+  )
+})
+gamma_losses <- vapply(gamma_grid_fits, function(fit) fit$loss, numeric(1L))
+gamma_best_grid <- which.min(gamma_losses)
+gamma_fit <- MCMfit(
+  gamma_grid_fits[[gamma_best_grid]], dynamic_data, compute_se = TRUE,
+  optimizers = c("rprop", "lbfgs"), optim_iters = c(500, 100),
+  learning_rate = c(0.005, 0.002),
+  moment_weighting = "diagonal", se_correction = "robust",
+  n_starts = 1L, seed = 20260850L, verbose = FALSE
 )
 
-dynamic_paths <- dynamic_fit$transition_parameters[
-  , c("label", "lagged", "current", "estimate", "se")
-]
-dynamic_paths$pvalue <- 2 * stats::pnorm(
-  abs(dynamic_paths$estimate / dynamic_paths$se), lower.tail = FALSE
-)
-dynamic_paths$ci.lower <- dynamic_paths$estimate - 1.96 * dynamic_paths$se
-dynamic_paths$ci.upper <- dynamic_paths$estimate + 1.96 * dynamic_paths$se
-gaussian_paths <- gaussian_fit$transition_parameters[
-  , c("label", "lagged", "current", "estimate", "se")
-]
-gaussian_paths$pvalue <- 2 * stats::pnorm(
-  abs(gaussian_paths$estimate / gaussian_paths$se), lower.tail = FALSE
-)
-gaussian_paths$ci.lower <- gaussian_paths$estimate -
-  1.96 * gaussian_paths$se
-gaussian_paths$ci.upper <- gaussian_paths$estimate +
-  1.96 * gaussian_paths$se
+unrestricted_gamma_fit <- NULL
+if (run_unrestricted_gamma) {
+  unrestricted_grid <- expand.grid(
+    orientation = c(-1, 1), shape = c(0.25, 2, 20, 150)
+  )
+  unrestricted_fits <- lapply(
+    seq_len(nrow(unrestricted_grid)), function(index) {
+      message(
+        "Fitting unrestricted common-gamma grid ", index, "/",
+        nrow(unrestricted_grid), " (3 starts)"
+      )
+      model <- make_dynamic_model("common_gamma")
+      starts <- c(
+        Earnings_AR = 0.676, Hours_lag_to_Earnings = 0.075,
+        Earnings_lag_to_Hours = 0.422, Hours_AR = 0.651,
+        loading_Gamma_Earnings =
+          unrestricted_grid$orientation[index] * 1.35,
+        loading_Gamma_Hours = unrestricted_grid$orientation[index] * 0.36,
+        shape_Gamma = unrestricted_grid$shape[index]
+      )
+      for (name in names(starts)) {
+        model <- MCMedit(model, "start", name, starts[[name]])
+      }
+      MCMfit(
+        model, dynamic_data, compute_se = FALSE,
+        optimizers = c("rprop", "lbfgs"), optim_iters = c(800, 60),
+        learning_rate = c(0.01, 0.005),
+        moment_weighting = "diagonal", se_correction = "robust",
+        n_starts = 3L, seed = 20260902L + index, verbose = FALSE
+      )
+    }
+  )
+  unrestricted_losses <- vapply(
+    unrestricted_fits, function(fit) fit$loss, numeric(1L)
+  )
+  unrestricted_best <- which.min(unrestricted_losses)
+  unrestricted_gamma_fit <- MCMfit(
+    unrestricted_fits[[unrestricted_best]], dynamic_data, compute_se = TRUE,
+    optimizers = c("rprop", "lbfgs"), optim_iters = c(300, 80),
+    learning_rate = c(0.005, 0.002),
+    moment_weighting = "diagonal", se_correction = "robust",
+    n_starts = 1L, seed = 20260920L, verbose = FALSE
+  )
+}
+
+dynamic_paths <- function(fit) {
+  paths <- fit$transition_parameters[
+    , c("label", "lagged", "current", "estimate", "se")
+  ]
+  paths$pvalue <- 2 * stats::pnorm(
+    abs(paths$estimate / paths$se), lower.tail = FALSE
+  )
+  paths$ci.lower <- paths$estimate - 1.96 * paths$se
+  paths$ci.upper <- paths$estimate + 1.96 * paths$se
+  paths
+}
+base_paths <- dynamic_paths(dynamic_fit)
+gaussian_paths <- dynamic_paths(gaussian_fit)
+gamma_paths <- dynamic_paths(gamma_fit)
+unrestricted_gamma_paths <- if (is.null(unrestricted_gamma_fit)) {
+  NULL
+} else {
+  dynamic_paths(unrestricted_gamma_fit)
+}
 
 fit_metrics <- data.frame(
-  panel_participants = nrow(wide),
-  selected_mcmsem_year = 1900 + mcm_wave,
-  final_wave_complete = nrow(final_wave),
-  clpm_cfi_robust = lavaan::fitMeasures(clpm_fit, "cfi.robust"),
-  clpm_tli_robust = lavaan::fitMeasures(clpm_fit, "tli.robust"),
-  clpm_rmsea_robust = lavaan::fitMeasures(clpm_fit, "rmsea.robust"),
+  panel_rows = nrow(wide), selected_mcmsem_year = 2012L + mcm_wave,
+  mcmsem_complete_n = nrow(mcm_values),
+  clpm_cfi_scaled = lavaan::fitMeasures(clpm_fit, "cfi.scaled"),
+  clpm_tli_scaled = lavaan::fitMeasures(clpm_fit, "tli.scaled"),
+  clpm_rmsea_scaled = lavaan::fitMeasures(clpm_fit, "rmsea.scaled"),
   clpm_srmr = lavaan::fitMeasures(clpm_fit, "srmr"),
-  riclpm_cfi_robust = lavaan::fitMeasures(riclpm_fit, "cfi.robust"),
-  riclpm_tli_robust = lavaan::fitMeasures(riclpm_fit, "tli.robust"),
-  riclpm_rmsea_robust = lavaan::fitMeasures(riclpm_fit, "rmsea.robust"),
+  riclpm_cfi_scaled = lavaan::fitMeasures(riclpm_fit, "cfi.scaled"),
+  riclpm_tli_scaled = lavaan::fitMeasures(riclpm_fit, "tli.scaled"),
+  riclpm_rmsea_scaled = lavaan::fitMeasures(riclpm_fit, "rmsea.scaled"),
   riclpm_srmr = lavaan::fitMeasures(riclpm_fit, "srmr"),
   dynamic_loss = dynamic_fit$loss,
-  dynamic_spectral_radius = dynamic_fit$spectral_radius,
-  dynamic_nominal_df = dynamic_fit$degrees_of_freedom,
-  dynamic_jacobian_rank = dynamic_fit$info$jacobian_rank,
   dynamic_information_condition = dynamic_fit$info$information_condition,
-  dynamic_admissible_starts = sum(dynamic_fit$start_diagnostics$convergence == 0),
-  gaussian_dynamic_loss = gaussian_fit$loss,
-  gaussian_dynamic_spectral_radius = gaussian_fit$spectral_radius,
-  gaussian_dynamic_nominal_df = gaussian_fit$degrees_of_freedom,
-  gaussian_dynamic_jacobian_rank = gaussian_fit$info$jacobian_rank,
-  gaussian_dynamic_information_condition =
-    gaussian_fit$info$information_condition,
-  gaussian_dynamic_admissible_starts = sum(
-    gaussian_fit$start_diagnostics$convergence == 0
-  )
+  gaussian_loss = gaussian_fit$loss,
+  gaussian_information_condition = gaussian_fit$info$information_condition,
+  gamma_loss = gamma_fit$loss,
+  gamma_information_condition = gamma_fit$info$information_condition
 )
+if (!is.null(unrestricted_gamma_fit)) {
+  fit_metrics$unrestricted_gamma_loss <- unrestricted_gamma_fit$loss
+  fit_metrics$unrestricted_gamma_information_condition <-
+    unrestricted_gamma_fit$info$information_condition
+}
 
 cat("Simulation truth\n")
 print(simulation_truth)
@@ -394,11 +463,21 @@ print(clpm_paths, row.names = FALSE)
 cat("\nRI-CLPM within-person transition paths\n")
 print(riclpm_paths, row.names = FALSE)
 cat("\nDynamic MCMSEM transition paths\n")
-print(dynamic_paths, row.names = FALSE)
+print(base_paths, row.names = FALSE)
 cat("\nDynamic MCMSEM paths with Gaussian residual\n")
 print(gaussian_paths, row.names = FALSE)
 cat("\nEstimated Gaussian residual covariance\n")
 print(gaussian_fit$Psi_G)
+cat("\nDynamic MCMSEM paths with common-gamma residual\n")
+print(gamma_paths, row.names = FALSE)
+cat("\nEstimated common-gamma residual\n")
+print(gamma_fit$dynamic$common_gamma)
+if (!is.null(unrestricted_gamma_fit)) {
+  cat("\nUnrestricted-innovation common-gamma sensitivity paths\n")
+  print(unrestricted_gamma_paths, row.names = FALSE)
+  cat("\nUnrestricted-innovation common-gamma residual\n")
+  print(unrestricted_gamma_fit$dynamic$common_gamma)
+}
 cat("\nDynamic start diagnostics\n")
 print(dynamic_fit$start_diagnostics, row.names = FALSE)
 
@@ -429,7 +508,7 @@ utils::write.csv(clpm_paths, file.path(output_dir, "clpm_paths.csv"), row.names 
 utils::write.csv(
   riclpm_paths, file.path(output_dir, "riclpm_paths.csv"), row.names = FALSE
 )
-utils::write.csv(dynamic_paths, file.path(output_dir, "dynamic_paths.csv"), row.names = FALSE)
+utils::write.csv(base_paths, file.path(output_dir, "dynamic_paths.csv"), row.names = FALSE)
 utils::write.csv(
   gaussian_paths,
   file.path(output_dir, "gaussian_dynamic_paths.csv"), row.names = FALSE
@@ -448,3 +527,28 @@ utils::write.csv(
   file.path(output_dir, "gaussian_dynamic_start_diagnostics.csv"),
   row.names = FALSE
 )
+utils::write.csv(
+  gamma_paths,
+  file.path(output_dir, "common_gamma_dynamic_paths.csv"), row.names = FALSE
+)
+utils::write.csv(
+  gamma_fit$start_diagnostics,
+  file.path(output_dir, "common_gamma_dynamic_start_diagnostics.csv"),
+  row.names = FALSE
+)
+utils::write.csv(
+  transform(gamma_grid, loss = gamma_losses),
+  file.path(output_dir, "common_gamma_start_grid.csv"), row.names = FALSE
+)
+if (!is.null(unrestricted_gamma_fit)) {
+  utils::write.csv(
+    unrestricted_gamma_paths,
+    file.path(output_dir, "unrestricted_common_gamma_paths.csv"),
+    row.names = FALSE
+  )
+  utils::write.csv(
+    transform(unrestricted_grid, loss = unrestricted_losses),
+    file.path(output_dir, "unrestricted_common_gamma_start_grid.csv"),
+    row.names = FALSE
+  )
+}

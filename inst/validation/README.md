@@ -4,6 +4,89 @@ These scripts are opt-in methodological checks and are not run during package
 tests. Generated `validation-output/` files are deliberately excluded from
 source builds and Git.
 
+## Longitudinal CLPM/RI-CLPM comparison
+
+`longitudinal_clpm_example.R` first runs the controlled stationary VAR(1)
+simulation reported in the README. It then reads the bundled 437 KB
+`inst/extdata/sipp_2014_panel.csv.gz` analysis matrix and fits an
+equality-constrained CLPM, an RI-CLPM, and dynamic MCMSEM specifications with
+no residual, a full Gaussian residual covariance, and a common-gamma
+confounder. The SIPP analysis uses diagonal WLS with robust sandwich SEs and
+explicit multistart searches.
+
+The bundled matrix has only four waves of transformed log earnings and hours.
+It contains no identifiers, demographics, survey weights, or Census source
+columns. Its precise public-use source, filters, transformation, counts, and
+checksum are recorded in `inst/extdata/README.md`; the large Census files are
+not vendored. Run the complete opt-in analysis from the package source tree:
+
+```sh
+Rscript inst/validation/longitudinal_clpm_example.R
+```
+
+The main common-gamma analysis uses signed-gamma innovation constraints to
+retain three nominal overidentifying df. A longer optional grid leaves the
+innovation third/fourth cumulants unrestricted and documents the competing
+one-df basin reported in the README:
+
+```sh
+Rscript inst/validation/longitudinal_clpm_example.R --unrestricted-gamma
+```
+
+This is an unweighted methodological illustration rather than a substantive
+population estimate. The MCMSEM fits deliberately use wave 1 because it has
+the largest jointly observed sample (`N = 22,049`); the script reports moments
+at every wave so that the stationarity approximation remains visible.
+
+## Common-gamma confounder validation
+
+`common_gamma_monte_carlo.R` simulates signed-gamma innovations in a stationary
+bivariate VAR(1), adds one centered common-gamma factor with signed loadings,
+fits the matched constrained model, and compares empirical parameter variation
+with robust delta-method SEs. It also checks the three derived entries of the
+rank-one residual covariance. The default uses 50 replications:
+
+```sh
+Rscript inst/validation/common_gamma_monte_carlo.R
+```
+
+A fast two-replication smoke run is documented at the top of the script.
+
+The following 50-replication design was run on 2026-07-29. One start was
+initialized at the generating values to isolate local estimator/SE behavior
+from global start selection:
+
+```sh
+Rscript inst/validation/common_gamma_monte_carlo.R \
+  --repetitions=50 --n=5000 --starts=1 \
+  --rprop-iters=120 --lbfgs-iters=6 \
+  --output=validation-output/common-gamma-50
+```
+
+All 50 fits were stationary and had Jacobian rank 9/9. The median information
+condition number was `2.33e6` (range `2.18e5` to `3.84e8`). The bivariate model
+has only three nominal overidentifying df, and its robust Wald SEs were
+conservative, especially for transition and factor-loading parameters. This is
+a weak-identification stress test, not a demonstration of excellent Wald
+calibration.
+
+| Parameter | Bias | Empirical SD | Median ASE | Median ASE / SD | Coverage |
+|---|---:|---:|---:|---:|---:|
+| `phi_X` | -0.0507 | 0.0991 | 0.5716 | 5.77 | 0.98 |
+| `phi_Y` | -0.0357 | 0.0924 | 0.2031 | 2.20 | 0.96 |
+| `X_lag_to_Y` | 0.0142 | 0.1254 | 0.4569 | 3.64 | 0.98 |
+| `Y_lag_to_X` | -0.0630 | 0.1854 | 0.3021 | 1.63 | 1.00 |
+| `loading_Gamma_X` | -0.0057 | 0.1207 | 0.4223 | 3.50 | 1.00 |
+| `loading_Gamma_Y` | 0.0252 | 0.0986 | 0.2048 | 2.08 | 0.94 |
+| `shape_Gamma` | 0.6185 | 3.6754 | 4.7991 | 1.31 | 0.92 |
+| `tau_X` | -0.0474 | 0.1711 | 0.1871 | 1.09 | 0.98 |
+| `tau_Y` | 0.0121 | 0.0704 | 0.0892 | 1.27 | 0.98 |
+
+The exact population, base/Torch, gradient, permutation, and delta-method tests
+remain the primary correctness checks. For empirical work, increase
+overidentification where scientifically defensible and inspect the information
+condition and multistart distribution; full Jacobian rank alone is not enough.
+
 ## Standard-error calibration recorded on 2026-07-29
 
 The command below simulated 50 stationary cross-sections with `N = 5000`, used

@@ -115,6 +115,39 @@
   )
 }
 
+.dynamic_information_inverse <- function(x) {
+  x <- (as.matrix(x) + t(as.matrix(x))) / 2
+  eig <- eigen(x, symmetric = TRUE)
+  reference <- max(abs(eig$values), .Machine$double.eps)
+  numerical_floor <- .Machine$double.eps * max(1L, nrow(x)) * reference
+  regularized <- any(eig$values <= numerical_floor)
+  inverse_values <- if (regularized) {
+    warning(
+      paste0(
+        "The dynamic information matrix is numerically singular; only a ",
+        "machine-precision eigenvalue floor was applied. Wald standard ",
+        "errors may be unreliable."
+      ),
+      call. = FALSE
+    )
+    1 / pmax(eig$values, numerical_floor)
+  } else {
+    1 / eig$values
+  }
+  inverse <- eig$vectors %*% (inverse_values * t(eig$vectors))
+  positive <- eig$values[eig$values > 0]
+  condition <- if (length(positive) == length(eig$values)) {
+    max(positive) / min(positive)
+  } else Inf
+  list(
+    inverse = (inverse + t(inverse)) / 2,
+    eigenvalues = eig$values,
+    floor = numerical_floor,
+    condition = condition,
+    regularized = regularized
+  )
+}
+
 .dynamic_weight_specification <- function(data, moment_weighting = "identity",
                                           weight_ridge = 1e-8,
                                           require_vcov = FALSE) {
@@ -156,13 +189,18 @@
   )
 }
 
-.dynamic_gaussian_vector <- function(model, parameters) {
+.dynamic_residual_vector <- function(model, parameters) {
   reported <- .parameter_values_base(model, parameters, optimizer_scale = TRUE)
   Psi <- .dynamic_implied_moments_base(
     model, unname(reported[model$param_names])
-  )$Psi_G
+  )$residual_M2
   unlist(lapply(seq_len(nrow(Psi)), function(row) Psi[row, seq_len(row)]),
          use.names = FALSE)
+}
+
+.dynamic_gaussian_vector <- function(model, parameters) {
+  if (!identical(.dynamic_residual_family(model), "gaussian")) return(numeric())
+  .dynamic_residual_vector(model, parameters)
 }
 
 .dynamic_asymptotic_se <- function(model, data, weight_spec,
@@ -190,7 +228,7 @@
     correction <- if (identical(se_correction, "auto")) {
       if (identical(weight_spec$type, "full")) "model_based" else "robust"
     } else se_correction
-    gaussian_count <- if (isTRUE(model$meta_data$gaussian_residual)) {
+    residual_count <- if (!identical(.dynamic_residual_family(model), "none")) {
       model$meta_data$n_phenotypes * (model$meta_data$n_phenotypes + 1L) / 2L
     } else 0L
     return(list(
@@ -204,11 +242,22 @@
                                   dimnames = list(all_names, character())),
       jacobian = Delta, jacobian_rank = 0L,
       jacobian_singular_values = numeric(), jacobian_condition = NA_real_,
-      information = matrix(numeric(), 0L, 0L), bread_condition = NA_real_,
+      information = matrix(numeric(), 0L, 0L),
+      information_eigenvalues = numeric(), information_regularized = FALSE,
+      bread_condition = NA_real_,
       correction = correction,
-      gaussian_jacobian = matrix(numeric(), gaussian_count, 0L),
-      gaussian_vcov = matrix(0, gaussian_count, gaussian_count),
-      gaussian_se = rep(0, gaussian_count)
+      residual_jacobian = matrix(numeric(), residual_count, 0L),
+      residual_vcov = matrix(0, residual_count, residual_count),
+      residual_se = rep(0, residual_count),
+      gaussian_jacobian = if (identical(.dynamic_residual_family(model), "gaussian")) {
+        matrix(numeric(), residual_count, 0L)
+      } else matrix(numeric(), 0L, 0L),
+      gaussian_vcov = if (identical(.dynamic_residual_family(model), "gaussian")) {
+        matrix(0, residual_count, residual_count)
+      } else matrix(numeric(), 0L, 0L),
+      gaussian_se = if (identical(.dynamic_residual_family(model), "gaussian")) {
+        rep(0, residual_count)
+      } else numeric()
     ))
   }
   Delta <- numDeriv::jacobian(
@@ -236,6 +285,16 @@
       NA_real_, length(theta), length(theta),
       dimnames = list(model$param_names, model$param_names)
     )
+    residual_count <- if (!identical(.dynamic_residual_family(model), "none")) {
+      model$meta_data$n_phenotypes * (model$meta_data$n_phenotypes + 1L) / 2L
+    } else 0L
+    residual_jacobian <- matrix(
+      NA_real_, residual_count, length(theta),
+      dimnames = list(NULL, model$param_names)
+    )
+    residual_vcov <- matrix(NA_real_, residual_count, residual_count)
+    residual_se <- rep(NA_real_, residual_count)
+    gaussian <- identical(.dynamic_residual_family(model), "gaussian")
     return(list(
       se = stats::setNames(rep(NA_real_, length(all_names)), all_names),
       vcov = V_na, vcov_robust = V_na, vcov_model_based = V_na,
@@ -244,16 +303,28 @@
       vcov_optimizer_model_based = V_coordinate_na,
       jacobian = Delta, jacobian_rank = rank,
       jacobian_singular_values = singular_values,
-      jacobian_condition = jacobian_condition, bread_condition = Inf,
-      correction = NA_character_, gaussian_vcov = matrix(),
-      gaussian_se = numeric()
+      jacobian_condition = jacobian_condition,
+      information = crossprod(Delta, weight_spec$W %*% Delta),
+      information_eigenvalues = numeric(), information_regularized = FALSE,
+      bread_condition = Inf,
+      correction = NA_character_,
+      residual_jacobian = residual_jacobian,
+      residual_vcov = residual_vcov,
+      residual_se = residual_se,
+      gaussian_jacobian = if (gaussian) residual_jacobian else
+        matrix(numeric(), 0L, length(theta)),
+      gaussian_vcov = if (gaussian) residual_vcov else matrix(),
+      gaussian_se = if (gaussian) residual_se else numeric()
     ))
   }
 
   W <- weight_spec$W
   omega <- weight_spec$omega
   information <- crossprod(Delta, W %*% Delta)
-  bread_spec <- .dynamic_regularized_inverse(information, weight_ridge)
+  # The WLS/sandwich equations require the actual inverse information matrix.
+  # `weight_ridge` stabilizes W itself; it must not silently cap the condition
+  # number of Delta' W Delta and shrink weak-direction Wald SEs.
+  bread_spec <- .dynamic_information_inverse(information)
   bread <- bread_spec$inverse
   meat <- crossprod(Delta, W %*% omega %*% W %*% Delta)
   robust <- bread %*% meat %*% bread
@@ -281,19 +352,28 @@
   V <- reported_covariance$vcov
   se <- reported_covariance$se
 
-  if (isTRUE(model$meta_data$gaussian_residual)) {
-    gaussian_jacobian <- numDeriv::jacobian(
-      func = function(parameters) .dynamic_gaussian_vector(model, parameters),
+  if (!identical(.dynamic_residual_family(model), "none")) {
+    residual_jacobian <- numDeriv::jacobian(
+      func = function(parameters) .dynamic_residual_vector(model, parameters),
       x = theta, method = jacobian_method
     )
-    gaussian_vcov <- gaussian_jacobian %*% V_optimizer %*% t(gaussian_jacobian)
-    gaussian_vcov <- (gaussian_vcov + t(gaussian_vcov)) / 2
-    gaussian_se <- sqrt(pmax(diag(gaussian_vcov), 0))
+    residual_vcov <- residual_jacobian %*% V_optimizer %*% t(residual_jacobian)
+    residual_vcov <- (residual_vcov + t(residual_vcov)) / 2
+    residual_se <- sqrt(pmax(diag(residual_vcov), 0))
   } else {
-    gaussian_jacobian <- matrix(numeric(), 0L, length(theta))
-    gaussian_vcov <- matrix(numeric(), 0L, 0L)
-    gaussian_se <- numeric()
+    residual_jacobian <- matrix(numeric(), 0L, length(theta))
+    residual_vcov <- matrix(numeric(), 0L, 0L)
+    residual_se <- numeric()
   }
+  gaussian_jacobian <- if (identical(.dynamic_residual_family(model), "gaussian")) {
+    residual_jacobian
+  } else matrix(numeric(), 0L, length(theta))
+  gaussian_vcov <- if (identical(.dynamic_residual_family(model), "gaussian")) {
+    residual_vcov
+  } else matrix(numeric(), 0L, 0L)
+  gaussian_se <- if (identical(.dynamic_residual_family(model), "gaussian")) {
+    residual_se
+  } else numeric()
 
   list(
     se = se,
@@ -310,8 +390,13 @@
     jacobian_singular_values = singular_values,
     jacobian_condition = jacobian_condition,
     information = information,
+    information_eigenvalues = bread_spec$eigenvalues,
+    information_regularized = bread_spec$regularized,
     bread_condition = bread_spec$condition,
     correction = correction,
+    residual_jacobian = residual_jacobian,
+    residual_vcov = residual_vcov,
+    residual_se = residual_se,
     gaussian_jacobian = gaussian_jacobian,
     gaussian_vcov = gaussian_vcov,
     gaussian_se = gaussian_se
