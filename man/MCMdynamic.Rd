@@ -55,6 +55,11 @@ These local diagnostics do not prove global identification. Dynamic
 identification also depends on useful
 non-Gaussianity, independent innovations, fixed innovation scale, stationarity,
 distinct source cumulant profiles, and no unmodelled non-Gaussian confounding.
+The optional \code{residual_family="common_gamma"} makes one such confounder
+explicit as a centered, variance-one gamma factor with signed loadings and a
+positive shape. It contributes rank-one second-, third-, and fourth-order
+cumulants directly to the stationary marginal distribution; it is not an
+innovation propagated through \code{B}.
 }
 \references{
 Tamimy, Zenab, Elsje van Bergen, Matthijs D. van der Zee, Conor V. Dolan, and

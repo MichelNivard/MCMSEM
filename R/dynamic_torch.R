@@ -56,6 +56,7 @@
       )),
       selectors = selectors, p = p,
       gaussian_residual = isTRUE(model$meta_data$gaussian_residual),
+      residual_family = .dynamic_residual_family(model),
       dtype = dtype, device = device, parameter_graph = model$copy()
     ))
   }
@@ -156,6 +157,7 @@
     selectors = selectors,
     p = p,
     gaussian_residual = isTRUE(model$meta_data$gaussian_residual),
+    residual_family = .dynamic_residual_family(model),
     dtype = dtype,
     device = device
   )
@@ -197,6 +199,75 @@
   list(L = L, Psi_G = torch_matmul(L, torch_transpose(L, 1, 2)))
 }
 
+.dynamic_torch_vector_power <- function(x, order) {
+  out <- x
+  if (order > 1L) {
+    for (i in 2:order) out <- .torch_kron(out, x)
+  }
+  out
+}
+
+.dynamic_torch_residual_cumulants <- function(components, reference) {
+  p <- components$p
+  family <- components$residual_family
+  zero2 <- torch_zeros(c(p, p), device = reference$device,
+                       dtype = reference$dtype)
+  zero3 <- torch_zeros(p^3, device = reference$device,
+                       dtype = reference$dtype)
+  zero4 <- torch_zeros(p^4, device = reference$device,
+                       dtype = reference$dtype)
+  if (identical(family, "none")) {
+    return(list(
+      M2 = zero2, C3 = zero3, K4 = zero4, Psi_G = zero2, L_G = zero2,
+      loadings = torch_zeros(p, device = reference$device,
+                             dtype = reference$dtype),
+      shape = torch_tensor(NaN, device = reference$device,
+                           dtype = reference$dtype),
+      skewness = torch_tensor(0, device = reference$device,
+                              dtype = reference$dtype),
+      excess_kurtosis = torch_tensor(0, device = reference$device,
+                                     dtype = reference$dtype)
+    ))
+  }
+  if (identical(family, "gaussian")) {
+    gaussian <- .dynamic_torch_gaussian_covariance(
+      .dynamic_torch_matrix(components, "L_G")
+    )
+    return(list(
+      M2 = gaussian$Psi_G, C3 = zero3, K4 = zero4,
+      Psi_G = gaussian$Psi_G, L_G = gaussian$L,
+      loadings = torch_zeros(p, device = reference$device,
+                             dtype = reference$dtype),
+      shape = torch_tensor(NaN, device = reference$device,
+                           dtype = reference$dtype),
+      skewness = torch_tensor(0, device = reference$device,
+                              dtype = reference$dtype),
+      excess_kurtosis = torch_tensor(0, device = reference$device,
+                                     dtype = reference$dtype)
+    ))
+  }
+  if (!identical(family, "common_gamma")) {
+    stop("Unsupported dynamic residual family `", family, "`.", call. = FALSE)
+  }
+  loadings <- torch_flatten(
+    .dynamic_torch_matrix(components, "Lambda_Gamma")
+  )
+  shape <- torch_flatten(
+    .dynamic_torch_matrix(components, "Shape_Gamma")
+  )[1]
+  skewness <- 2 / torch_sqrt(shape)
+  excess_kurtosis <- 6 / shape
+  loading_column <- torch_reshape(loadings, c(p, 1L))
+  M2 <- torch_matmul(loading_column, torch_transpose(loading_column, 1L, 2L))
+  list(
+    M2 = M2,
+    C3 = skewness * .dynamic_torch_vector_power(loadings, 3L),
+    K4 = excess_kurtosis * .dynamic_torch_vector_power(loadings, 4L),
+    Psi_G = zero2, L_G = zero2, loadings = loadings, shape = shape,
+    skewness = skewness, excess_kurtosis = excess_kurtosis
+  )
+}
+
 .dynamic_torch_raw_fourth <- function(K4_vector, Sigma, selectors, p) {
   sigma <- torch_flatten(Sigma)
   select <- function(name) torch_matmul(selectors[[name]], sigma)
@@ -224,27 +295,30 @@
   )
 
   within_M2 <- torch_reshape(C2_vector, c(p, p))
-  if (components$gaussian_residual) {
-    gaussian <- .dynamic_torch_gaussian_covariance(
-      .dynamic_torch_matrix(components, "L_G")
-    )
-    Psi_G <- gaussian$Psi_G
-    L_G <- gaussian$L
-  } else {
-    Psi_G <- torch_zeros(c(p, p), device = B$device, dtype = B$dtype)
-    L_G <- Psi_G
-  }
-  Sigma <- within_M2 + Psi_G
-  M3 <- torch_reshape(C3_vector, c(p, p^2))
-  K4 <- torch_reshape(K4_vector, c(p, p^3))
+  residual <- .dynamic_torch_residual_cumulants(components, B)
+  total_C3_vector <- C3_vector + residual$C3
+  total_K4_vector <- K4_vector + residual$K4
+  Sigma <- within_M2 + residual$M2
+  M3 <- torch_reshape(total_C3_vector, c(p, p^2))
+  K4 <- torch_reshape(total_K4_vector, c(p, p^3))
   M4 <- .dynamic_torch_raw_fourth(
-    K4_vector, Sigma, components$selectors$pairing, p
+    total_K4_vector, Sigma, components$selectors$pairing, p
   )
   rho <- torch_max(torch_abs(linalg_eigvals(B)))
 
   list(
     M2 = Sigma, M3 = M3, M4 = M4, K4 = K4,
-    within_M2 = within_M2, Psi_G = Psi_G, L_G = L_G,
+    within_M2 = within_M2,
+    dynamic_M3 = torch_reshape(C3_vector, c(p, p^2)),
+    dynamic_K4 = torch_reshape(K4_vector, c(p, p^3)),
+    residual_M2 = residual$M2,
+    residual_M3 = torch_reshape(residual$C3, c(p, p^2)),
+    residual_K4 = torch_reshape(residual$K4, c(p, p^3)),
+    Psi_G = residual$Psi_G, L_G = residual$L_G,
+    residual_loadings = residual$loadings,
+    residual_shape = residual$shape,
+    residual_skewness = residual$skewness,
+    residual_excess_kurtosis = residual$excess_kurtosis,
     B = B, tau = tau, kappa = kappa, spectral_radius = rho
   )
 }

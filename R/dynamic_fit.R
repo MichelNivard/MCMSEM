@@ -55,6 +55,18 @@
   kappa_names <- as.vector(model$named_matrices$Kappa)
   L_names <- as.vector(model$named_matrices$L_G)
   L_names <- L_names[is.na(suppressWarnings(as.numeric(L_names)))]
+  gamma_loading_names <- if ("Lambda_Gamma" %in% names(model$named_matrices)) {
+    as.vector(model$named_matrices$Lambda_Gamma)
+  } else character()
+  gamma_loading_names <- gamma_loading_names[
+    is.na(suppressWarnings(as.numeric(gamma_loading_names)))
+  ]
+  gamma_shape_names <- if ("Shape_Gamma" %in% names(model$named_matrices)) {
+    as.vector(model$named_matrices$Shape_Gamma)
+  } else character()
+  gamma_shape_names <- gamma_shape_names[
+    is.na(suppressWarnings(as.numeric(gamma_shape_names)))
+  ]
 
   for (s in 2:n_starts) {
     start <- model$param_values
@@ -82,6 +94,28 @@
         start[off_diagonal_L] <- start[off_diagonal_L] +
           stats::rnorm(length(off_diagonal_L), 0, 0.25)
       }
+    }
+    free_gamma_loadings <- intersect(gamma_loading_names, names(start))
+    if (length(free_gamma_loadings)) {
+      start[free_gamma_loadings] <- start[free_gamma_loadings] +
+        stats::rnorm(length(free_gamma_loadings), 0, 0.35)
+    }
+    free_gamma_shapes <- intersect(gamma_shape_names, names(start))
+    if (length(free_gamma_shapes)) {
+      start[free_gamma_shapes] <- start[free_gamma_shapes] *
+        exp(stats::rnorm(length(free_gamma_shapes), 0, 0.60))
+    }
+    graph_table <- model$parameter_table
+    auxiliary_shapes <- graph_table$name[
+      graph_table$type == "free" & graph_table$auxiliary &
+        graph_table$transform == "positive" & startsWith(graph_table$name, "shape_")
+    ]
+    auxiliary_shapes <- setdiff(
+      intersect(auxiliary_shapes, names(start)), free_gamma_shapes
+    )
+    if (length(auxiliary_shapes)) {
+      start[auxiliary_shapes] <- start[auxiliary_shapes] *
+        exp(stats::rnorm(length(auxiliary_shapes), 0, 0.60))
     }
     starts[[s]] <- .dynamic_screen_start(
       model, start, stationarity_limit
@@ -139,27 +173,37 @@
   do.call(rbind, rows)
 }
 
-.dynamic_gaussian_table <- function(Psi_G, variable_names,
-                                    standard_errors = NULL) {
-  p <- nrow(Psi_G)
+.dynamic_residual_covariance_table <- function(Psi, variable_names,
+                                               residual_family,
+                                               standard_errors = NULL) {
+  p <- nrow(Psi)
+  component <- if (identical(residual_family, "gaussian")) "G" else "U"
   rows <- list()
   iter <- 1L
   for (row in seq_len(p)) for (col in seq_len(row)) {
     rows[[iter]] <- data.frame(
       label = if (row == col) {
-        paste0("Var(G_", variable_names[row], ")")
+        paste0("Var(", component, "_", variable_names[row], ")")
       } else {
-        paste0("Cov(G_", variable_names[row], ",G_", variable_names[col], ")")
+        paste0("Cov(", component, "_", variable_names[row], ",",
+               component, "_", variable_names[col], ")")
       },
       lhs = variable_names[row],
       rhs = variable_names[col],
-      estimate = Psi_G[row, col],
+      estimate = Psi[row, col],
       se = if (is.null(standard_errors)) NA_real_ else standard_errors[iter],
       stringsAsFactors = FALSE
     )
     iter <- iter + 1L
   }
   do.call(rbind, rows)
+}
+
+.dynamic_gaussian_table <- function(Psi_G, variable_names,
+                                    standard_errors = NULL) {
+  .dynamic_residual_covariance_table(
+    Psi_G, variable_names, "gaussian", standard_errors
+  )
 }
 
 .dynamic_gradient_history_frame <- function(history) {
@@ -321,13 +365,14 @@
       stringsAsFactors = FALSE
     )
     if (isTRUE(verbose)) {
-      Psi <- .dynamic_tensor_to_matrix(run$predicted$Psi_G)
+      Psi <- .dynamic_tensor_to_matrix(run$predicted$residual_M2)
       cat(sprintf(
         "  final loss=%.8g, convergence=%d, spectral radius=%.6f\n",
         run$loss, diagnostics[[start_index]]$convergence,
         admissibility$spectral_radius
       ))
-      cat("  estimated Gaussian covariance:\n")
+      cat("  estimated ", .dynamic_residual_family(model),
+          " residual covariance:\n", sep = "")
       print(Psi)
     }
     if (admissibility$admissible && is.finite(run$loss) &&
@@ -349,14 +394,31 @@
   fitted_model$meta_data$kernel <- "dynamic"
   fitted_model$meta_data$stationarity_limit <- stationarity_limit
   predicted <- lapply(
-    best$predicted[c("M2", "M3", "M4", "K4", "within_M2", "Psi_G", "L_G")],
+    best$predicted[c(
+      "M2", "M3", "M4", "K4", "within_M2", "dynamic_M3", "dynamic_K4",
+      "residual_M2", "residual_M3", "residual_K4", "Psi_G", "L_G"
+    )],
     .dynamic_tensor_to_matrix
   )
   B <- .dynamic_tensor_to_matrix(best$predicted$B)
   variables <- fitted_model$meta_data$original_colnames
   dimnames(B) <- list(variables, variables)
   dimnames(predicted$Psi_G) <- list(variables, variables)
+  dimnames(predicted$residual_M2) <- list(variables, variables)
   dimnames(predicted$within_M2) <- list(variables, variables)
+  residual_loadings <- .dynamic_tensor_to_numeric(best$predicted$residual_loadings)
+  if (identical(.dynamic_residual_family(fitted_model), "common_gamma")) {
+    names(residual_loadings) <- variables
+  } else {
+    residual_loadings <- numeric()
+  }
+  residual_shape <- .dynamic_tensor_to_numeric(best$predicted$residual_shape)[1L]
+  residual_skewness <- .dynamic_tensor_to_numeric(
+    best$predicted$residual_skewness
+  )[1L]
+  residual_excess_kurtosis <- .dynamic_tensor_to_numeric(
+    best$predicted$residual_excess_kurtosis
+  )[1L]
   tau <- .dynamic_tensor_to_numeric(best$predicted$tau)
   kappa <- .dynamic_tensor_to_numeric(best$predicted$kappa)
   names(tau) <- names(kappa) <- variables
@@ -403,10 +465,11 @@
     row.names = NULL,
     check.names = FALSE
   )
-  gaussian <- if (isTRUE(fitted_model$meta_data$gaussian_residual)) {
-    .dynamic_gaussian_table(
-      predicted$Psi_G, variables,
-      if (is.null(asymptotic)) NULL else asymptotic$gaussian_se
+  residual_family <- .dynamic_residual_family(fitted_model)
+  residual_covariance <- if (!identical(residual_family, "none")) {
+    .dynamic_residual_covariance_table(
+      predicted$residual_M2, variables, residual_family,
+      if (is.null(asymptotic)) NULL else asymptotic$residual_se
     )
   } else {
     data.frame(
@@ -414,6 +477,37 @@
       estimate = numeric(), se = numeric(), stringsAsFactors = FALSE
     )
   }
+  gaussian <- if (identical(residual_family, "gaussian")) {
+    residual_covariance
+  } else residual_covariance[0, , drop = FALSE]
+  common_gamma <- if (identical(residual_family, "common_gamma")) {
+    loading_labels <- .parameter_label_parts(
+      as.vector(fitted_model$named_matrices$Lambda_Gamma)
+    )$name
+    shape_label <- .parameter_label_parts(
+      as.vector(fitted_model$named_matrices$Shape_Gamma)
+    )$name[1L]
+    shape_se <- unname(parameter_se[shape_label])
+    list(
+      loadings = data.frame(
+        variable = variables,
+        label = loading_labels,
+        estimate = residual_loadings,
+        se = unname(parameter_se[loading_labels]),
+        row.names = NULL, stringsAsFactors = FALSE
+      ),
+      shape = data.frame(
+        label = shape_label,
+        estimate = residual_shape,
+        se = shape_se,
+        skewness = residual_skewness,
+        skewness_se = abs(residual_shape^(-3 / 2)) * shape_se,
+        excess_kurtosis = residual_excess_kurtosis,
+        excess_kurtosis_se = abs(6 / residual_shape^2) * shape_se,
+        row.names = NULL, stringsAsFactors = FALSE
+      )
+    )
+  } else list(loadings = data.frame(), shape = data.frame())
   dof <- MCMdegreesoffreedom(fitted_model, TRUE, TRUE)
   reported_values <- .parameter_values_base(fitted_model, best$parameters)
   result_values <- if (isTRUE(compute_se)) {
@@ -438,6 +532,7 @@
   info <- list(
     version = MCMSEMversion,
     kernel = "dynamic",
+    residual_family = residual_family,
     compute_se = isTRUE(compute_se),
     se_type = if (isTRUE(compute_se)) "asymptotic" else NA_character_,
     optim_iters = optim_iters,
@@ -517,7 +612,13 @@
       transition = transition,
       innovations = innovation,
       gaussian_covariance = gaussian,
+      residual_family = residual_family,
+      residual_covariance = residual_covariance,
+      common_gamma = common_gamma,
       within_M2 = predicted$within_M2,
+      residual_M2 = predicted$residual_M2,
+      residual_M3 = predicted$residual_M3,
+      residual_K4 = predicted$residual_K4,
       K4 = predicted$K4,
       L_G = predicted$L_G,
       moment_weighting = moment_weighting,

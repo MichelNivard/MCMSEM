@@ -1,20 +1,21 @@
 # Longitudinal models and largest-wave dynamic MCMSEM
 
-The validation script runs two analyses: a controlled simulation in which both
-estimators target the known VAR(1) transition matrix, followed by a real-data
-sensitivity analysis.
-
-The exact analyses can be reproduced with:
+The validation script runs a controlled simulation followed by an unweighted
+real-data illustration using a minimal derived SIPP analysis matrix:
 
 ```sh
 Rscript inst/validation/longitudinal_clpm_example.R
 ```
 
+Generated fit objects and CSV summaries are written below
+`validation-output/longitudinal-example/`, which is excluded from Git and
+source packages.
+
 ## Controlled stationary simulation
 
 The simulation generates 20,000 independent subjects, burns in a bivariate
-VAR(1) for 200 transitions, and retains four consecutive waves. The true
-transition matrix is
+VAR(1) for 200 transitions, and retains four consecutive waves. The transition
+matrix is
 
 ```text
           lagged X  lagged Y
@@ -22,138 +23,152 @@ current X     0.55      0.16
 current Y    -0.12      0.45
 ```
 
-The first innovation is a centered unit-rate exponential variable and the
-second is a centered and standardized chi-square variable with five degrees of
-freedom. Thus both innovations have mean zero and variance one, are mutually
-independent and non-Gaussian, and have distinct higher-order cumulants.
+The first innovation is centered exponential and the second centered,
+variance-one chi-square with five degrees of freedom. An
+equality-constrained CLPM uses all four waves. Plain dynamic MCMSEM receives
+only the final marginal cross-section and uses diagonal WLS, robust sandwich
+SEs, and 20 starts.
 
-An equality-constrained CLPM uses all four waves. Dynamic MCMSEM receives only
-the final marginal cross-section, uses no Gaussian residual, diagonal WLS,
-robust sandwich SEs, and 20 starts.
-
-| Path (`current <- lagged`) | Truth | CLPM estimate (SE) | Dynamic MCMSEM estimate (robust SE) |
+| Path (current <- lagged) | Truth | CLPM estimate (SE) | Dynamic MCMSEM estimate (robust SE) |
 |---|---:|---:|---:|
 | X <- X | 0.550 | 0.550 (0.003) | 0.555 (0.014) |
 | X <- Y | 0.160 | 0.162 (0.004) | 0.147 (0.046) |
 | Y <- X | -0.120 | -0.117 (0.003) | -0.111 (0.028) |
 | Y <- Y | 0.450 | 0.446 (0.004) | 0.462 (0.014) |
 
-The CLPM's robust CFI, TLI, RMSEA, and SRMR were 1.000, 1.000, 0.000, and
-0.003. The dynamic solution had loss 0.000459, spectral radius 0.522, nominal
-df = 4, Jacobian rank 8/8, information condition number 1.81e4, and 20/20
-admissible starts. The close agreement is the expected calibration result when
-the estimators' assumptions match the data-generating process.
+The CLPM's robust CFI, TLI, RMSEA, and SRMR were 1.000, 1.000, 0.000,
+and 0.003. The dynamic fit had loss 0.000459, spectral radius 0.522,
+nominal df = 4, Jacobian rank 8/8, information condition
+$1.81 \times 10^4$, and 20/20 admissible starts. This is the expected
+calibration result when the two estimators' assumptions and estimands match.
 
-## Real-data sensitivity analysis
+## Derived SIPP matrix
 
-This validation uses the public [`nlswork`
-extract](https://vincentarelbundock.github.io/Rdatasets/doc/sampleSelection/nlswork.html)
-from the [National Longitudinal Survey of Young
-Women](https://www.nlsinfo.org/content/cohorts/young-women). The data contain
-28,534 observations from 4,711 women interviewed between 1968 and 1988. The
-comparison uses four equally spaced two-year waves: 1971, 1973, 1975, and 1977.
+The real-data illustration uses the U.S. Census Bureau's public-use 2014
+Survey of Income and Program Participation panel, waves 1--4, covering the
+2013--2016 reference years. The package contains only
+`inst/extdata/sipp_2014_panel.csv.gz`: a 437 KB matrix with four waves of
+transformed log earnings and hours. It contains 24,505 contributing rows,
+eight columns, and no identifiers, demographics, weights, or Census source
+variables.
 
-The script downloads the validated [Rdatasets CSV](https://vincentarelbundock.github.io/Rdatasets/csv/sampleSelection/nlswork.csv)
-(MD5 `f546ffe0bee86acb5d79b8775d341709`). It uses `4 * ln_wage` and
-`hours / 5` in both analyses. These transparent linear transformations put the
-observed variances on a scale compatible with the dynamic kernel's fixed unit
-innovation variances; they are not z-scores.
+The exact official sources, extraction filters, transformation constants,
+sample counts, and checksum are recorded in `inst/extdata/README.md`. The
+large Census public-use source files are not included. Because survey weights
+are omitted, this is a methodological illustration rather than a
+population-representative labor analysis.
 
-## Models
+Both variables use the same wave-1 reference transformation at every wave:
+`2 * (value - wave1_mean) / wave1_sd`. Consequently, paths in all models
+share measurement units and are approximately standardized.
 
-The longitudinal analyses are a traditional CLPM and an RI-CLPM fitted with
-robust maximum likelihood and FIML. Autoregressive and cross-lagged paths are
-constrained equal over the three two-year transitions. The RI-CLPM separates
-stable between-person intercepts from within-person deviations. Dynamic
-MCMSEM is fitted only to the wave with the most complete bivariate
-observations. That is 1977, with 2,167 cases. Both dynamic models use diagonal
-WLS with robust sandwich SEs; the eight-parameter model has no Gaussian
-residual and uses 20 starts, while the 11-parameter Gaussian-residual model
-uses 30 starts.
+| Wave | Year | Complete N | Earnings mean | Hours mean | Earnings variance | Hours variance | Covariance |
+|---:|---:|---:|---:|---:|---:|---:|---:|
+| 1 | 2013 | 22,049 | 0.000 | 0.000 | 4.000 | 4.000 | 2.031 |
+| 2 | 2014 | 15,787 | 0.036 | -0.034 | 4.192 | 4.170 | 2.179 |
+| 3 | 2015 | 12,190 | 0.184 | 0.055 | 4.012 | 4.205 | 2.087 |
+| 4 | 2016 | 10,446 | 0.268 | 0.033 | 4.057 | 4.156 | 2.166 |
 
-Under exact stationarity, any wave has the same population marginal
-distribution, so choosing the largest complete wave improves precision without
-changing the target. The empirical wave diagnostics are not identical:
+Wave 1 supplies MCMSEM because it has the largest complete bivariate sample.
+The modest drift makes this a precision choice under approximate—not
+established—stationarity.
 
-| Year | Complete N | Wage mean | Hours mean | Wage variance | Hours variance | Covariance |
-|---:|---:|---:|---:|---:|---:|---:|
-| 1971 | 1,851 | 6.187 | 7.331 | 2.748 | 3.613 | 0.181 |
-| 1973 | 1,981 | 6.314 | 7.218 | 2.955 | 4.040 | 0.260 |
-| 1975 | 2,131 | 6.327 | 7.340 | 2.650 | 3.581 | 0.010 |
-| 1977 | 2,167 | 6.637 | 7.222 | 2.973 | 3.985 | 0.262 |
+## CLPM versus plain dynamic MCMSEM
 
-The larger 1977 sample is therefore used, but the drift—especially in wage
-means and covariance—is evidence that stationarity is only approximate here.
+The equality-constrained CLPM uses MLR and FIML. Plain dynamic MCMSEM uses
+`residual_family = "none"`, freely estimated innovation third/fourth
+cumulants, 40 starts, diagonal WLS, and robust SEs.
 
-## Results from the validated run
+| Path (current <- lagged) | CLPM estimate (robust SE) | Plain dynamic MCMSEM estimate (robust SE) |
+|---|---:|---:|
+| Earnings <- earnings | 0.628 (0.011) | 0.980 (0.026) |
+| Earnings <- hours | 0.063 (0.008) | -0.315 (0.121) |
+| Hours <- earnings | 0.124 (0.007) | 0.521 (0.112) |
+| Hours <- hours | 0.476 (0.009) | 0.486 (0.113) |
 
-The CLPM used 3,314 participants with at least one observation. Its robust fit
-indices were CFI = 0.929, TLI = 0.901, RMSEA = 0.095, and SRMR = 0.058.
+The CLPM's scaled CFI/TLI/RMSEA were 0.905/0.867/0.052 and SRMR was
+0.086. The plain dynamic fit had loss 0.3659, spectral radius 0.800,
+df = 4, rank 8/8, information condition $6.94 \times 10^6$, and 10/40
+admissible starts. Its earnings autoregression was effectively at the 0.98
+upper bound, so boundary proximity and multistart attrition are substantive
+warnings.
 
-| CLPM path | Estimate | Robust SE | p-value | 95% CI |
-|---|---:|---:|---:|---:|
-| Wage autoregression | 0.681 | 0.018 | <0.001 | [0.646, 0.715] |
-| Hours to later wage | 0.039 | 0.012 | 0.001 | [0.015, 0.063] |
-| Hours autoregression | 0.443 | 0.023 | <0.001 | [0.397, 0.488] |
-| Wage to later hours | 0.035 | 0.020 | 0.071 | [-0.003, 0.074] |
+## RI-CLPM versus Gaussian-residual dynamic MCMSEM
 
-The RI-CLPM passed `lavaan`'s post-estimation check. Its robust CFI, TLI,
-RMSEA, and SRMR were 0.969, 0.949, 0.068, and 0.044.
+The RI-CLPM separates correlated stable random intercepts from within-person
+deviations. Dynamic MCMSEM's full Gaussian residual covariance is conceptually
+analogous to a joint stable distribution, but a one-wave fit assumes rather
+than observes its temporal stability.
 
-| RI-CLPM within-person path | Estimate | Robust SE | p-value | 95% CI |
-|---|---:|---:|---:|---:|
-| Wage autoregression | 0.401 | 0.062 | <0.001 | [0.280, 0.522] |
-| Hours to later wage | 0.056 | 0.025 | 0.026 | [0.007, 0.105] |
-| Hours autoregression | 0.315 | 0.051 | <0.001 | [0.215, 0.415] |
-| Wage to later hours | 0.077 | 0.060 | 0.203 | [-0.041, 0.194] |
+| Path (current <- lagged) | RI-CLPM within-person estimate (robust SE) | Dynamic + Gaussian residual (robust SE) |
+|---|---:|---:|
+| Earnings <- earnings | 0.105 (0.024) | 0.627 (0.091) |
+| Earnings <- hours | 0.051 (0.012) | 0.127 (0.104) |
+| Hours <- earnings | 0.009 (0.015) | 0.465 (0.116) |
+| Hours <- hours | 0.165 (0.017) | 0.591 (0.163) |
 
-| Dynamic MCMSEM path | Estimate | Robust SE | p-value | 95% CI |
-|---|---:|---:|---:|---:|
-| Wage autoregression | 0.730 | 0.088 | <0.001 | [0.558, 0.902] |
-| Hours to later wage | 0.273 | 0.157 | 0.082 | [-0.035, 0.581] |
-| Hours autoregression | 0.821 | 0.075 | <0.001 | [0.673, 0.969] |
-| Wage to later hours | -0.391 | 0.239 | 0.101 | [-0.858, 0.077] |
+The RI-CLPM passed lavaan's post-estimation check; scaled
+CFI/TLI/RMSEA were 0.998/0.996/0.009 and SRMR was 0.012. The MCMSEM
+Gaussian residual covariance was
 
-The dynamic solution had spectral radius 0.840, nominal df = 4, Jacobian rank
-8/8, information condition number 2.51e6, and 18/20 admissible starts. The
-best diagonal-WLS loss was 0.7170.
+```text
+          Earnings  Hours
+Earnings     1.842  0.450
+Hours        0.450  0.421
+```
 
-Allowing a full Gaussian residual covariance produced:
+and its implied correlation was 0.511. The dynamic fit had loss 0.1004,
+spectral radius 0.852, df = 1, rank 11/11, and information condition
+$1.17 \times 10^8$. Its full-rank but weakly conditioned decomposition and
+wide un-ridged sandwich SEs should be emphasized over the small training loss.
 
-| Dynamic MCMSEM path with Gaussian residual | Estimate | Robust SE | p-value | 95% CI |
-|---|---:|---:|---:|---:|
-| Wage autoregression | 0.692 | 0.402 | 0.085 | [-0.097, 1.481] |
-| Hours to later wage | 0.307 | 0.124 | 0.013 | [0.064, 0.549] |
-| Hours autoregression | 0.750 | 0.201 | <0.001 | [0.356, 1.145] |
-| Wage to later hours | -0.518 | 0.517 | 0.316 | [-1.532, 0.495] |
+## Common-gamma confounder
 
-Its estimated Gaussian covariance was
-`matrix(c(0.343, 0.215, 0.215, 0.135), 2, 2)` and was numerically close to
-rank one. Loss fell to 0.6932, but the
-model had only one nominal df, information condition number `1e8`, and 20/30
-admissible starts. The extra covariance decomposition is therefore weakly
-identified here; the apparently lower loss should not override its much wider
-SEs and poorer conditioning.
+`residual_family = "common_gamma"` replaces the Gaussian residual vector
+with one centered, variance-one gamma source, signed loadings, and a positive
+shape. Shape determines confounder skewness and excess kurtosis. The
+unrestricted-innovation bivariate model has only one nominal df and competing
+weakly identified decompositions, so the reported analysis constrained each
+innovation's skewness and kurtosis to a signed-gamma relationship. That leaves
+three nominal df.
 
-This example is a workflow comparison, not a claim that the four analyses have
-the same target. The CLPM conditions on repeated individual measurements. The
-dynamic MCMSEM infers a stationary transition matrix from one marginal
-cross-section under independent non-Gaussian innovations and fixed innovation
-scale. The different cross-lag estimates, middling CLPM fit, and high dynamic
-information condition number are reasons to report diagnostics and avoid using
-agreement between methods as an automatic validity criterion.
+| Path (current <- lagged) | Common-gamma estimate (robust SE) |
+|---|---:|
+| Earnings <- earnings | 0.676 (0.032) |
+| Earnings <- hours | 0.075 (0.052) |
+| Hours <- earnings | 0.422 (0.030) |
+| Hours <- hours | 0.651 (0.036) |
 
-## Practical evaluation
+The residual loadings were -1.347 (SE 0.108) and -0.360 (SE 0.235).
+The common shape was 153.8 (SE 398.2), corresponding to skewness 0.161
+(SE 0.209) and excess kurtosis 0.039 (SE 0.101). Loss was 0.1090 and the
+information condition was $7.29 \times 10^{10}$. Under the stated
+innovation constraints, this fit does not provide reliable evidence of a
+non-Gaussian confounder: the point is near the Gaussian limit and its
+distributional uncertainty is large.
 
-- Decide whether the longitudinal target is observed-score dynamics (CLPM) or
-  within-person deviations after stable traits are separated (RI-CLPM).
-- Treat `gaussian_residual = TRUE` as a scientific model for an independent
-  stable Gaussian component, not as an automatic fit improvement. In two
-  variables it adds three parameters and reduces nominal df from four to one.
-- Compare held-out moment loss where feasible, Jacobian rank, information
-  condition, spectral radius, bounds, admissible starts, and path stability.
-  Do not choose only on training loss.
-- Examine marginal moments across candidate waves. Exact stationarity makes
-  wave choice irrelevant in the population; empirical drift makes the
-  largest-N wave a precision choice under an approximation, not proof of
-  interchangeability.
+The longer optional unrestricted-innovation grid can be run with
+
+```sh
+Rscript inst/validation/longitudinal_clpm_example.R --unrestricted-gamma
+```
+
+It found a competing basin with loss 0.00024, shape 0.489 (SE 0.087), and
+loadings 1.213 (SE 0.039) and -0.064 (SE 0.037). Its information condition was
+$1.30 \times 10^8$ with one nominal df. This is evidence for an
+earnings-specific non-Gaussian residual under that specification, not robust
+evidence for a shared earnings-hours confounder. The conclusion about
+confounder shape is therefore constraint-dependent.
+
+## Interpretation
+
+- The simulation demonstrates that CLPM and MCMSEM can converge when their
+  assumptions and estimands match.
+- CLPM and plain MCMSEM both target observed-score dynamics, but identify them
+  from repeated transitions versus one stationary marginal distribution.
+- RI-CLPM and residual-adjusted MCMSEM both attempt a within/between
+  decomposition. Only RI-CLPM directly observes persistence across waves.
+- Real-data estimates need not converge. Differences may reflect estimands,
+  nonstationarity, weak identification, or misspecification rather than scale.
+- Training loss is insufficient. Report nominal df, Jacobian rank and
+  condition, spectral radius, bounds, multistart behavior, and robust SEs.

@@ -9,7 +9,8 @@ MCMmodel(data, n_latent=1, constrained_a=TRUE, scale_data=TRUE,
          weights=NULL, latent_names=NULL,
          causal_observed=TRUE, var_observed=TRUE, skew_observed=TRUE, kurt_observed=TRUE,
          causal_latent=FALSE, var_latent=FALSE, skew_latent=FALSE, kurt_latent=FALSE,
-         kernel="contemporaneous", gaussian_residual=TRUE)
+         kernel="contemporaneous", gaussian_residual=TRUE,
+         residual_family=NULL)
 }
 \arguments{
   \item{data}{Either an MCM data summary object, or a matrix or dataframe for which the model will be built}
@@ -31,10 +32,26 @@ MCMmodel(data, n_latent=1, constrained_a=TRUE, scale_data=TRUE,
   \code{"contemporaneous"}. Legacy models without kernel metadata are also
   treated as contemporaneous.}
   \item{gaussian_residual}{For a dynamic model, estimate a full Gaussian
-  residual/random-intercept covariance using a Cholesky parameterization.}
+  residual/random-intercept covariance using a Cholesky parameterization.
+  Retained for backward compatibility; prefer \code{residual_family}.}
+  \item{residual_family}{Dynamic residual specification: \code{"none"},
+  \code{"gaussian"}, or \code{"common_gamma"}. The exact alias
+  \code{"gamma"} maps to \code{"common_gamma"}. If omitted, the legacy
+  \code{gaussian_residual} argument determines the family.}
 }
 \value{
   Returns an MCMmodelclass object
+}
+
+\details{
+The common-gamma family adds one centered, variance-one gamma factor to the
+stationary marginal state. With loadings \eqn{\lambda} and shape
+\eqn{\alpha>0}, its residual covariance is \eqn{\lambda\lambda'}, its third
+cumulant tensor is \eqn{(2/\sqrt{\alpha})\lambda^{\otimes 3}}, and its fourth
+cumulant tensor is \eqn{(6/\alpha)\lambda^{\otimes 4}}. It is an additive
+residual/confounder and is not propagated through the transition matrix.
+Loadings may be signed. Use \code{MCMparameters()} to inspect the
+\code{loading_Gamma_*} and positive \code{shape_Gamma} parameters.
 }
 
 \references{
@@ -55,4 +72,7 @@ Graphical Discrete Lyapunov Models}. arXiv preprint arXiv:2601.21818.
 
     # The dynamic kernel currently supports observed states only.
     dynamic_model <- MCMmodel(mysummary, kernel="dynamic")
+    gamma_model <- MCMmodel(
+      mysummary, kernel="dynamic", residual_family="common_gamma"
+    )
 }

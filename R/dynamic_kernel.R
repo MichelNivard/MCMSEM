@@ -85,6 +85,64 @@
   out
 }
 
+.normalize_dynamic_residual_family <- function(residual_family = NULL,
+                                               gaussian_residual = TRUE,
+                                               gaussian_residual_missing = FALSE) {
+  if (is.null(residual_family)) {
+    return(if (isTRUE(gaussian_residual)) "gaussian" else "none")
+  }
+  if (!is.character(residual_family) || length(residual_family) != 1L ||
+      is.na(residual_family)) {
+    stop(
+      "`residual_family` must be exactly one of \"none\", \"gaussian\", or \"common_gamma\".",
+      call. = FALSE
+    )
+  }
+  if (identical(residual_family, "gamma")) residual_family <- "common_gamma"
+  allowed <- c("none", "gaussian", "common_gamma")
+  if (!(residual_family %in% allowed)) {
+    stop(
+      "Invalid `residual_family`: ", encodeString(residual_family, quote = "\""),
+      ". Use exactly \"none\", \"gaussian\", or \"common_gamma\".",
+      call. = FALSE
+    )
+  }
+  if (!isTRUE(gaussian_residual_missing)) {
+    if (isTRUE(gaussian_residual) && !identical(residual_family, "gaussian")) {
+      stop(
+        "`gaussian_residual = TRUE` conflicts with `residual_family = ",
+        encodeString(residual_family, quote = "\""), ".",
+        call. = FALSE
+      )
+    }
+    if (!isTRUE(gaussian_residual) && identical(residual_family, "gaussian")) {
+      stop(
+        "`gaussian_residual = FALSE` conflicts with `residual_family = \"gaussian\"`.",
+        call. = FALSE
+      )
+    }
+  }
+  residual_family
+}
+
+.dynamic_residual_family <- function(model) {
+  family <- tryCatch(model$meta_data$residual_family, error = function(e) NULL)
+  if (is.null(family) || length(family) != 1L || is.na(family)) {
+    return(if (isTRUE(model$meta_data$gaussian_residual)) "gaussian" else "none")
+  }
+  .normalize_dynamic_residual_family(
+    family, gaussian_residual = identical(family, "gaussian"),
+    gaussian_residual_missing = TRUE
+  )
+}
+
+.dynamic_gamma_loading_labels <- function(variable_names) {
+  matrix(
+    paste0("loading_Gamma_", variable_names), length(variable_names), 1L,
+    dimnames = list(variable_names, "common_gamma")
+  )
+}
+
 .nearest_spd_start <- function(x, diagonal_floor = 1e-5) {
   # Used only to obtain an admissible optimization start. The fitted covariance
   # is PSD by construction and is never post-hoc clipped.
@@ -104,9 +162,16 @@
   L
 }
 
-.dynamic_model <- function(data, gaussian_residual = TRUE) {
+.dynamic_model <- function(data, residual_family = "gaussian") {
   p <- data$meta_data$ncol
   variable_names <- data$meta_data$colnames
+  residual_family <- .normalize_dynamic_residual_family(
+    residual_family,
+    gaussian_residual = identical(residual_family, "gaussian"),
+    gaussian_residual_missing = TRUE
+  )
+  gaussian_residual <- identical(residual_family, "gaussian")
+  common_gamma <- identical(residual_family, "common_gamma")
 
   B_names <- .dynamic_parameter_labels(variable_names)
   B_values <- matrix(0, p, p, dimnames = dimnames(B_names))
@@ -141,21 +206,52 @@
     L_values <- .covariance_to_cholesky_parameters(Psi_start)
   }
 
+  gamma_loading_names <- matrix(
+    "0", p, 1L, dimnames = list(variable_names, "common_gamma")
+  )
+  gamma_loading_values <- matrix(
+    0, p, 1L, dimnames = dimnames(gamma_loading_names)
+  )
+  gamma_shape_names <- matrix(
+    "0", 1L, 1L, dimnames = list("common_gamma", "shape")
+  )
+  gamma_shape_values <- matrix(
+    0, 1L, 1L, dimnames = dimnames(gamma_shape_names)
+  )
+  if (isTRUE(common_gamma)) {
+    gamma_loading_names <- .dynamic_gamma_loading_labels(variable_names)
+    loading_magnitude <- sqrt(pmax(diag(data$M2) * 0.10, 1e-4))
+    loading_sign <- rep(1, p)
+    if (p > 1L) {
+      loading_sign[-1L] <- sign(data$M2[-1L, 1L])
+      loading_sign[loading_sign == 0] <- 1
+    }
+    gamma_loading_values[, 1L] <- loading_magnitude * loading_sign
+    gamma_shape_names[1L, 1L] <- "shape_Gamma"
+    gamma_shape_values[1L, 1L] <- 4
+  }
+
   named_matrices <- list(
     B = B_names,
     Tau = tau_names,
     Kappa = kappa_names,
-    L_G = L_names,
-    D2 = diag(as.character(1), p)
+    L_G = L_names
   )
-  named_matrices$D2[named_matrices$D2 == "0"] <- "0"
   num_matrices <- list(
     B = B_values,
     Tau = tau_values,
     Kappa = kappa_values,
-    L_G = L_values,
-    D2 = diag(1, p)
+    L_G = L_values
   )
+  if (isTRUE(common_gamma)) {
+    named_matrices$Lambda_Gamma <- gamma_loading_names
+    named_matrices$Shape_Gamma <- gamma_shape_names
+    num_matrices$Lambda_Gamma <- gamma_loading_values
+    num_matrices$Shape_Gamma <- gamma_shape_values
+  }
+  named_matrices$D2 <- diag(as.character(1), p)
+  named_matrices$D2[named_matrices$D2 == "0"] <- "0"
+  num_matrices$D2 <- diag(1, p)
 
   par_names <- unlist(lapply(named_matrices, function(x) {
     vals <- as.vector(x)
@@ -190,12 +286,23 @@
       }
     }
   }
+  if (isTRUE(common_gamma)) {
+    for (nm in as.vector(gamma_loading_names)) {
+      lower[nm] <- -100
+      upper[nm] <- 100
+    }
+    lower[gamma_shape_names[1L, 1L]] <- 1e-6
+    upper[gamma_shape_names[1L, 1L]] <- Inf
+  }
   bounds <- as.data.frame(rbind(L = lower, U = upper), check.names = FALSE)
 
   start_values <- c(
     as.vector(B_values), as.vector(tau_values), as.vector(kappa_values),
     if (isTRUE(gaussian_residual)) {
       as.vector(L_values)[is.na(suppressWarnings(as.numeric(as.vector(L_names))))]
+    } else numeric(),
+    if (isTRUE(common_gamma)) {
+      c(as.vector(gamma_loading_values), as.vector(gamma_shape_values))
     } else numeric()
   )
   # The model parser defines the authoritative ordering, so these are replaced
@@ -204,12 +311,14 @@
 
   bound_defaults <- list(
     L = list(phi = 0, B = -0.98, tau = -100, kappa = -1.99,
-             log = log(1e-6), chol = -100),
+             log = log(1e-6), chol = -100, loading = -100,
+             shape = 1e-6),
     U = list(phi = 0.98, B = 0.98, tau = 100, kappa = 100,
-             log = log(1e2), chol = 100)
+             log = log(1e2), chol = 100, loading = 100,
+             shape = Inf)
   )
 
-  mcmmodelclass(
+  model <- mcmmodelclass(
     named_matrices = named_matrices,
     num_matrices = num_matrices,
     start_values = mcmstartvaluesclass(start_values),
@@ -227,9 +336,17 @@
       latent_names = character(),
       kernel = "dynamic",
       gaussian_residual = isTRUE(gaussian_residual),
+      residual_family = residual_family,
       innovation_variances = rep(1, p)
     )
   )
+  if (isTRUE(common_gamma)) {
+    model <- MCMparameter(
+      model, gamma_shape_names[1L, 1L], "free", start = 4,
+      transform = "positive", lower = 1e-6, overwrite = TRUE
+    )
+  }
+  model
 }
 
 .dynamic_kron_power <- function(A, order) {
@@ -338,6 +455,66 @@
   L %*% t(L)
 }
 
+.dynamic_vector_outer_power <- function(x, order) {
+  x <- as.numeric(x)
+  if (!length(x) || length(order) != 1L || order < 1L ||
+      order != as.integer(order)) {
+    stop("A non-empty vector and positive integer `order` are required.",
+         call. = FALSE)
+  }
+  out <- x
+  if (order > 1L) {
+    for (i in 2:order) out <- kronecker(out, x)
+  }
+  array(out, dim = rep(length(x), order))
+}
+
+.dynamic_residual_cumulants <- function(model) {
+  p <- model$meta_data$n_phenotypes
+  family <- .dynamic_residual_family(model)
+  zero2 <- matrix(0, p, p)
+  zero3 <- array(0, rep(p, 3L))
+  zero4 <- array(0, rep(p, 4L))
+  if (identical(family, "none")) {
+    return(list(
+      family = family, M2 = zero2, C3 = zero3, K4 = zero4,
+      loadings = numeric(), shape = NA_real_, skewness = 0,
+      excess_kurtosis = 0, L_G = zero2, Psi_G = zero2
+    ))
+  }
+  if (identical(family, "gaussian")) {
+    Psi_G <- .dynamic_gaussian_covariance(model$num_matrices$L_G)
+    return(list(
+      family = family, M2 = Psi_G, C3 = zero3, K4 = zero4,
+      loadings = numeric(), shape = NA_real_, skewness = 0,
+      excess_kurtosis = 0, L_G = model$num_matrices$L_G, Psi_G = Psi_G
+    ))
+  }
+  if (!identical(family, "common_gamma")) {
+    stop("Unsupported dynamic residual family `", family, "`.", call. = FALSE)
+  }
+  loadings <- as.numeric(model$num_matrices$Lambda_Gamma)
+  shape <- as.numeric(model$num_matrices$Shape_Gamma)[1L]
+  if (length(loadings) != p || !is.finite(shape) || shape <= 0) {
+    stop("The common-gamma residual requires finite loadings and positive shape.",
+         call. = FALSE)
+  }
+  skewness <- 2 / sqrt(shape)
+  excess_kurtosis <- 6 / shape
+  list(
+    family = family,
+    M2 = tcrossprod(loadings),
+    C3 = skewness * .dynamic_vector_outer_power(loadings, 3L),
+    K4 = excess_kurtosis * .dynamic_vector_outer_power(loadings, 4L),
+    loadings = loadings,
+    shape = shape,
+    skewness = skewness,
+    excess_kurtosis = excess_kurtosis,
+    L_G = zero2,
+    Psi_G = zero2
+  )
+}
+
 .dynamic_implied_moments_base <- function(model, parameters = NULL,
                                           stationarity_limit = 1) {
   if (!identical(.model_kernel(model), "dynamic")) {
@@ -367,19 +544,22 @@
     D4[matrix(rep(i, 4L), nrow = 1)] <- kappa[i]
   }
   C2 <- array(.dynamic_cumulant_propagation(B, D2, 2L), c(p, p))
-  C3 <- array(.dynamic_cumulant_propagation(B, D3, 3L), rep(p, 3L))
-  K4 <- array(.dynamic_cumulant_propagation(B, D4, 4L), rep(p, 4L))
-  Psi_G <- if (isTRUE(model$meta_data$gaussian_residual)) {
-    .dynamic_gaussian_covariance(model$num_matrices$L_G)
-  } else {
-    matrix(0, p, p)
-  }
-  Sigma <- C2 + Psi_G
+  dynamic_C3 <- array(.dynamic_cumulant_propagation(B, D3, 3L), rep(p, 3L))
+  dynamic_K4 <- array(.dynamic_cumulant_propagation(B, D4, 4L), rep(p, 4L))
+  residual <- .dynamic_residual_cumulants(model)
+  C3 <- dynamic_C3 + residual$C3
+  K4 <- dynamic_K4 + residual$K4
+  Sigma <- C2 + residual$M2
   M4 <- .cumulant4_to_raw4(K4, Sigma)
   dimnames(B) <- list(model$meta_data$original_colnames,
                       model$meta_data$original_colnames)
-  dimnames(Psi_G) <- list(model$meta_data$original_colnames,
-                          model$meta_data$original_colnames)
+  dimnames(residual$Psi_G) <- list(model$meta_data$original_colnames,
+                                   model$meta_data$original_colnames)
+  dimnames(residual$M2) <- list(model$meta_data$original_colnames,
+                                model$meta_data$original_colnames)
+  if (length(residual$loadings)) {
+    names(residual$loadings) <- model$meta_data$original_colnames
+  }
   list(
     B = B,
     M2 = Sigma,
@@ -387,7 +567,18 @@
     K4 = .dynamic_array_to_mcm(K4),
     M4 = .dynamic_array_to_mcm(M4),
     within_M2 = C2,
-    Psi_G = Psi_G,
+    dynamic_M3 = .dynamic_array_to_mcm(dynamic_C3),
+    dynamic_K4 = .dynamic_array_to_mcm(dynamic_K4),
+    residual_M2 = residual$M2,
+    residual_M3 = .dynamic_array_to_mcm(residual$C3),
+    residual_K4 = .dynamic_array_to_mcm(residual$K4),
+    residual_family = residual$family,
+    residual_loadings = residual$loadings,
+    residual_shape = residual$shape,
+    residual_skewness = residual$skewness,
+    residual_excess_kurtosis = residual$excess_kurtosis,
+    Psi_G = residual$Psi_G,
+    L_G = residual$L_G,
     D2 = D2,
     D3 = .dynamic_array_to_mcm(D3),
     D4 = .dynamic_array_to_mcm(D4),
