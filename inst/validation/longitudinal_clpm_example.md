@@ -147,18 +147,22 @@ wide un-ridged sandwich SEs should be emphasized over the small training loss.
 
 `residual_family = "common_gamma"` replaces the Gaussian residual vector
 with one centered, variance-one gamma source, signed loadings, and a positive
-shape. Shape determines confounder skewness and excess kurtosis. The
-unrestricted-innovation bivariate model has only one nominal df and competing
-weakly identified decompositions, so the reported analysis constrained each
-innovation's skewness and kurtosis to a signed-gamma relationship. That leaves
-three nominal df.
+shape. Shape determines confounder skewness and excess kurtosis. Leaving the
+diagonal innovation third and fourth cumulants free gives a gamma residual or
+confounder with otherwise unspecified skewed and kurtotic innovations. This is
+a reasonable specification through the fitted fourth order; innovations still
+have fixed unit variances, mutual independence, and diagonal higher cumulants.
+The bivariate model has only one nominal df
+and competing weakly identified decompositions. Constraining each innovation's
+skewness and kurtosis to a signed-gamma relationship leaves three nominal df
+and provides a useful more restrictive sensitivity analysis.
 
-| Path (current <- lagged) | CLPM estimate (robust SE) | RI-CLPM estimate (robust SE) | Gaussian MCMSEM estimate (robust SE) | Common-gamma MCMSEM estimate (robust SE) |
-|---|---:|---:|---:|---:|
-| Earnings <- earnings | 0.628 (0.011) | 0.105 (0.024) | 0.627 (0.091) | 0.676 (0.032) |
-| Earnings <- hours | 0.063 (0.008) | 0.051 (0.012) | 0.127 (0.104) | 0.075 (0.052) |
-| Hours <- earnings | 0.124 (0.007) | 0.009 (0.015) | 0.465 (0.116) | 0.422 (0.030) |
-| Hours <- hours | 0.476 (0.009) | 0.165 (0.017) | 0.591 (0.163) | 0.651 (0.036) |
+| Path (current <- lagged) | CLPM (robust SE) | RI-CLPM (robust SE) | Gaussian MCMSEM (robust SE) | Common gamma + signed-gamma innovations (robust SE) | Common gamma + free innovation cumulants (robust SE) |
+|---|---:|---:|---:|---:|---:|
+| Earnings <- earnings | 0.628 (0.011) | 0.105 (0.024) | 0.627 (0.091) | 0.676 (0.032) | 0.494 (0.058) |
+| Earnings <- hours | 0.063 (0.008) | 0.051 (0.012) | 0.127 (0.104) | 0.075 (0.052) | 0.284 (0.047) |
+| Hours <- earnings | 0.124 (0.007) | 0.009 (0.015) | 0.465 (0.116) | 0.422 (0.030) | 0.459 (0.046) |
+| Hours <- hours | 0.476 (0.009) | 0.165 (0.017) | 0.591 (0.163) | 0.651 (0.036) | 0.579 (0.037) |
 
 The residual loadings were -1.347 (SE 0.108) and -0.360 (SE 0.235).
 The common shape was 153.8 (SE 398.2), corresponding to skewness 0.161
@@ -174,12 +178,25 @@ The longer optional unrestricted-innovation grid can be run with
 Rscript inst/validation/longitudinal_clpm_example.R --unrestricted-gamma
 ```
 
-It found a competing basin with loss 0.00024, shape 0.489 (SE 0.087), and
-loadings 1.213 (SE 0.039) and -0.064 (SE 0.037). Its information condition was
-$1.30 \times 10^8$ with one nominal df. This is evidence for an
-earnings-specific non-Gaussian residual under that specification, not robust
-evidence for a shared earnings-hours confounder. The conclusion about
-confounder shape is therefore constraint-dependent.
+It found a basin with loss 0.000231, shape 0.486 (SE 0.086), and loadings 1.214
+(SE 0.039) for earnings and -0.063 (SE 0.037) for hours. Its information
+condition was $1.30 \times 10^8$, its Jacobian rank was 11/11, and it had one
+nominal df. The transition estimates were 0.494 for earnings autoregression,
+0.579 for hours autoregression, 0.284 for hours to later earnings, and 0.459
+for earnings to later hours, with robust SEs 0.058, 0.037, 0.047, and 0.046,
+respectively. Thus the innovation specification matters substantively.
+The free innovation third/fourth cumulants were -10.943 (SE 1.870) and 73.207
+(SE 9.859) for earnings, and 4.233 (SE 0.463) and 24.045 (SE 1.887) for hours.
+With fixed unit innovation variances, these are innovation skewness and excess
+kurtosis, so this basin retains strongly non-Gaussian innovations as well as a
+gamma residual component.
+Several positive-loading-orientation starts converged near this basin, whereas
+the negative-orientation fits had appreciably higher loss. This supports the
+basin's reproducibility but does not resolve its one-df weak identification.
+Although this model permits a shared gamma confounder, the fitted gamma
+component is effectively earnings-specific because the hours loading is near
+zero. It is not robust evidence for a shared earnings-hours confounder, and the
+conclusion about confounder shape is constraint-dependent.
 
 ## Interpretation
 

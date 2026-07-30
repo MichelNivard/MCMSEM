@@ -32,10 +32,12 @@ To run only the two controlled calibrations:
 Rscript inst/validation/longitudinal_clpm_example.R --simulation-only
 ```
 
-The main common-gamma analysis uses signed-gamma innovation constraints to
-retain three nominal overidentifying df. A longer optional grid leaves the
-innovation third/fourth cumulants unrestricted and documents the competing
-one-df basin reported in the README:
+The default common-gamma model leaves each innovation's third and fourth
+cumulants free, giving otherwise unspecified skewness and kurtosis through the
+fitted fourth order. The standard analysis also reports a more restrictive
+signed-gamma innovation specification with three nominal overidentifying df.
+The longer optional grid fits the free-innovation, one-df specification and
+documents the basin reported in the README:
 
 ```sh
 Rscript inst/validation/longitudinal_clpm_example.R --unrestricted-gamma

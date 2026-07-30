@@ -1039,12 +1039,23 @@ The direct API is:
 gamma_model <- make_dynamic_model("common_gamma")
 ```
 
-With freely estimated innovation skewness and kurtosis, this bivariate model
-has only one overidentifying degree of freedom and admits competing,
-ill-conditioned decompositions. For the reported test we therefore imposed a
-scientifically explicit signed-gamma relationship on each innovation:
-earnings innovations were allowed negative skew and hours innovations positive
-skew, while their two shapes remained free. For example:
+The most flexible currently supported specification leaves the diagonal third
+and fourth innovation cumulants free. It is therefore a common-gamma residual
+or confounder combined with innovation skewness and kurtosis that are estimated
+independently rather than tied to a named distribution. "Unspecified" here
+means through the fitted fourth order: innovations still have fixed unit
+variances, are mutually independent, and have diagonal third- and fourth-order
+cumulants. This is a reasonable specification when a shared gamma-shaped source
+is plausible but no parametric innovation family can be defended.
+However, the bivariate model estimates 11 parameters from 12 moments, leaving
+only one nominal overidentifying degree of freedom and allowing competing,
+ill-conditioned decompositions.
+
+As a more restrictive sensitivity analysis, we also imposed a scientifically
+explicit signed-gamma relationship on each innovation. Earnings innovations
+were allowed negative skew and hours innovations positive skew, while their
+two shapes remained free. This reduces the free parameter count and leaves
+three nominal df. For example:
 
 ```r
 gamma_model <- MCMparameter(
@@ -1096,18 +1107,18 @@ gamma_fit <- MCMfit(
 gamma_fit$dynamic$common_gamma
 ```
 
-The validation script searches both loading orientations and starting shapes
-0.25, 2, and 20 before computing robust SEs. That search gave:
+The validation script searches both loading orientations and several starting
+shapes before computing robust SEs for both innovation specifications.
 
 For convenience, the table repeats all three preceding fits alongside the
-common-gamma result:
+two common-gamma results:
 
-| Path (`current <- lagged`) | CLPM estimate (robust SE) | RI-CLPM estimate (robust SE) | Gaussian MCMSEM estimate (robust SE) | Common-gamma MCMSEM estimate (robust SE) |
-|---|---:|---:|---:|---:|
-| Earnings <- earnings | 0.628 (0.011) | 0.105 (0.024) | 0.627 (0.091) | 0.676 (0.032) |
-| Earnings <- hours | 0.063 (0.008) | 0.051 (0.012) | 0.127 (0.104) | 0.075 (0.052) |
-| Hours <- earnings | 0.124 (0.007) | 0.009 (0.015) | 0.465 (0.116) | 0.422 (0.030) |
-| Hours <- hours | 0.476 (0.009) | 0.165 (0.017) | 0.591 (0.163) | 0.651 (0.036) |
+| Path (`current <- lagged`) | CLPM (robust SE) | RI-CLPM (robust SE) | Gaussian MCMSEM (robust SE) | Common gamma + signed-gamma innovations (robust SE) | Common gamma + free innovation cumulants (robust SE) |
+|---|---:|---:|---:|---:|---:|
+| Earnings <- earnings | 0.628 (0.011) | 0.105 (0.024) | 0.627 (0.091) | 0.676 (0.032) | 0.494 (0.058) |
+| Earnings <- hours | 0.063 (0.008) | 0.051 (0.012) | 0.127 (0.104) | 0.075 (0.052) | 0.284 (0.047) |
+| Hours <- earnings | 0.124 (0.007) | 0.009 (0.015) | 0.465 (0.116) | 0.422 (0.030) | 0.459 (0.046) |
+| Hours <- hours | 0.476 (0.009) | 0.165 (0.017) | 0.591 (0.163) | 0.651 (0.036) | 0.579 (0.037) |
 
 The common-factor loadings were -1.347 (SE 0.108) for earnings and -0.360
 (SE 0.235) for hours. Their product gives a positive rank-one covariance. The
@@ -1122,13 +1133,33 @@ ill-conditioned. That conclusion is conditional on the signed-gamma innovation
 constraints; it is not a general test that every possible confounder is
 Gaussian.
 
-That qualification matters empirically. An optional grid with the innovation
-third and fourth cumulants left free found another basin with loss 0.00024,
-shape 0.489 (SE 0.087), and loadings 1.213 (SE 0.039) and -0.064
-(SE 0.037). Its information condition was $1.30 \times 10^8$ and it had only
-one nominal df. This solution describes a strongly non-Gaussian component
-almost entirely specific to earnings, not a convincing shared earnings-hours
-confounder. Run that longer sensitivity analysis with
+The extended free-innovation grid found a basin with loss 0.000231, shape 0.486
+(SE 0.086), and loadings 1.214 (SE 0.039) for earnings and -0.063 (SE 0.037)
+for hours. Its information condition was $1.30 \times 10^8$, its Jacobian had
+full column rank 11/11, and it had one nominal df. Thus, allowing unspecified
+innovation skewness and kurtosis materially changes the transition estimates,
+especially the hours-to-earnings path (0.284 rather than 0.075 under the
+signed-gamma innovation constraints).
+
+The freely estimated innovation third and fourth cumulants were -10.943
+(SE 1.870) and 73.207 (SE 9.859) for earnings, and 4.233 (SE 0.463) and
+24.045 (SE 1.887) for hours. Because innovation variances are fixed to one,
+these are also the innovations' skewness and excess kurtosis. Thus, this basin
+combines strongly non-Gaussian innovations with the gamma residual component;
+it does not attribute all higher-moment structure to the residual.
+
+Several positive-loading-orientation starts converged to nearby versions of
+this basin, whereas the negative-orientation fits had appreciably higher loss.
+That multistart stability supports the existence of the basin but does not
+remove the weak-identification warning implied by one df and the large
+information condition.
+
+Although the model permits a shared gamma confounder, this fitted gamma
+component is almost entirely specific to earnings because the hours loading is
+small and imprecise. It is evidence for an earnings-specific strongly
+non-Gaussian residual under this specification, not convincing evidence for a
+shared earnings-hours confounder. Run the unrestricted-innovation sensitivity
+analysis with
 
 ```sh
 Rscript inst/validation/longitudinal_clpm_example.R --unrestricted-gamma
